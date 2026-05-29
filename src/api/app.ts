@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { getConnInfo } from '@hono/node-server/conninfo';
 import { generateKeyPair, AttestationChain } from '../crypto/index.js';
 import {
   agentSpiffeId,
@@ -38,6 +39,7 @@ export const app = new Hono();
 app.use('/v1/*', async (c, next) => {
   if (c.req.method === 'GET' && c.req.path === '/v1/health') return next();
   if (c.req.method === 'POST' && c.req.path === '/v1/setup') return next();
+  if (c.req.method === 'POST' && c.req.path === '/v1/recover-key') return next();
 
   const auth = c.req.header('Authorization');
   if (!auth?.startsWith('Bearer ')) {
@@ -62,6 +64,20 @@ app.post('/v1/setup', (c) => {
   }
   const key = store.createApiKey('setup');
   return c.json({ key, createdAt: new Date().toISOString() }, 201);
+});
+
+// Emergency key recovery — localhost only, no auth required.
+app.post('/v1/recover-key', (c) => {
+  const info = getConnInfo(c);
+  const ip = info.remote.address;
+  if (ip !== '127.0.0.1' && ip !== '::1') {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+  const entry = store.getFirstApiKey();
+  if (!entry) {
+    return c.json({ error: 'No API keys found' }, 404);
+  }
+  return c.json({ key: entry.key, label: entry.label, createdAt: entry.createdAt });
 });
 
 // ── API key management ────────────────────────────────────────────────────────

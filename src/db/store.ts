@@ -153,6 +153,14 @@ export class Store {
     return row !== undefined;
   }
 
+  getFirstApiKey(): { key: string; label: string | null; createdAt: string } | null {
+    const row = this.db
+      .prepare('SELECT key, label, created_at FROM api_keys ORDER BY rowid ASC LIMIT 1')
+      .get() as { key: string; label: string | null; created_at: string } | undefined;
+    if (!row) return null;
+    return { key: row.key, label: row.label, createdAt: row.created_at };
+  }
+
   getAgent(agentId: string): AgentRegistration | null {
     const row = this.db
       .prepare('SELECT agent_id, spiffe_id, company_id, registered_at, metadata FROM agents WHERE agent_id = ?')
