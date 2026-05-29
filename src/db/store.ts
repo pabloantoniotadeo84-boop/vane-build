@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type { AttestationRecord, KeyPair, AgentRegistration } from '../crypto/types.js';
 
@@ -29,6 +30,11 @@ export class Store {
         company_id    TEXT,
         registered_at TEXT NOT NULL,
         metadata      TEXT
+      );
+      CREATE TABLE IF NOT EXISTS api_keys (
+        key        TEXT PRIMARY KEY,
+        label      TEXT,
+        created_at TEXT NOT NULL
       );
     `);
     this.migrate();
@@ -127,6 +133,24 @@ export class Store {
         reg.registeredAt,
         reg.metadata ? JSON.stringify(reg.metadata) : null,
       );
+  }
+
+  hasApiKeys(): boolean {
+    const row = this.db.prepare('SELECT 1 FROM api_keys LIMIT 1').get();
+    return row !== undefined;
+  }
+
+  createApiKey(label?: string): string {
+    const key = 'counsel_' + randomBytes(32).toString('hex');
+    this.db
+      .prepare('INSERT INTO api_keys (key, label, created_at) VALUES (?, ?, ?)')
+      .run(key, label ?? null, new Date().toISOString());
+    return key;
+  }
+
+  validateApiKey(key: string): boolean {
+    const row = this.db.prepare('SELECT 1 FROM api_keys WHERE key = ?').get(key);
+    return row !== undefined;
   }
 
   getAgent(agentId: string): AgentRegistration | null {

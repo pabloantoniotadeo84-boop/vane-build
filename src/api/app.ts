@@ -12,6 +12,8 @@ import {
 } from '../crypto/index.js';
 import type { DelegationInfo } from '../crypto/index.js';
 import { Store } from '../db/store.js';
+import { issuePassport, verifyPassport, PASSPORT_TTL_DEFAULT } from '../passport/index.js';
+import type { AttestationReceipt } from '../passport/index.js';
 
 const store = new Store();
 
@@ -24,10 +26,56 @@ const keys = store.getKeys() ?? (() => {
 const chain = new AttestationChain();
 chain.hydrate(store.getAllRecords());
 
+// Bootstrap: on first boot, generate and log a key so the operator can authenticate.
+if (!store.hasApiKeys()) {
+  const bootstrapKey = store.createApiKey('bootstrap');
+  console.log(`\n  Bootstrap API key (shown once): ${bootstrapKey}\n`);
+}
+
 export const app = new Hono();
+
+// Auth middleware — all routes except GET /v1/health and POST /v1/setup require a valid Bearer key.
+app.use('/v1/*', async (c, next) => {
+  if (c.req.method === 'GET' && c.req.path === '/v1/health') return next();
+  if (c.req.method === 'POST' && c.req.path === '/v1/setup') return next();
+
+  const auth = c.req.header('Authorization');
+  if (!auth?.startsWith('Bearer ')) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  const key = auth.slice(7);
+  if (!store.validateApiKey(key)) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  return next();
+});
 
 app.get('/v1/health', (c) => {
   return c.json({ status: 'ok' });
+});
+
+// One-time setup: creates the first API key with no auth required.
+// Returns 403 once any key already exists.
+app.post('/v1/setup', (c) => {
+  if (store.hasApiKeys()) {
+    return c.json({ error: 'Setup already completed' }, 403);
+  }
+  const key = store.createApiKey('setup');
+  return c.json({ key, createdAt: new Date().toISOString() }, 201);
+});
+
+// ── API key management ────────────────────────────────────────────────────────
+
+app.post('/v1/keys', async (c) => {
+  let label: string | undefined;
+  try {
+    const body = await c.req.json() as Record<string, unknown>;
+    if (typeof body.label === 'string' && body.label) label = body.label;
+  } catch {
+    // label is optional; empty or absent body is fine
+  }
+  const key = store.createApiKey(label);
+  return c.json({ key, createdAt: new Date().toISOString() }, 201);
 });
 
 // ── Agent registration ────────────────────────────────────────────────────────
@@ -80,6 +128,130 @@ app.get('/v1/agents/:agentId/svid', (c) => {
   }
   const svid = issueJwtSvid(agent.spiffeId, keys.privateKey, keys.publicKey);
   return c.json({ agentId, spiffeId: agent.spiffeId, svid });
+});
+
+// ── Agent passport issuance ───────────────────────────────────────────────────
+
+/**
+ * Issues a Counsel Agent Passport (CAP+JWT) for a registered agent.
+ *
+ * The passport is a self-contained credential verifiable offline by any party
+ * that holds the Counsel CA public key. No network call to Counsel is required
+ * at verification time.
+ *
+ * Request body (all optional):
+ *   scopes  — string[]  authorization scopes; defaults to ["tool:*", "attest:write"]
+ *   ttl     — number    seconds until expiry; max 86400 (24 h), defaults to 3600 (1 h)
+ *
+ * Response 201:
+ *   passport    — the signed CAP+JWT token
+ *   caPublicKey — the CA public key needed to verify this passport offline
+ *   (+ metadata fields for convenience)
+ */
+app.post('/v1/agents/:agentId/passport', async (c) => {
+  const agentId = c.req.param('agentId');
+  const agent = store.getAgent(agentId);
+  if (!agent) {
+    return c.json({ error: `Agent not found: ${agentId}` }, 404);
+  }
+
+  let body: Record<string, unknown> = {};
+  try { body = await c.req.json(); } catch { /* body is optional */ }
+
+  const rawScopes = body['scopes'];
+  const scopes =
+    Array.isArray(rawScopes) && rawScopes.every((s): s is string => typeof s === 'string')
+      ? rawScopes
+      : ['tool:*', 'attest:write'];
+
+  const rawTtl = body['ttl'];
+  const ttl =
+    typeof rawTtl === 'number' && rawTtl > 0 && rawTtl <= 86400
+      ? rawTtl
+      : PASSPORT_TTL_DEFAULT;
+
+  // Build the delegation chain. For a solo agent with no company, the chain
+  // is a single-element array [agentSpiffeId] — the agent is self-authorizing.
+  const org = agent.companyId ?? agentId;
+  const orgSpiffeId = agent.companyId
+    ? companySpiffeId(agent.companyId)
+    : agent.spiffeId;
+  const delegationChain = agent.companyId
+    ? [orgSpiffeId, agent.spiffeId]
+    : [agent.spiffeId];
+
+  const passport = issuePassport({
+    agentId,
+    agentSpiffeId: agent.spiffeId,
+    org,
+    orgSpiffeId,
+    scopes,
+    delegationChain,
+    ttl,
+    privateKeyPem: keys.privateKey,
+    publicKeyPem: keys.publicKey,
+  });
+
+  return c.json({
+    agentId,
+    spiffeId: agent.spiffeId,
+    org,
+    orgSpiffeId,
+    scopes,
+    delegationChain,
+    passport,
+    expiresIn: ttl,
+    caPublicKey: keys.publicKey,
+  }, 201);
+});
+
+/**
+ * Verifies a Counsel Agent Passport offline and returns its claims.
+ * Primarily a debugging and integration-testing endpoint; production
+ * verifiers should call verifyPassport() directly with the CA public key.
+ */
+app.post('/v1/passport/verify', async (c) => {
+  let body: Record<string, unknown>;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Request body must be valid JSON' }, 400);
+  }
+
+  const { passport, tool } = body;
+  if (typeof passport !== 'string' || !passport) {
+    return c.json({ error: 'Missing or invalid field: passport is required' }, 400);
+  }
+
+  const result = verifyPassport(passport, {
+    caPublicKey: keys.publicKey,
+    tool: typeof tool === 'string' ? tool : undefined,
+  });
+
+  if (!result.valid) {
+    return c.json({ valid: false, error: result.error, code: result.code }, 400);
+  }
+
+  const { claims, scopeGranted } = result;
+  const receipt: AttestationReceipt = {
+    v: 1,
+    type: 'CounselAttestationReceipt',
+    passportId: claims.jti,
+    agentId: claims.counsel.agentId,
+    agentSpiffeId: claims.sub,
+    org: claims.counsel.org,
+    orgSpiffeId: claims.counsel.orgSpiffeId,
+    tool: typeof tool === 'string' ? tool : '(not checked)',
+    scopeGranted,
+    delegationChain: claims.counsel.delegationChain,
+    issuedBy: claims.iss,
+    passportIssuedAt: new Date(claims.iat * 1000).toISOString(),
+    passportExpiresAt: new Date(claims.exp * 1000).toISOString(),
+    verifiedAt: new Date().toISOString(),
+    verifier: 'counsel-server/0.1.0',
+  };
+
+  return c.json({ valid: true, claims, scopeGranted, receipt });
 });
 
 // ── Company SVID issuance ─────────────────────────────────────────────────────
