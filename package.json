@@ -5,8 +5,12 @@
   "type": "module",
   "main": "dist/crypto/index.js",
   "types": "dist/crypto/index.d.ts",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc",
+    "start": "node dist/api/server.js",
     "dev": "tsx src/api/server.ts",
     "example": "tsx src/example.ts"
   },
