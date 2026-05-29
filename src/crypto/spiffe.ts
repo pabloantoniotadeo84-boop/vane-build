@@ -7,8 +7,11 @@ export interface ParsedSpiffeId {
   entityId: string;
 }
 
-export function agentSpiffeId(agentId: string): string {
-  return `spiffe://${TRUST_DOMAIN}/agent/${encodeURIComponent(agentId)}`;
+// In multi-tenant deployments agents are namespaced under their company:
+//   spiffe://counsel.local/company/{companyId}/agent/{agentId}
+// This guarantees global uniqueness across tenants within the trust domain.
+export function agentSpiffeId(companyId: string, agentId: string): string {
+  return `spiffe://${TRUST_DOMAIN}/company/${encodeURIComponent(companyId)}/agent/${encodeURIComponent(agentId)}`;
 }
 
 export function companySpiffeId(companyId: string): string {
@@ -22,10 +25,16 @@ export function parseSpiffeId(id: string): ParsedSpiffeId | null {
   const path = match[2];
   const segments = path.split('/');
   const kind = segments[0];
-  const entityId = segments[1] ? decodeURIComponent(segments[1]) : path;
-  if (kind === 'agent') return { trustDomain, path, type: 'agent', entityId };
-  if (kind === 'company') return { trustDomain, path, type: 'company', entityId };
-  return { trustDomain, path, type: 'unknown', entityId };
+
+  if (kind === 'company') {
+    const companyId = segments[1] ? decodeURIComponent(segments[1]) : path;
+    if (segments[2] === 'agent' && segments[3]) {
+      return { trustDomain, path, type: 'agent', entityId: decodeURIComponent(segments[3]) };
+    }
+    return { trustDomain, path, type: 'company', entityId: companyId };
+  }
+
+  return { trustDomain, path, type: 'unknown', entityId: path };
 }
 
 export function validateSpiffeId(id: string): boolean {

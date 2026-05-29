@@ -11,96 +11,79 @@ import {
   GRANT_TYPE,
   TOKEN_TYPE_JWT,
 } from '../crypto/index.js';
-import type { DelegationInfo } from '../crypto/index.js';
+import type { DelegationInfo, KeyPair } from '../crypto/index.js';
 import { Store } from '../db/store.js';
 import { issuePassport, verifyPassport, PASSPORT_TTL_DEFAULT } from '../passport/index.js';
 import type { AttestationReceipt } from '../passport/index.js';
 
-const store = new Store();
+// ── Per-company in-memory state ───────────────────────────────────────────────
 
-const keys = store.getKeys() ?? (() => {
-  const fresh = generateKeyPair();
-  store.saveKeys(fresh);
-  return fresh;
-})();
-
-const chain = new AttestationChain();
-chain.hydrate(store.getAllRecords());
-
-// Bootstrap: on first boot, generate and log a key so the operator can authenticate.
-if (!store.hasApiKeys()) {
-  const bootstrapKey = store.createApiKey('bootstrap');
-  console.log(`\n  Bootstrap API key (shown once): ${bootstrapKey}\n`);
+interface Tenant {
+  keys: KeyPair;
+  chain: AttestationChain;
 }
 
-export const app = new Hono();
+const store = new Store();
+const tenants = new Map<string, Tenant>();
 
-// Auth middleware — all routes except GET /v1/health and POST /v1/setup require a valid Bearer key.
+function initTenant(companyId: string): Tenant {
+  let keys = store.getKeys(companyId);
+  if (!keys) {
+    keys = generateKeyPair();
+    store.saveKeys(companyId, keys);
+  }
+  const chain = new AttestationChain();
+  chain.hydrate(store.getAllRecords(companyId));
+  const tenant: Tenant = { keys, chain };
+  tenants.set(companyId, tenant);
+  return tenant;
+}
+
+// Hydrate all existing tenants from the DB on startup.
+for (const company of store.listCompanies()) {
+  initTenant(company.companyId);
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+
+type Env = { Variables: { companyId: string } };
+
+export const app = new Hono<Env>();
+
+// Auth middleware — resolves Bearer key → companyId for all authenticated routes.
 app.use('/v1/*', async (c, next) => {
-  if (c.req.method === 'GET' && c.req.path === '/v1/health') return next();
-  if (c.req.method === 'POST' && c.req.path === '/v1/setup') return next();
-  if (c.req.method === 'POST' && c.req.path === '/v1/recover-key') return next();
+  const isPublic =
+    (c.req.method === 'GET'  && c.req.path === '/v1/health') ||
+    (c.req.method === 'POST' && c.req.path === '/v1/companies') ||
+    (c.req.method === 'POST' && c.req.path === '/v1/setup') ||
+    (c.req.method === 'POST' && c.req.path === '/v1/recover-key');
+  if (isPublic) return next();
 
   const auth = c.req.header('Authorization');
   if (!auth?.startsWith('Bearer ')) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
   const key = auth.slice(7);
-  if (!store.validateApiKey(key)) {
+  const result = store.validateApiKey(key);
+  if (!result) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
+  c.set('companyId', result.companyId);
   return next();
 });
 
-app.get('/v1/health', (c) => {
-  return c.json({ status: 'ok' });
-});
+// ── Health ────────────────────────────────────────────────────────────────────
 
-// One-time setup: creates the first API key with no auth required.
-// Returns 403 once any key already exists.
-app.post('/v1/setup', (c) => {
-  if (store.hasApiKeys()) {
-    return c.json({ error: 'Setup already completed' }, 403);
-  }
-  const key = store.createApiKey('setup');
-  return c.json({ key, createdAt: new Date().toISOString() }, 201);
-});
+app.get('/v1/health', (c) => c.json({ status: 'ok' }));
 
-// Emergency key recovery — localhost only, no auth required.
-app.post('/v1/recover-key', (c) => {
-  const info = getConnInfo(c);
-  const ip = info.remote.address;
-  if (ip !== '127.0.0.1' && ip !== '::1') {
-    return c.json({ error: 'Forbidden' }, 403);
-  }
-  const entry = store.getFirstApiKey();
-  if (!entry) {
-    return c.json({ error: 'No API keys found' }, 404);
-  }
-  return c.json({ key: entry.key, label: entry.label, createdAt: entry.createdAt });
-});
-
-// ── API key management ────────────────────────────────────────────────────────
-
-app.post('/v1/keys', async (c) => {
-  let label: string | undefined;
-  try {
-    const body = await c.req.json() as Record<string, unknown>;
-    if (typeof body.label === 'string' && body.label) label = body.label;
-  } catch {
-    // label is optional; empty or absent body is fine
-  }
-  const key = store.createApiKey(label);
-  return c.json({ key, createdAt: new Date().toISOString() }, 201);
-});
-
-// ── Agent registration ────────────────────────────────────────────────────────
+// ── Company registration ──────────────────────────────────────────────────────
 
 /**
- * Registers an agent workload and issues its SPIFFE JWT-SVID.
- * In production, this endpoint would require node-attestation before issuance.
+ * Creates a new company tenant with its own Ed25519 key pair, attestation chain,
+ * and agent registry. Returns a bootstrap API key (shown once — store it).
+ * No authentication required; company creation is open and first-come-first-served.
  */
-app.post('/v1/agents/register', async (c) => {
+app.post('/v1/companies', async (c) => {
   let body: Record<string, unknown>;
   try {
     body = await c.req.json();
@@ -108,71 +91,160 @@ app.post('/v1/agents/register', async (c) => {
     return c.json({ error: 'Request body must be valid JSON' }, 400);
   }
 
-  const { agentId, companyId, metadata } = body;
+  const { companyId, metadata } = body;
+  if (typeof companyId !== 'string' || !companyId) {
+    return c.json({ error: 'Missing or invalid field: companyId is required' }, 400);
+  }
+  if (store.getCompany(companyId)) {
+    return c.json({ error: `Company already exists: ${companyId}` }, 409);
+  }
 
+  const spiffeId = companySpiffeId(companyId);
+  const company = store.createCompany(
+    companyId,
+    spiffeId,
+    metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : undefined,
+  );
+
+  initTenant(companyId);
+  const apiKey = store.createApiKey(companyId, 'bootstrap');
+
+  return c.json({
+    companyId,
+    spiffeId,
+    registeredAt: company.registeredAt,
+    apiKey,
+  }, 201);
+});
+
+// Backward-compatible alias for POST /v1/companies (retained for callers that pre-date multi-tenancy).
+app.post('/v1/setup', async (c) => {
+  let body: Record<string, unknown>;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Request body must be valid JSON' }, 400);
+  }
+
+  const { companyId, metadata } = body;
+  if (typeof companyId !== 'string' || !companyId) {
+    return c.json({ error: 'Missing or invalid field: companyId is required' }, 400);
+  }
+  if (store.getCompany(companyId)) {
+    return c.json({ error: `Company already exists: ${companyId}` }, 409);
+  }
+
+  const spiffeId = companySpiffeId(companyId);
+  const company = store.createCompany(
+    companyId,
+    spiffeId,
+    metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : undefined,
+  );
+
+  initTenant(companyId);
+  const apiKey = store.createApiKey(companyId, 'bootstrap');
+
+  return c.json({ companyId, spiffeId, registeredAt: company.registeredAt, apiKey }, 201);
+});
+
+// Emergency key recovery — localhost only, no auth required.
+// Returns the first API key for the given companyId.
+app.post('/v1/recover-key', async (c) => {
+  const info = getConnInfo(c);
+  const ip = info.remote.address;
+  if (ip !== '127.0.0.1' && ip !== '::1') {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  let body: Record<string, unknown> = {};
+  try { body = await c.req.json(); } catch { /* body optional */ }
+
+  const { companyId } = body;
+  if (typeof companyId !== 'string' || !companyId) {
+    return c.json({ error: 'companyId is required' }, 400);
+  }
+
+  const entry = store.getFirstApiKey(companyId);
+  if (!entry) {
+    return c.json({ error: `No API keys found for company: ${companyId}` }, 404);
+  }
+  return c.json({ key: entry.key, label: entry.label, createdAt: entry.createdAt });
+});
+
+// ── API key management ────────────────────────────────────────────────────────
+
+app.post('/v1/keys', async (c) => {
+  const companyId = c.get('companyId');
+  let label: string | undefined;
+  try {
+    const b = await c.req.json() as Record<string, unknown>;
+    if (typeof b.label === 'string' && b.label) label = b.label;
+  } catch { /* label is optional */ }
+  const key = store.createApiKey(companyId, label);
+  return c.json({ key, createdAt: new Date().toISOString() }, 201);
+});
+
+// ── Agent registration ────────────────────────────────────────────────────────
+
+app.post('/v1/agents/register', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+
+  let body: Record<string, unknown>;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Request body must be valid JSON' }, 400);
+  }
+
+  const { agentId, metadata } = body;
   if (typeof agentId !== 'string' || !agentId) {
     return c.json({ error: 'Missing or invalid field: agentId is required' }, 400);
   }
 
-  const spiffeId = agentSpiffeId(agentId);
+  const spiffeId = agentSpiffeId(companyId, agentId);
   const registeredAt = new Date().toISOString();
 
   store.registerAgent({
     agentId,
     spiffeId,
-    companyId: typeof companyId === 'string' ? companyId : undefined,
+    companyId,
     registeredAt,
-    metadata: metadata && typeof metadata === 'object' && !Array.isArray(metadata)
-      ? metadata as Record<string, unknown>
-      : undefined,
+    metadata:
+      metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+        ? (metadata as Record<string, unknown>)
+        : undefined,
   });
 
-  const svid = issueJwtSvid(spiffeId, keys.privateKey, keys.publicKey);
-
+  const svid = issueJwtSvid(spiffeId, tenant.keys.privateKey, tenant.keys.publicKey);
   return c.json({ agentId, spiffeId, svid, registeredAt }, 201);
 });
 
-/**
- * Issues a fresh JWT-SVID for a registered agent.
- * In production, this would require the caller to prove workload identity first.
- */
 app.get('/v1/agents/:agentId/svid', (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
   const agentId = c.req.param('agentId');
-  const agent = store.getAgent(agentId);
-  if (!agent) {
-    return c.json({ error: `Agent not found: ${agentId}` }, 404);
-  }
-  const svid = issueJwtSvid(agent.spiffeId, keys.privateKey, keys.publicKey);
+  const agent = store.getAgent(agentId, companyId);
+  if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
+  const svid = issueJwtSvid(agent.spiffeId, tenant.keys.privateKey, tenant.keys.publicKey);
   return c.json({ agentId, spiffeId: agent.spiffeId, svid });
 });
 
-// ── Agent passport issuance ───────────────────────────────────────────────────
+// ── Agent passport ────────────────────────────────────────────────────────────
 
-/**
- * Issues a Counsel Agent Passport (CAP+JWT) for a registered agent.
- *
- * The passport is a self-contained credential verifiable offline by any party
- * that holds the Counsel CA public key. No network call to Counsel is required
- * at verification time.
- *
- * Request body (all optional):
- *   scopes  — string[]  authorization scopes; defaults to ["tool:*", "attest:write"]
- *   ttl     — number    seconds until expiry; max 86400 (24 h), defaults to 3600 (1 h)
- *
- * Response 201:
- *   passport    — the signed CAP+JWT token
- *   caPublicKey — the CA public key needed to verify this passport offline
- *   (+ metadata fields for convenience)
- */
 app.post('/v1/agents/:agentId/passport', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
   const agentId = c.req.param('agentId');
-  const agent = store.getAgent(agentId);
-  if (!agent) {
-    return c.json({ error: `Agent not found: ${agentId}` }, 404);
-  }
+  const agent = store.getAgent(agentId, companyId);
+  if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
 
   let body: Record<string, unknown> = {};
-  try { body = await c.req.json(); } catch { /* body is optional */ }
+  try { body = await c.req.json(); } catch { /* body optional */ }
 
   const rawScopes = body['scopes'];
   const scopes =
@@ -186,47 +258,38 @@ app.post('/v1/agents/:agentId/passport', async (c) => {
       ? rawTtl
       : PASSPORT_TTL_DEFAULT;
 
-  // Build the delegation chain. For a solo agent with no company, the chain
-  // is a single-element array [agentSpiffeId] — the agent is self-authorizing.
-  const org = agent.companyId ?? agentId;
-  const orgSpiffeId = agent.companyId
-    ? companySpiffeId(agent.companyId)
-    : agent.spiffeId;
-  const delegationChain = agent.companyId
-    ? [orgSpiffeId, agent.spiffeId]
-    : [agent.spiffeId];
+  const orgSpiffeId = companySpiffeId(companyId);
+  const delegationChain = [orgSpiffeId, agent.spiffeId];
 
   const passport = issuePassport({
     agentId,
     agentSpiffeId: agent.spiffeId,
-    org,
+    org: companyId,
     orgSpiffeId,
     scopes,
     delegationChain,
     ttl,
-    privateKeyPem: keys.privateKey,
-    publicKeyPem: keys.publicKey,
+    privateKeyPem: tenant.keys.privateKey,
+    publicKeyPem: tenant.keys.publicKey,
   });
 
   return c.json({
     agentId,
     spiffeId: agent.spiffeId,
-    org,
+    org: companyId,
     orgSpiffeId,
     scopes,
     delegationChain,
     passport,
     expiresIn: ttl,
-    caPublicKey: keys.publicKey,
+    caPublicKey: tenant.keys.publicKey,
   }, 201);
 });
 
-/**
- * Verifies a Counsel Agent Passport offline and returns its claims.
- * Primarily a debugging and integration-testing endpoint; production
- * verifiers should call verifyPassport() directly with the CA public key.
- */
 app.post('/v1/passport/verify', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+
   let body: Record<string, unknown>;
   try {
     body = await c.req.json();
@@ -240,7 +303,7 @@ app.post('/v1/passport/verify', async (c) => {
   }
 
   const result = verifyPassport(passport, {
-    caPublicKey: keys.publicKey,
+    caPublicKey: tenant.keys.publicKey,
     tool: typeof tool === 'string' ? tool : undefined,
   });
 
@@ -270,47 +333,24 @@ app.post('/v1/passport/verify', async (c) => {
   return c.json({ valid: true, claims, scopeGranted, receipt });
 });
 
-// ── Company SVID issuance ─────────────────────────────────────────────────────
+// ── Company SVID ──────────────────────────────────────────────────────────────
 
-/**
- * Issues a JWT-SVID for a company identity (the delegation subject).
- * Used to obtain the subject_token for RFC 8693 token exchange.
- */
-app.post('/v1/companies/svid', async (c) => {
-  let body: Record<string, unknown>;
-  try {
-    body = await c.req.json();
-  } catch {
-    return c.json({ error: 'Request body must be valid JSON' }, 400);
-  }
-
-  const { companyId } = body;
-  if (typeof companyId !== 'string' || !companyId) {
-    return c.json({ error: 'Missing or invalid field: companyId is required' }, 400);
-  }
-
+// Issues a JWT-SVID for the authenticated company identity.
+// Used as the subject_token for RFC 8693 token exchange.
+app.post('/v1/companies/svid', (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
   const spiffeId = companySpiffeId(companyId);
-  const svid = issueJwtSvid(spiffeId, keys.privateKey, keys.publicKey);
+  const svid = issueJwtSvid(spiffeId, tenant.keys.privateKey, tenant.keys.publicKey);
   return c.json({ companyId, spiffeId, svid });
 });
 
 // ── RFC 8693 Token Exchange ───────────────────────────────────────────────────
 
-/**
- * RFC 8693 §2 token exchange endpoint.
- *
- * Accepts JSON body:
- *   grant_type       = "urn:ietf:params:oauth:grant-type:token-exchange"
- *   subject_token    = JWT-SVID of the entity being acted upon
- *   subject_token_type = "urn:ietf:params:oauth:token-type:jwt"
- *   actor_token      = JWT-SVID of the acting agent
- *   actor_token_type = "urn:ietf:params:oauth:token-type:jwt"
- *
- * Returns a delegation token with:
- *   sub = subject's SPIFFE ID
- *   act = { sub: actor's SPIFFE ID, act: <prior chain if any> }
- */
 app.post('/v1/token/exchange', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+
   let body: Record<string, unknown>;
   try {
     body = await c.req.json();
@@ -319,24 +359,14 @@ app.post('/v1/token/exchange', async (c) => {
   }
 
   if (body['grant_type'] !== GRANT_TYPE) {
-    return c.json(
-      { error: `unsupported_grant_type: expected ${GRANT_TYPE}` },
-      400,
-    );
+    return c.json({ error: `unsupported_grant_type: expected ${GRANT_TYPE}` }, 400);
   }
-  if (
-    body['subject_token_type'] !== TOKEN_TYPE_JWT ||
-    body['actor_token_type'] !== TOKEN_TYPE_JWT
-  ) {
-    return c.json(
-      { error: `unsupported_token_type: both token types must be ${TOKEN_TYPE_JWT}` },
-      400,
-    );
+  if (body['subject_token_type'] !== TOKEN_TYPE_JWT || body['actor_token_type'] !== TOKEN_TYPE_JWT) {
+    return c.json({ error: `unsupported_token_type: both token types must be ${TOKEN_TYPE_JWT}` }, 400);
   }
 
   const subjectToken = body['subject_token'];
   const actorToken = body['actor_token'];
-
   if (typeof subjectToken !== 'string' || !subjectToken) {
     return c.json({ error: 'Missing or invalid field: subject_token is required' }, 400);
   }
@@ -345,12 +375,9 @@ app.post('/v1/token/exchange', async (c) => {
   }
 
   try {
-    const response = exchangeToken(subjectToken, actorToken, keys.privateKey, keys.publicKey);
-    const claims = verifyJwtSvid(response.access_token, keys.publicKey);
-    return c.json({
-      ...response,
-      delegation_chain: extractDelegationChain(claims),
-    });
+    const response = exchangeToken(subjectToken, actorToken, tenant.keys.privateKey, tenant.keys.publicKey);
+    const claims = verifyJwtSvid(response.access_token, tenant.keys.publicKey);
+    return c.json({ ...response, delegation_chain: extractDelegationChain(claims) });
   } catch (err) {
     return c.json({ error: (err as Error).message }, 400);
   }
@@ -358,19 +385,10 @@ app.post('/v1/token/exchange', async (c) => {
 
 // ── Simple delegation token issuance ─────────────────────────────────────────
 
-/**
- * Issues a signed JWT delegation token from first-party inputs.
- *
- * Accepts JSON body:
- *   agentId   — the acting agent (becomes act.sub as its SPIFFE ID)
- *   companyId — company context; must match the registered agent's companyId
- *   actingOn  — entity being acted upon (becomes sub as its SPIFFE ID)
- *   scope     — space-separated permission scope string
- *
- * Returns a signed JWT with sub, act, jti, and scope claims.
- * Pass the `token` value as the `delegation` field in POST /v1/attest.
- */
 app.post('/v1/token-exchange', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+
   let body: Record<string, unknown>;
   try {
     body = await c.req.json();
@@ -378,13 +396,9 @@ app.post('/v1/token-exchange', async (c) => {
     return c.json({ error: 'Request body must be valid JSON' }, 400);
   }
 
-  const { agentId, companyId, actingOn, scope } = body;
-
+  const { agentId, actingOn, scope } = body;
   if (typeof agentId !== 'string' || !agentId) {
     return c.json({ error: 'Missing or invalid field: agentId is required' }, 400);
-  }
-  if (typeof companyId !== 'string' || !companyId) {
-    return c.json({ error: 'Missing or invalid field: companyId is required' }, 400);
   }
   if (typeof actingOn !== 'string' || !actingOn) {
     return c.json({ error: 'Missing or invalid field: actingOn is required' }, 400);
@@ -393,36 +407,27 @@ app.post('/v1/token-exchange', async (c) => {
     return c.json({ error: 'Missing or invalid field: scope is required' }, 400);
   }
 
-  const agent = store.getAgent(agentId);
-  if (!agent) {
-    return c.json({ error: `Agent not found: ${agentId}` }, 404);
-  }
-  if (agent.companyId && agent.companyId !== companyId) {
-    return c.json({ error: `Agent ${agentId} is not registered under company ${companyId}` }, 403);
-  }
+  const agent = store.getAgent(agentId, companyId);
+  if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
 
   const subSpiffeId = companySpiffeId(actingOn);
-  const actSpiffeId = agentSpiffeId(agentId);
+  const actSpiffeId = agentSpiffeId(companyId, agentId);
 
-  const token = issueJwtSvid(subSpiffeId, keys.privateKey, keys.publicKey, 3600, {
+  const token = issueJwtSvid(subSpiffeId, tenant.keys.privateKey, tenant.keys.publicKey, 3600, {
     act: { sub: actSpiffeId },
     scope,
   });
+  const claims = verifyJwtSvid(token, tenant.keys.publicKey);
 
-  const claims = verifyJwtSvid(token, keys.publicKey);
-
-  return c.json({
-    token,
-    sub: claims.sub,
-    act: claims.act,
-    jti: claims.jti,
-    scope: claims.scope,
-  }, 201);
+  return c.json({ token, sub: claims.sub, act: claims.act, jti: claims.jti, scope: claims.scope }, 201);
 });
 
 // ── Attestation ───────────────────────────────────────────────────────────────
 
 app.post('/v1/attest', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+
   let body: Record<string, unknown>;
   try {
     body = await c.req.json();
@@ -430,26 +435,25 @@ app.post('/v1/attest', async (c) => {
     return c.json({ error: 'Request body must be valid JSON' }, 400);
   }
 
-  const { agentId, companyId, actionType, payload, delegation: delegationToken } = body;
-
+  const { agentId, actionType, payload, delegation: delegationToken } = body;
   if (
     typeof agentId !== 'string' || !agentId ||
-    typeof companyId !== 'string' || !companyId ||
     typeof actionType !== 'string' || !actionType ||
     payload === undefined
   ) {
     return c.json(
-      { error: 'Missing or invalid fields: agentId, companyId, actionType, payload are required' },
+      { error: 'Missing or invalid fields: agentId, actionType, payload are required' },
       400,
     );
   }
 
+  // companyId is authoritative from auth — not accepted from the request body.
   const attestationPayload: Record<string, unknown> = { agentId, companyId, actionType, payload };
 
   let delegation: DelegationInfo | undefined;
   if (typeof delegationToken === 'string' && delegationToken) {
     try {
-      const claims = verifyJwtSvid(delegationToken, keys.publicKey);
+      const claims = verifyJwtSvid(delegationToken, tenant.keys.publicKey);
       delegation = {
         subject: claims.sub,
         delegationChain: extractDelegationChain(claims),
@@ -461,33 +465,34 @@ app.post('/v1/attest', async (c) => {
     }
   }
 
-  const record = chain.append(attestationPayload, keys.privateKey, delegation);
-  store.insertRecord(record);
-
+  const record = tenant.chain.append(attestationPayload, tenant.keys.privateKey, delegation);
+  store.insertRecord(companyId, record);
   return c.json(record, 201);
 });
 
 app.get('/v1/chain', (c) => {
-  return c.json({ records: chain.getRecords() });
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+  return c.json({ records: tenant.chain.getRecords() });
 });
 
 app.get('/v1/verify', (c) => {
-  const result = chain.verify(keys.publicKey);
-  if (result.valid) {
-    return c.json({ valid: true, merkleRoot: result.merkleRoot });
-  }
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+  const result = tenant.chain.verify(tenant.keys.publicKey);
+  if (result.valid) return c.json({ valid: true, merkleRoot: result.merkleRoot });
   return c.json({ valid: false, failedAtIndex: result.failedAtIndex, error: result.error });
 });
 
-// Returns a Merkle inclusion proof for a single record.
-// An external auditor can verify this proof in O(log n) without the full chain.
 app.get('/v1/proof/:index', (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
   const idx = Number(c.req.param('index'));
   if (!Number.isInteger(idx) || idx < 0) {
     return c.json({ error: 'index must be a non-negative integer' }, 400);
   }
   try {
-    const { record, proof, root } = chain.getProof(idx);
+    const { record, proof, root } = tenant.chain.getProof(idx);
     return c.json({ record, proof, root });
   } catch (err) {
     return c.json({ error: (err as Error).message }, 404);
