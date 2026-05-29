@@ -40,7 +40,7 @@ chain.append({ agentId: 'counsel-agent-002', action: 'http.post', url: 'https://
 
 console.log('\n── Chain records ───────────────────────────────────');
 for (const rec of chain.getRecords()) {
-  console.log(`  [${rec.index}] hash=${rec.hash.slice(0, 16)}…  prev=${rec.previousHash.slice(0, 16)}…`);
+  console.log(`  [${rec.index}] hash=${rec.hash.slice(0, 16)}…`);
   console.log(`       payload=${JSON.stringify(rec.payload)}`);
 }
 

@@ -1,17 +1,19 @@
 import { createHash } from 'node:crypto';
 import { canonicalize, signPayload, verifyPayload } from './signer.js';
-import type { AttestationRecord, VerificationResult } from './types.js';
+import { computeRoot, buildProof, verifyProof, type MerkleProof } from './merkle.js';
+import type { AttestationRecord, DelegationInfo, VerificationResult } from './types.js';
 
-const GENESIS_HASH = '0'.repeat(64);
+export type { MerkleProof } from './merkle.js';
 
-function buildPreimage(
-  index: number,
-  timestamp: string,
-  payload: unknown,
-  previousHash: string,
-): string {
-  // Pipe-delimited with canonicalized payload — unambiguous across field types.
-  return `${index}|${timestamp}|${canonicalize(payload)}|${previousHash}`;
+export interface InclusionProof {
+  record: AttestationRecord;
+  proof: MerkleProof;
+  root: string;
+}
+
+function leafPreimage(index: number, timestamp: string, payload: unknown, delegation?: DelegationInfo): string {
+  const base = `${index}|${timestamp}|${canonicalize(payload)}`;
+  return delegation ? `${base}|${canonicalize(delegation)}` : base;
 }
 
 function sha256hex(data: string): string {
@@ -21,59 +23,64 @@ function sha256hex(data: string): string {
 export class AttestationChain {
   private readonly records: AttestationRecord[] = [];
 
-  /** Load pre-existing records (e.g. from DB) without re-signing. */
   hydrate(records: AttestationRecord[]): void {
     if (this.records.length > 0) throw new Error('hydrate() must be called on an empty chain');
     this.records.push(...records);
   }
 
-  /**
-   * Appends a new record, signs its hash with the given private key,
-   * and links it to the previous record's hash.
-   */
-  append(payload: unknown, privateKeyPem: string): AttestationRecord {
+  append(payload: unknown, privateKeyPem: string, delegation?: DelegationInfo): AttestationRecord {
     const index = this.records.length;
     const timestamp = new Date().toISOString();
-    const previousHash = index === 0 ? GENESIS_HASH : this.records[index - 1].hash;
-
-    const hash = sha256hex(buildPreimage(index, timestamp, payload, previousHash));
+    const hash = sha256hex(leafPreimage(index, timestamp, payload, delegation));
     const signature = signPayload(hash, privateKeyPem);
-
-    const record: AttestationRecord = { index, timestamp, payload, previousHash, hash, signature };
+    const record: AttestationRecord = { index, timestamp, payload, ...(delegation && { delegation }), hash, signature };
     this.records.push(record);
     return record;
   }
 
   /**
-   * Verifies the entire chain:
-   *   1. Each record's hash matches recomputed hash of its fields.
-   *   2. Each previousHash matches the prior record's hash (chain linkage).
-   *   3. Each signature over the hash is valid under the given public key.
-   *
-   * Any single failure indicates tampering and returns which record broke and why.
+   * Verifies every record's hash and signature, then returns the Merkle root.
+   * Full-chain integrity check is O(n); single-record proof verification via
+   * getProof() is O(log n).
    */
   verify(publicKeyPem: string): VerificationResult {
+    const leafHashes: string[] = [];
+
     for (let i = 0; i < this.records.length; i++) {
       const rec = this.records[i];
 
-      const expectedPrev = i === 0 ? GENESIS_HASH : this.records[i - 1].hash;
-      if (rec.previousHash !== expectedPrev) {
-        return { valid: false, failedAtIndex: i, error: `record ${i}: chain linkage broken` };
-      }
-
-      const expectedHash = sha256hex(
-        buildPreimage(rec.index, rec.timestamp, rec.payload, rec.previousHash),
-      );
+      const expectedHash = sha256hex(leafPreimage(rec.index, rec.timestamp, rec.payload, rec.delegation));
       if (rec.hash !== expectedHash) {
-        return { valid: false, failedAtIndex: i, error: `record ${i}: hash mismatch — record was tampered` };
+        return { valid: false, failedAtIndex: i, error: `record ${i}: hash mismatch` };
       }
 
       const sigCheck = verifyPayload(rec.hash, rec.signature, publicKeyPem);
       if (!sigCheck.valid) {
         return { valid: false, failedAtIndex: i, error: `record ${i}: invalid signature` };
       }
+
+      leafHashes.push(rec.hash);
     }
-    return { valid: true };
+
+    return { valid: true, merkleRoot: computeRoot(leafHashes) };
+  }
+
+  /** O(log n): returns an inclusion proof any external auditor can verify independently. */
+  getProof(index: number): InclusionProof {
+    if (index < 0 || index >= this.records.length) {
+      throw new RangeError(`index ${index} out of bounds (chain length: ${this.records.length})`);
+    }
+    const leafHashes = this.records.map((r) => r.hash);
+    return {
+      record: this.records[index],
+      proof: buildProof(leafHashes, index),
+      root: computeRoot(leafHashes),
+    };
+  }
+
+  /** Verify a proof externally without access to the full chain. */
+  static verifyProof(leafHash: string, proof: MerkleProof, root: string): boolean {
+    return verifyProof(leafHash, proof, root);
   }
 
   getRecords(): ReadonlyArray<AttestationRecord> {
