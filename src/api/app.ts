@@ -288,6 +288,67 @@ app.post('/v1/agents/:agentId/passport', async (c) => {
   }, 201);
 });
 
+app.post('/v1/agents/:agentId/passport/rotate', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+  const agentId = c.req.param('agentId');
+
+  const currentPassport = c.req.header('Counsel-Passport');
+  if (!currentPassport) {
+    return c.json({ error: 'Missing Counsel-Passport header' }, 400);
+  }
+
+  const verification = verifyPassport(currentPassport, { caPublicKey: tenant.keys.publicKey });
+  if (!verification.valid) {
+    return c.json({ error: verification.error, code: verification.code }, 401);
+  }
+  const { claims } = verification;
+
+  if (claims.counsel.agentId !== agentId) {
+    return c.json({ error: 'Passport does not belong to the specified agent' }, 403);
+  }
+  if (claims.counsel.org !== companyId) {
+    return c.json({ error: 'Passport was not issued by the authenticated company' }, 403);
+  }
+
+  const agent = await store.getAgent(agentId, companyId);
+  if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
+
+  if (await store.isPassportRevoked(companyId, claims.jti)) {
+    return c.json({ error: 'Passport has already been revoked', code: 'PASSPORT_REVOKED' }, 409);
+  }
+
+  // Revoke before issuing — old passport is invalid from this point forward.
+  await store.revokePassport(companyId, claims.jti, 'rotated');
+
+  const ttl = claims.exp - claims.iat;
+  const newPassport = issuePassport({
+    agentId,
+    agentSpiffeId: agent.spiffeId,
+    org: claims.counsel.org,
+    orgSpiffeId: claims.counsel.orgSpiffeId,
+    scopes: claims.counsel.scopes,
+    delegationChain: claims.counsel.delegationChain,
+    ...(claims.counsel.delegationId !== undefined && { delegationId: claims.counsel.delegationId }),
+    ttl,
+    privateKeyPem: tenant.keys.privateKey,
+    publicKeyPem: tenant.keys.publicKey,
+  });
+
+  return c.json({
+    agentId,
+    spiffeId: agent.spiffeId,
+    org: companyId,
+    orgSpiffeId: claims.counsel.orgSpiffeId,
+    scopes: claims.counsel.scopes,
+    delegationChain: claims.counsel.delegationChain,
+    passport: newPassport,
+    expiresIn: ttl,
+    caPublicKey: tenant.keys.publicKey,
+    rotatedFrom: claims.jti,
+  }, 200);
+});
+
 app.post('/v1/passport/verify', async (c) => {
   const companyId = c.get('companyId');
   const tenant = tenants.get(companyId)!;
