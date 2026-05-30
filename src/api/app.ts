@@ -24,24 +24,26 @@ interface Tenant {
 }
 
 const store = new Store();
+await store.init();
+
 const tenants = new Map<string, Tenant>();
 
-function initTenant(companyId: string): Tenant {
-  let keys = store.getKeys(companyId);
+async function initTenant(companyId: string): Promise<Tenant> {
+  let keys = await store.getKeys(companyId);
   if (!keys) {
     keys = generateKeyPair();
-    store.saveKeys(companyId, keys);
+    await store.saveKeys(companyId, keys);
   }
   const chain = new AttestationChain();
-  chain.hydrate(store.getAllRecords(companyId));
+  chain.hydrate(await store.getAllRecords(companyId));
   const tenant: Tenant = { keys, chain };
   tenants.set(companyId, tenant);
   return tenant;
 }
 
 // Hydrate all existing tenants from the DB on startup.
-for (const company of store.listCompanies()) {
-  initTenant(company.companyId);
+for (const company of await store.listCompanies()) {
+  await initTenant(company.companyId);
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
@@ -64,7 +66,7 @@ app.use('/v1/*', async (c, next) => {
     return c.json({ error: 'Unauthorized' }, 401);
   }
   const key = auth.slice(7);
-  const result = store.validateApiKey(key);
+  const result = await store.validateApiKey(key);
   if (!result) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
@@ -95,12 +97,12 @@ app.post('/v1/companies', async (c) => {
   if (typeof companyId !== 'string' || !companyId) {
     return c.json({ error: 'Missing or invalid field: companyId is required' }, 400);
   }
-  if (store.getCompany(companyId)) {
+  if (await store.getCompany(companyId)) {
     return c.json({ error: `Company already exists: ${companyId}` }, 409);
   }
 
   const spiffeId = companySpiffeId(companyId);
-  const company = store.createCompany(
+  const company = await store.createCompany(
     companyId,
     spiffeId,
     metadata && typeof metadata === 'object' && !Array.isArray(metadata)
@@ -108,8 +110,8 @@ app.post('/v1/companies', async (c) => {
       : undefined,
   );
 
-  initTenant(companyId);
-  const apiKey = store.createApiKey(companyId, 'bootstrap');
+  await initTenant(companyId);
+  const apiKey = await store.createApiKey(companyId, 'bootstrap');
 
   return c.json({
     companyId,
@@ -132,12 +134,12 @@ app.post('/v1/setup', async (c) => {
   if (typeof companyId !== 'string' || !companyId) {
     return c.json({ error: 'Missing or invalid field: companyId is required' }, 400);
   }
-  if (store.getCompany(companyId)) {
+  if (await store.getCompany(companyId)) {
     return c.json({ error: `Company already exists: ${companyId}` }, 409);
   }
 
   const spiffeId = companySpiffeId(companyId);
-  const company = store.createCompany(
+  const company = await store.createCompany(
     companyId,
     spiffeId,
     metadata && typeof metadata === 'object' && !Array.isArray(metadata)
@@ -145,8 +147,8 @@ app.post('/v1/setup', async (c) => {
       : undefined,
   );
 
-  initTenant(companyId);
-  const apiKey = store.createApiKey(companyId, 'bootstrap');
+  await initTenant(companyId);
+  const apiKey = await store.createApiKey(companyId, 'bootstrap');
 
   return c.json({ companyId, spiffeId, registeredAt: company.registeredAt, apiKey }, 201);
 });
@@ -168,7 +170,7 @@ app.post('/v1/recover-key', async (c) => {
     return c.json({ error: 'companyId is required' }, 400);
   }
 
-  const entry = store.getFirstApiKey(companyId);
+  const entry = await store.getFirstApiKey(companyId);
   if (!entry) {
     return c.json({ error: `No API keys found for company: ${companyId}` }, 404);
   }
@@ -184,7 +186,7 @@ app.post('/v1/keys', async (c) => {
     const b = await c.req.json() as Record<string, unknown>;
     if (typeof b.label === 'string' && b.label) label = b.label;
   } catch { /* label is optional */ }
-  const key = store.createApiKey(companyId, label);
+  const key = await store.createApiKey(companyId, label);
   return c.json({ key, createdAt: new Date().toISOString() }, 201);
 });
 
@@ -209,7 +211,7 @@ app.post('/v1/agents/register', async (c) => {
   const spiffeId = agentSpiffeId(companyId, agentId);
   const registeredAt = new Date().toISOString();
 
-  store.registerAgent({
+  await store.registerAgent({
     agentId,
     spiffeId,
     companyId,
@@ -224,11 +226,11 @@ app.post('/v1/agents/register', async (c) => {
   return c.json({ agentId, spiffeId, svid, registeredAt }, 201);
 });
 
-app.get('/v1/agents/:agentId/svid', (c) => {
+app.get('/v1/agents/:agentId/svid', async (c) => {
   const companyId = c.get('companyId');
   const tenant = tenants.get(companyId)!;
   const agentId = c.req.param('agentId');
-  const agent = store.getAgent(agentId, companyId);
+  const agent = await store.getAgent(agentId, companyId);
   if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
   const svid = issueJwtSvid(agent.spiffeId, tenant.keys.privateKey, tenant.keys.publicKey);
   return c.json({ agentId, spiffeId: agent.spiffeId, svid });
@@ -240,7 +242,7 @@ app.post('/v1/agents/:agentId/passport', async (c) => {
   const companyId = c.get('companyId');
   const tenant = tenants.get(companyId)!;
   const agentId = c.req.param('agentId');
-  const agent = store.getAgent(agentId, companyId);
+  const agent = await store.getAgent(agentId, companyId);
   if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
 
   let body: Record<string, unknown> = {};
@@ -313,7 +315,7 @@ app.post('/v1/passport/verify', async (c) => {
 
   const { claims, scopeGranted } = result;
 
-  if (store.isPassportRevoked(companyId, claims.jti)) {
+  if (await store.isPassportRevoked(companyId, claims.jti)) {
     return c.json({ valid: false, error: 'Passport has been revoked', code: 'PASSPORT_REVOKED' }, 400);
   }
   const receipt: AttestationReceipt = {
@@ -353,17 +355,17 @@ app.post('/v1/passports/:jti/revoke', async (c) => {
     if (typeof b.reason === 'string' && b.reason) reason = b.reason;
   } catch { /* reason is optional */ }
 
-  if (store.isPassportRevoked(companyId, jti)) {
+  if (await store.isPassportRevoked(companyId, jti)) {
     return c.json({ error: 'Passport is already revoked' }, 409);
   }
 
-  store.revokePassport(companyId, jti, reason);
+  await store.revokePassport(companyId, jti, reason);
   return c.json({ jti, revokedAt: new Date().toISOString(), ...(reason !== undefined && { reason }) }, 200);
 });
 
-app.get('/v1/passports/revoked', (c) => {
+app.get('/v1/passports/revoked', async (c) => {
   const companyId = c.get('companyId');
-  const revoked = store.getRevokedPassports(companyId);
+  const revoked = await store.getRevokedPassports(companyId);
   return c.json({ revoked });
 });
 
@@ -441,7 +443,7 @@ app.post('/v1/token-exchange', async (c) => {
     return c.json({ error: 'Missing or invalid field: scope is required' }, 400);
   }
 
-  const agent = store.getAgent(agentId, companyId);
+  const agent = await store.getAgent(agentId, companyId);
   if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
 
   const subSpiffeId = companySpiffeId(actingOn);
@@ -500,7 +502,7 @@ app.post('/v1/attest', async (c) => {
   }
 
   const record = tenant.chain.append(attestationPayload, tenant.keys.privateKey, delegation);
-  store.insertRecord(companyId, record);
+  await store.insertRecord(companyId, record);
   return c.json(record, 201);
 });
 

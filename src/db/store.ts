@@ -1,9 +1,6 @@
-import { DatabaseSync } from 'node:sqlite';
+import { Pool } from 'pg';
 import { randomBytes } from 'node:crypto';
-import { join } from 'node:path';
 import type { AttestationRecord, KeyPair, AgentRegistration } from '../crypto/types.js';
-
-const DB_PATH = process.env.DB_PATH ?? join(process.cwd(), 'counsel.db');
 
 export interface CompanyRecord {
   companyId: string;
@@ -13,46 +10,37 @@ export interface CompanyRecord {
 }
 
 export class Store {
-  private readonly db: DatabaseSync;
+  private readonly pool: Pool;
 
-  constructor(path = DB_PATH) {
-    this.db = new DatabaseSync(path);
-    this.ensureSchema();
+  constructor() {
+    this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
   }
 
-  private ensureSchema(): void {
-    // Detect old single-tenant schema by the presence of keys.id (the singleton constraint).
-    // If found, drop all old tables and start fresh with the multi-tenant schema.
-    const keysInfo = this.db
-      .prepare('PRAGMA table_info(keys)')
-      .all() as Array<{ name: string }>;
-    if (keysInfo.some((c) => c.name === 'id')) {
-      this.db.exec(`
-        DROP TABLE IF EXISTS records;
-        DROP TABLE IF EXISTS agents;
-        DROP TABLE IF EXISTS api_keys;
-        DROP TABLE IF EXISTS keys;
-      `);
-    }
-
-    this.db.exec(`
+  async init(): Promise<void> {
+    await this.pool.query(`
       CREATE TABLE IF NOT EXISTS companies (
         company_id    TEXT PRIMARY KEY,
         spiffe_id     TEXT NOT NULL UNIQUE,
         registered_at TEXT NOT NULL,
         metadata      TEXT
-      );
+      )
+    `);
+    await this.pool.query(`
       CREATE TABLE IF NOT EXISTS keys (
         company_id TEXT PRIMARY KEY REFERENCES companies(company_id),
-        public     TEXT NOT NULL,
-        private    TEXT NOT NULL
-      );
+        public_key TEXT NOT NULL,
+        private_key TEXT NOT NULL
+      )
+    `);
+    await this.pool.query(`
       CREATE TABLE IF NOT EXISTS api_keys (
         key        TEXT PRIMARY KEY,
         company_id TEXT NOT NULL REFERENCES companies(company_id),
         label      TEXT,
         created_at TEXT NOT NULL
-      );
+      )
+    `);
+    await this.pool.query(`
       CREATE TABLE IF NOT EXISTS agents (
         agent_id      TEXT NOT NULL,
         company_id    TEXT NOT NULL REFERENCES companies(company_id),
@@ -60,7 +48,9 @@ export class Store {
         registered_at TEXT NOT NULL,
         metadata      TEXT,
         PRIMARY KEY (agent_id, company_id)
-      );
+      )
+    `);
+    await this.pool.query(`
       CREATE TABLE IF NOT EXISTS records (
         company_id TEXT    NOT NULL REFERENCES companies(company_id),
         idx        INTEGER NOT NULL,
@@ -70,44 +60,51 @@ export class Store {
         hash       TEXT    NOT NULL,
         signature  TEXT    NOT NULL,
         PRIMARY KEY (company_id, idx)
-      );
+      )
+    `);
+    await this.pool.query(`
       CREATE TABLE IF NOT EXISTS revoked_passports (
         jti        TEXT NOT NULL,
         company_id TEXT NOT NULL REFERENCES companies(company_id),
         revoked_at TEXT NOT NULL,
         reason     TEXT,
         PRIMARY KEY (jti, company_id)
-      );
+      )
     `);
   }
 
   // ── Companies ────────────────────────────────────────────────────────────────
 
-  createCompany(companyId: string, spiffeId: string, metadata?: Record<string, unknown>): CompanyRecord {
+  async createCompany(companyId: string, spiffeId: string, metadata?: Record<string, unknown>): Promise<CompanyRecord> {
     const registeredAt = new Date().toISOString();
-    this.db
-      .prepare(`INSERT INTO companies (company_id, spiffe_id, registered_at, metadata) VALUES (?, ?, ?, ?)`)
-      .run(companyId, spiffeId, registeredAt, metadata ? JSON.stringify(metadata) : null);
+    await this.pool.query(
+      `INSERT INTO companies (company_id, spiffe_id, registered_at, metadata) VALUES ($1, $2, $3, $4)`,
+      [companyId, spiffeId, registeredAt, metadata ? JSON.stringify(metadata) : null],
+    );
     return { companyId, spiffeId, registeredAt, metadata };
   }
 
-  getCompany(companyId: string): CompanyRecord | null {
-    const row = this.db
-      .prepare(`SELECT company_id, spiffe_id, registered_at, metadata FROM companies WHERE company_id = ?`)
-      .get(companyId) as { company_id: string; spiffe_id: string; registered_at: string; metadata: string | null } | undefined;
-    if (!row) return null;
+  async getCompany(companyId: string): Promise<CompanyRecord | null> {
+    const { rows } = await this.pool.query<{
+      company_id: string; spiffe_id: string; registered_at: string; metadata: string | null;
+    }>(
+      `SELECT company_id, spiffe_id, registered_at, metadata FROM companies WHERE company_id = $1`,
+      [companyId],
+    );
+    if (!rows[0]) return null;
+    const r = rows[0];
     return {
-      companyId: row.company_id,
-      spiffeId: row.spiffe_id,
-      registeredAt: row.registered_at,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      companyId: r.company_id,
+      spiffeId: r.spiffe_id,
+      registeredAt: r.registered_at,
+      metadata: r.metadata ? JSON.parse(r.metadata) : undefined,
     };
   }
 
-  listCompanies(): CompanyRecord[] {
-    const rows = this.db
-      .prepare(`SELECT company_id, spiffe_id, registered_at, metadata FROM companies`)
-      .all() as Array<{ company_id: string; spiffe_id: string; registered_at: string; metadata: string | null }>;
+  async listCompanies(): Promise<CompanyRecord[]> {
+    const { rows } = await this.pool.query<{
+      company_id: string; spiffe_id: string; registered_at: string; metadata: string | null;
+    }>(`SELECT company_id, spiffe_id, registered_at, metadata FROM companies`);
     return rows.map((r) => ({
       companyId: r.company_id,
       spiffeId: r.spiffe_id,
@@ -118,100 +115,96 @@ export class Store {
 
   // ── Keys ─────────────────────────────────────────────────────────────────────
 
-  getKeys(companyId: string): KeyPair | null {
-    const row = this.db
-      .prepare(`SELECT public, private FROM keys WHERE company_id = ?`)
-      .get(companyId) as { public: string; private: string } | undefined;
-    if (!row) return null;
-    return { publicKey: row.public, privateKey: row.private };
+  async getKeys(companyId: string): Promise<KeyPair | null> {
+    const { rows } = await this.pool.query<{ public_key: string; private_key: string }>(
+      `SELECT public_key, private_key FROM keys WHERE company_id = $1`,
+      [companyId],
+    );
+    if (!rows[0]) return null;
+    return { publicKey: rows[0].public_key, privateKey: rows[0].private_key };
   }
 
-  saveKeys(companyId: string, keys: KeyPair): void {
-    this.db
-      .prepare(`INSERT OR REPLACE INTO keys (company_id, public, private) VALUES (?, ?, ?)`)
-      .run(companyId, keys.publicKey, keys.privateKey);
+  async saveKeys(companyId: string, keys: KeyPair): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO keys (company_id, public_key, private_key) VALUES ($1, $2, $3)
+       ON CONFLICT (company_id) DO UPDATE SET public_key = EXCLUDED.public_key, private_key = EXCLUDED.private_key`,
+      [companyId, keys.publicKey, keys.privateKey],
+    );
   }
 
   // ── API Keys ─────────────────────────────────────────────────────────────────
 
-  createApiKey(companyId: string, label?: string): string {
+  async createApiKey(companyId: string, label?: string): Promise<string> {
     const key = 'counsel_' + randomBytes(32).toString('hex');
-    this.db
-      .prepare(`INSERT INTO api_keys (key, company_id, label, created_at) VALUES (?, ?, ?, ?)`)
-      .run(key, companyId, label ?? null, new Date().toISOString());
+    await this.pool.query(
+      `INSERT INTO api_keys (key, company_id, label, created_at) VALUES ($1, $2, $3, $4)`,
+      [key, companyId, label ?? null, new Date().toISOString()],
+    );
     return key;
   }
 
-  // Returns the companyId if the key is valid, null otherwise.
-  validateApiKey(key: string): { companyId: string } | null {
-    const row = this.db
-      .prepare(`SELECT company_id FROM api_keys WHERE key = ?`)
-      .get(key) as { company_id: string } | undefined;
-    if (!row) return null;
-    return { companyId: row.company_id };
+  async validateApiKey(key: string): Promise<{ companyId: string } | null> {
+    const { rows } = await this.pool.query<{ company_id: string }>(
+      `SELECT company_id FROM api_keys WHERE key = $1`,
+      [key],
+    );
+    if (!rows[0]) return null;
+    return { companyId: rows[0].company_id };
   }
 
-  getFirstApiKey(companyId: string): { key: string; label: string | null; createdAt: string } | null {
-    const row = this.db
-      .prepare(`SELECT key, label, created_at FROM api_keys WHERE company_id = ? ORDER BY rowid ASC LIMIT 1`)
-      .get(companyId) as { key: string; label: string | null; created_at: string } | undefined;
-    if (!row) return null;
-    return { key: row.key, label: row.label, createdAt: row.created_at };
+  async getFirstApiKey(companyId: string): Promise<{ key: string; label: string | null; createdAt: string } | null> {
+    const { rows } = await this.pool.query<{ key: string; label: string | null; created_at: string }>(
+      `SELECT key, label, created_at FROM api_keys WHERE company_id = $1 ORDER BY created_at ASC LIMIT 1`,
+      [companyId],
+    );
+    if (!rows[0]) return null;
+    return { key: rows[0].key, label: rows[0].label, createdAt: rows[0].created_at };
   }
 
   // ── Agents ───────────────────────────────────────────────────────────────────
 
-  registerAgent(reg: AgentRegistration): void {
+  async registerAgent(reg: AgentRegistration): Promise<void> {
     if (!reg.companyId) throw new Error('companyId is required');
-    this.db
-      .prepare(
-        `INSERT OR REPLACE INTO agents (agent_id, company_id, spiffe_id, registered_at, metadata)
-         VALUES (?, ?, ?, ?, ?)`,
-      )
-      .run(
-        reg.agentId,
-        reg.companyId,
-        reg.spiffeId,
-        reg.registeredAt,
-        reg.metadata ? JSON.stringify(reg.metadata) : null,
-      );
+    await this.pool.query(
+      `INSERT INTO agents (agent_id, company_id, spiffe_id, registered_at, metadata)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (agent_id, company_id) DO UPDATE SET
+         spiffe_id = EXCLUDED.spiffe_id,
+         registered_at = EXCLUDED.registered_at,
+         metadata = EXCLUDED.metadata`,
+      [reg.agentId, reg.companyId, reg.spiffeId, reg.registeredAt, reg.metadata ? JSON.stringify(reg.metadata) : null],
+    );
   }
 
-  getAgent(agentId: string, companyId: string): AgentRegistration | null {
-    const row = this.db
-      .prepare(
-        `SELECT agent_id, company_id, spiffe_id, registered_at, metadata
-         FROM agents WHERE agent_id = ? AND company_id = ?`,
-      )
-      .get(agentId, companyId) as
-      | { agent_id: string; company_id: string; spiffe_id: string; registered_at: string; metadata: string | null }
-      | undefined;
-    if (!row) return null;
+  async getAgent(agentId: string, companyId: string): Promise<AgentRegistration | null> {
+    const { rows } = await this.pool.query<{
+      agent_id: string; company_id: string; spiffe_id: string; registered_at: string; metadata: string | null;
+    }>(
+      `SELECT agent_id, company_id, spiffe_id, registered_at, metadata
+       FROM agents WHERE agent_id = $1 AND company_id = $2`,
+      [agentId, companyId],
+    );
+    if (!rows[0]) return null;
+    const r = rows[0];
     return {
-      agentId: row.agent_id,
-      spiffeId: row.spiffe_id,
-      companyId: row.company_id,
-      registeredAt: row.registered_at,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      agentId: r.agent_id,
+      spiffeId: r.spiffe_id,
+      companyId: r.company_id,
+      registeredAt: r.registered_at,
+      metadata: r.metadata ? JSON.parse(r.metadata) : undefined,
     };
   }
 
   // ── Records ──────────────────────────────────────────────────────────────────
 
-  getAllRecords(companyId: string): AttestationRecord[] {
-    const rows = this.db
-      .prepare(
-        `SELECT idx, timestamp, payload, delegation, hash, signature
-         FROM records WHERE company_id = ? ORDER BY idx ASC`,
-      )
-      .all(companyId) as Array<{
-        idx: number;
-        timestamp: string;
-        payload: string;
-        delegation: string | null;
-        hash: string;
-        signature: string;
-      }>;
+  async getAllRecords(companyId: string): Promise<AttestationRecord[]> {
+    const { rows } = await this.pool.query<{
+      idx: number; timestamp: string; payload: string; delegation: string | null; hash: string; signature: string;
+    }>(
+      `SELECT idx, timestamp, payload, delegation, hash, signature
+       FROM records WHERE company_id = $1 ORDER BY idx ASC`,
+      [companyId],
+    );
     return rows.map((r) => ({
       index: r.idx,
       timestamp: r.timestamp,
@@ -222,13 +215,11 @@ export class Store {
     }));
   }
 
-  insertRecord(companyId: string, record: AttestationRecord): void {
-    this.db
-      .prepare(
-        `INSERT INTO records (company_id, idx, timestamp, payload, delegation, hash, signature)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
+  async insertRecord(companyId: string, record: AttestationRecord): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO records (company_id, idx, timestamp, payload, delegation, hash, signature)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
         companyId,
         record.index,
         record.timestamp,
@@ -236,32 +227,32 @@ export class Store {
         record.delegation ? JSON.stringify(record.delegation) : null,
         record.hash,
         record.signature,
-      );
+      ],
+    );
   }
 
   // ── Passport revocation ───────────────────────────────────────────────────────
 
-  revokePassport(companyId: string, jti: string, reason?: string): void {
-    this.db
-      .prepare(
-        `INSERT INTO revoked_passports (jti, company_id, revoked_at, reason) VALUES (?, ?, ?, ?)`,
-      )
-      .run(jti, companyId, new Date().toISOString(), reason ?? null);
+  async revokePassport(companyId: string, jti: string, reason?: string): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO revoked_passports (jti, company_id, revoked_at, reason) VALUES ($1, $2, $3, $4)`,
+      [jti, companyId, new Date().toISOString(), reason ?? null],
+    );
   }
 
-  isPassportRevoked(companyId: string, jti: string): boolean {
-    const row = this.db
-      .prepare(`SELECT 1 FROM revoked_passports WHERE jti = ? AND company_id = ?`)
-      .get(jti, companyId);
-    return row !== undefined;
+  async isPassportRevoked(companyId: string, jti: string): Promise<boolean> {
+    const { rows } = await this.pool.query(
+      `SELECT 1 FROM revoked_passports WHERE jti = $1 AND company_id = $2`,
+      [jti, companyId],
+    );
+    return rows.length > 0;
   }
 
-  getRevokedPassports(companyId: string): Array<{ jti: string; revokedAt: string; reason?: string }> {
-    const rows = this.db
-      .prepare(
-        `SELECT jti, revoked_at, reason FROM revoked_passports WHERE company_id = ? ORDER BY revoked_at ASC`,
-      )
-      .all(companyId) as Array<{ jti: string; revoked_at: string; reason: string | null }>;
+  async getRevokedPassports(companyId: string): Promise<Array<{ jti: string; revokedAt: string; reason?: string }>> {
+    const { rows } = await this.pool.query<{ jti: string; revoked_at: string; reason: string | null }>(
+      `SELECT jti, revoked_at, reason FROM revoked_passports WHERE company_id = $1 ORDER BY revoked_at ASC`,
+      [companyId],
+    );
     return rows.map((r) => ({
       jti: r.jti,
       revokedAt: r.revoked_at,
