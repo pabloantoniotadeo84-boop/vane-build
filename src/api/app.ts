@@ -15,6 +15,8 @@ import type { DelegationInfo, KeyPair } from '../crypto/index.js';
 import { Store } from '../db/store.js';
 import { issuePassport, verifyPassport, PASSPORT_TTL_DEFAULT } from '../passport/index.js';
 import type { AttestationReceipt } from '../passport/index.js';
+import type { IncomingMessage } from 'node:http';
+import type { TLSSocket, PeerCertificate } from 'node:tls';
 
 // ── Per-company in-memory state ───────────────────────────────────────────────
 
@@ -52,21 +54,58 @@ type Env = { Variables: { companyId: string } };
 
 export const app = new Hono<Env>();
 
-// Auth middleware — resolves Bearer key → companyId for all authenticated routes.
+// ── Auth middleware ───────────────────────────────────────────────────────────
+// Resolution order:
+//   1. mTLS client certificate CN → companyId (when COUNSEL_MTLS_CA_CERT is set)
+//   2. Bearer <api_key>           → api_keys table
+//   3. Bearer <oauth_token>       → oauth_tokens table (prefix: "oauth_")
+
 app.use('/v1/*', async (c, next) => {
   const isPublic =
     (c.req.method === 'GET'  && c.req.path === '/v1/health') ||
     (c.req.method === 'POST' && c.req.path === '/v1/companies') ||
     (c.req.method === 'POST' && c.req.path === '/v1/setup') ||
-    (c.req.method === 'POST' && c.req.path === '/v1/recover-key');
+    (c.req.method === 'POST' && c.req.path === '/v1/recover-key') ||
+    (c.req.method === 'POST' && c.req.path === '/v1/oauth/token');
   if (isPublic) return next();
 
+  // 1. mTLS: extract CN from a verified client certificate.
+  //    Only attempted when the server was started with COUNSEL_MTLS_CA_CERT set
+  //    (i.e., the underlying socket is a TLSSocket).
+  if (process.env.COUNSEL_MTLS_CA_CERT) {
+    try {
+      const incoming = (c.env as unknown as { incoming?: IncomingMessage }).incoming;
+      const socket = incoming?.socket as TLSSocket | undefined;
+      if (typeof socket?.getPeerCertificate === 'function') {
+        const cert: PeerCertificate = socket.getPeerCertificate();
+        // subject.CN may be string or string[] depending on the certificate.
+        const rawCN = cert?.subject?.CN;
+        const cn = Array.isArray(rawCN) ? rawCN[0] : rawCN;
+        if (typeof cn === 'string' && cn) {
+          const company = await store.getCompany(cn);
+          if (company) {
+            if (!tenants.has(cn)) await initTenant(cn);
+            c.set('companyId', cn);
+            return next();
+          }
+        }
+      }
+    } catch {
+      // Socket may not be a TLS socket in test contexts; fall through to token auth.
+    }
+  }
+
+  // 2 & 3. Bearer token auth (API key or OAuth token).
   const auth = c.req.header('Authorization');
   if (!auth?.startsWith('Bearer ')) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
-  const key = auth.slice(7);
-  const result = await store.validateApiKey(key);
+  const token = auth.slice(7);
+
+  const result =
+    (await store.validateApiKey(token)) ??
+    (await store.validateOAuthToken(token));
+
   if (!result) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
@@ -80,11 +119,6 @@ app.get('/v1/health', (c) => c.json({ status: 'ok' }));
 
 // ── Company registration ──────────────────────────────────────────────────────
 
-/**
- * Creates a new company tenant with its own Ed25519 key pair, attestation chain,
- * and agent registry. Returns a bootstrap API key (shown once — store it).
- * No authentication required; company creation is open and first-come-first-served.
- */
 app.post('/v1/companies', async (c) => {
   let body: Record<string, unknown>;
   try {
@@ -113,15 +147,10 @@ app.post('/v1/companies', async (c) => {
   await initTenant(companyId);
   const apiKey = await store.createApiKey(companyId, 'bootstrap');
 
-  return c.json({
-    companyId,
-    spiffeId,
-    registeredAt: company.registeredAt,
-    apiKey,
-  }, 201);
+  return c.json({ companyId, spiffeId, registeredAt: company.registeredAt, apiKey }, 201);
 });
 
-// Backward-compatible alias for POST /v1/companies (retained for callers that pre-date multi-tenancy).
+// Backward-compatible alias for POST /v1/companies.
 app.post('/v1/setup', async (c) => {
   let body: Record<string, unknown>;
   try {
@@ -153,8 +182,20 @@ app.post('/v1/setup', async (c) => {
   return c.json({ companyId, spiffeId, registeredAt: company.registeredAt, apiKey }, 201);
 });
 
+// Returns the authenticated company's own record. Used by the Terraform provider Read.
+app.get('/v1/company', async (c) => {
+  const companyId = c.get('companyId');
+  const company = await store.getCompany(companyId);
+  if (!company) return c.json({ error: 'Company not found' }, 404);
+  return c.json({
+    companyId: company.companyId,
+    spiffeId: company.spiffeId,
+    registeredAt: company.registeredAt,
+    ...(company.metadata !== undefined && { metadata: company.metadata }),
+  });
+});
+
 // Emergency key recovery — localhost only, no auth required.
-// Returns the first API key for the given companyId.
 app.post('/v1/recover-key', async (c) => {
   const info = getConnInfo(c);
   const ip = info.remote.address;
@@ -188,6 +229,85 @@ app.post('/v1/keys', async (c) => {
   } catch { /* label is optional */ }
   const key = await store.createApiKey(companyId, label);
   return c.json({ key, createdAt: new Date().toISOString() }, 201);
+});
+
+app.get('/v1/keys', async (c) => {
+  const companyId = c.get('companyId');
+  const keys = await store.listApiKeys(companyId);
+  return c.json({ keys });
+});
+
+app.delete('/v1/keys/:key', async (c) => {
+  const companyId = c.get('companyId');
+  const key = c.req.param('key');
+  const deleted = await store.deleteApiKey(companyId, key);
+  if (!deleted) return c.json({ error: 'API key not found' }, 404);
+  return c.json({ deleted: true });
+});
+
+// ── OAuth 2.0 client credentials flow ────────────────────────────────────────
+
+/**
+ * POST /v1/oauth/token
+ *
+ * RFC 6749 §4.4 client credentials grant. Accepts both
+ * application/x-www-form-urlencoded (standard) and application/json.
+ *
+ * Returns a short-lived opaque Bearer token (TTL 3600 s) that the auth
+ * middleware accepts alongside existing API keys.
+ */
+app.post('/v1/oauth/token', async (c) => {
+  const contentType = c.req.header('Content-Type') ?? '';
+  let grantType = '', clientId = '', clientSecret = '';
+
+  if (contentType.includes('application/x-www-form-urlencoded')) {
+    const text = await c.req.text();
+    const params = new URLSearchParams(text);
+    grantType    = params.get('grant_type')    ?? '';
+    clientId     = params.get('client_id')     ?? '';
+    clientSecret = params.get('client_secret') ?? '';
+  } else {
+    let body: Record<string, unknown>;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: 'invalid_request', error_description: 'Request body must be valid JSON or form-encoded' }, 400);
+    }
+    grantType    = String(body['grant_type']    ?? '');
+    clientId     = String(body['client_id']     ?? '');
+    clientSecret = String(body['client_secret'] ?? '');
+  }
+
+  if (grantType !== 'client_credentials') {
+    return c.json({ error: 'unsupported_grant_type' }, 400);
+  }
+  if (!clientId || !clientSecret) {
+    return c.json({ error: 'invalid_request', error_description: 'client_id and client_secret are required' }, 400);
+  }
+
+  const result = await store.validateOAuthCredentials(clientId, clientSecret);
+  if (!result) {
+    return c.json({ error: 'invalid_client' }, 401);
+  }
+
+  const TTL = 3600;
+  const accessToken = await store.createOAuthToken(result.companyId, TTL);
+  return c.json({ access_token: accessToken, token_type: 'bearer', expires_in: TTL });
+});
+
+// POST /v1/oauth/clients — create an OAuth client for the authenticated company.
+// Returns client_id and client_secret (secret shown once).
+app.post('/v1/oauth/clients', async (c) => {
+  const companyId = c.get('companyId');
+  const { clientId, clientSecret } = await store.createOAuthClient(companyId);
+  return c.json({ clientId, clientSecret, companyId, createdAt: new Date().toISOString() }, 201);
+});
+
+// GET /v1/oauth/clients — list OAuth client IDs for the authenticated company (no secrets).
+app.get('/v1/oauth/clients', async (c) => {
+  const companyId = c.get('companyId');
+  const clients = await store.listOAuthClients(companyId);
+  return c.json({ clients });
 });
 
 // ── Agent registration ────────────────────────────────────────────────────────
@@ -224,6 +344,21 @@ app.post('/v1/agents/register', async (c) => {
 
   const svid = issueJwtSvid(spiffeId, tenant.keys.privateKey, tenant.keys.publicKey);
   return c.json({ agentId, spiffeId, svid, registeredAt }, 201);
+});
+
+// GET /v1/agents/:agentId — fetch agent metadata (used by Terraform provider Read).
+app.get('/v1/agents/:agentId', async (c) => {
+  const companyId = c.get('companyId');
+  const agentId = c.req.param('agentId');
+  const agent = await store.getAgent(agentId, companyId);
+  if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
+  return c.json({
+    agentId: agent.agentId,
+    spiffeId: agent.spiffeId,
+    companyId: agent.companyId,
+    registeredAt: agent.registeredAt,
+    ...(agent.metadata !== undefined && { metadata: agent.metadata }),
+  });
 });
 
 app.get('/v1/agents/:agentId/svid', async (c) => {
@@ -318,7 +453,6 @@ app.post('/v1/agents/:agentId/passport/rotate', async (c) => {
     return c.json({ error: 'Passport has already been revoked', code: 'PASSPORT_REVOKED' }, 409);
   }
 
-  // Revoke before issuing — old passport is invalid from this point forward.
   await store.revokePassport(companyId, claims.jti, 'rotated');
 
   const ttl = claims.exp - claims.iat;
@@ -379,6 +513,7 @@ app.post('/v1/passport/verify', async (c) => {
   if (await store.isPassportRevoked(companyId, claims.jti)) {
     return c.json({ valid: false, error: 'Passport has been revoked', code: 'PASSPORT_REVOKED' }, 400);
   }
+
   const receipt: AttestationReceipt = {
     v: 1,
     type: 'CounselAttestationReceipt',
@@ -432,14 +567,6 @@ app.get('/v1/passports/revoked', async (c) => {
 
 // ── OCSP — passport status ─────────────────────────────────────────────────────
 
-/**
- * Returns a signed OCSP-style response for a passport identified by its jti.
- * The response is signed with the company's Ed25519 private key so verifiers
- * can cache it locally and validate the signature without trusting the transport.
- *
- * Cache-Control: public, max-age=300 (5 minutes). The signature includes
- * checkedAt so stale cached responses are distinguishable from fresh ones.
- */
 app.get('/v1/ocsp/:jti', async (c) => {
   const companyId = c.get('companyId');
   const tenant = tenants.get(companyId)!;
@@ -475,8 +602,6 @@ app.get('/v1/ocsp/:jti', async (c) => {
 
 // ── Company SVID ──────────────────────────────────────────────────────────────
 
-// Issues a JWT-SVID for the authenticated company identity.
-// Used as the subject_token for RFC 8693 token exchange.
 app.post('/v1/companies/svid', (c) => {
   const companyId = c.get('companyId');
   const tenant = tenants.get(companyId)!;
@@ -587,7 +712,6 @@ app.post('/v1/attest', async (c) => {
     );
   }
 
-  // companyId is authoritative from auth — not accepted from the request body.
   const attestationPayload: Record<string, unknown> = { agentId, companyId, actionType, payload };
 
   let delegation: DelegationInfo | undefined;
