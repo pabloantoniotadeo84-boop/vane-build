@@ -71,6 +71,13 @@ export class Store {
         signature  TEXT    NOT NULL,
         PRIMARY KEY (company_id, idx)
       );
+      CREATE TABLE IF NOT EXISTS revoked_passports (
+        jti        TEXT NOT NULL,
+        company_id TEXT NOT NULL REFERENCES companies(company_id),
+        revoked_at TEXT NOT NULL,
+        reason     TEXT,
+        PRIMARY KEY (jti, company_id)
+      );
     `);
   }
 
@@ -230,5 +237,35 @@ export class Store {
         record.hash,
         record.signature,
       );
+  }
+
+  // ── Passport revocation ───────────────────────────────────────────────────────
+
+  revokePassport(companyId: string, jti: string, reason?: string): void {
+    this.db
+      .prepare(
+        `INSERT INTO revoked_passports (jti, company_id, revoked_at, reason) VALUES (?, ?, ?, ?)`,
+      )
+      .run(jti, companyId, new Date().toISOString(), reason ?? null);
+  }
+
+  isPassportRevoked(companyId: string, jti: string): boolean {
+    const row = this.db
+      .prepare(`SELECT 1 FROM revoked_passports WHERE jti = ? AND company_id = ?`)
+      .get(jti, companyId);
+    return row !== undefined;
+  }
+
+  getRevokedPassports(companyId: string): Array<{ jti: string; revokedAt: string; reason?: string }> {
+    const rows = this.db
+      .prepare(
+        `SELECT jti, revoked_at, reason FROM revoked_passports WHERE company_id = ? ORDER BY revoked_at ASC`,
+      )
+      .all(companyId) as Array<{ jti: string; revoked_at: string; reason: string | null }>;
+    return rows.map((r) => ({
+      jti: r.jti,
+      revokedAt: r.revoked_at,
+      ...(r.reason !== null && { reason: r.reason }),
+    }));
   }
 }

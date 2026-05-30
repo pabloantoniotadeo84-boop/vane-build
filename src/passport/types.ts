@@ -85,4 +85,5 @@ export type PassportErrorCode =
   | 'UNSUPPORTED_VERSION'
   | 'MALFORMED_CLAIMS'
   | 'CHAIN_INCOHERENT'
-  | 'SCOPE_DENIED';
+  | 'SCOPE_DENIED'
+  | 'PASSPORT_REVOKED';

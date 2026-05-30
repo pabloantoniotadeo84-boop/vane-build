@@ -312,6 +312,10 @@ app.post('/v1/passport/verify', async (c) => {
   }
 
   const { claims, scopeGranted } = result;
+
+  if (store.isPassportRevoked(companyId, claims.jti)) {
+    return c.json({ valid: false, error: 'Passport has been revoked', code: 'PASSPORT_REVOKED' }, 400);
+  }
   const receipt: AttestationReceipt = {
     v: 1,
     type: 'CounselAttestationReceipt',
@@ -331,6 +335,36 @@ app.post('/v1/passport/verify', async (c) => {
   };
 
   return c.json({ valid: true, claims, scopeGranted, receipt });
+});
+
+// ── Passport revocation ───────────────────────────────────────────────────────
+
+app.post('/v1/passports/:jti/revoke', async (c) => {
+  const companyId = c.get('companyId');
+  const jti = c.req.param('jti');
+
+  if (!jti || typeof jti !== 'string') {
+    return c.json({ error: 'Missing passport ID' }, 400);
+  }
+
+  let reason: string | undefined;
+  try {
+    const b = await c.req.json() as Record<string, unknown>;
+    if (typeof b.reason === 'string' && b.reason) reason = b.reason;
+  } catch { /* reason is optional */ }
+
+  if (store.isPassportRevoked(companyId, jti)) {
+    return c.json({ error: 'Passport is already revoked' }, 409);
+  }
+
+  store.revokePassport(companyId, jti, reason);
+  return c.json({ jti, revokedAt: new Date().toISOString(), ...(reason !== undefined && { reason }) }, 200);
+});
+
+app.get('/v1/passports/revoked', (c) => {
+  const companyId = c.get('companyId');
+  const revoked = store.getRevokedPassports(companyId);
+  return c.json({ revoked });
 });
 
 // ── Company SVID ──────────────────────────────────────────────────────────────
