@@ -1,6 +1,56 @@
 import { Pool } from 'pg';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createCipheriv, createDecipheriv, createHash } from 'node:crypto';
 import type { AttestationRecord, KeyPair, AgentRegistration } from '../crypto/types.js';
+
+// ── Envelope encryption ───────────────────────────────────────────────────────
+
+function deriveMasterKey(): Buffer | null {
+  const env = process.env.COUNSEL_MASTER_KEY;
+  if (!env) return null;
+  return createHash('sha256').update(env, 'utf8').digest();
+}
+
+const MASTER_KEY: Buffer | null = deriveMasterKey();
+
+if (!MASTER_KEY) {
+  console.warn(
+    '\n[COUNSEL] ⚠️  WARNING: COUNSEL_MASTER_KEY is not set.' +
+    ' Private keys are stored in plaintext in the database.' +
+    ' Set this variable to enable AES-256-GCM envelope encryption.\n',
+  );
+}
+
+// Stored format: "enc:v1:<iv_hex>:<tag_hex>:<ciphertext_hex>"
+function encryptPrivateKey(pem: string): string {
+  if (!MASTER_KEY) return pem;
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', MASTER_KEY, iv);
+  const ct = Buffer.concat([cipher.update(pem, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `enc:v1:${iv.toString('hex')}:${tag.toString('hex')}:${ct.toString('hex')}`;
+}
+
+function decryptPrivateKey(stored: string): string {
+  if (!stored.startsWith('enc:v1:')) {
+    if (MASTER_KEY) {
+      // Found plaintext key while master key is configured — migration path.
+      console.warn('[COUNSEL] WARNING: Plaintext private key found in database. Re-save keys to encrypt.');
+    }
+    return stored;
+  }
+  if (!MASTER_KEY) {
+    throw new Error('Encrypted private key found in database but COUNSEL_MASTER_KEY is not set');
+  }
+  const parts = stored.split(':');
+  if (parts.length < 5) throw new Error('Malformed encrypted key record');
+  // parts: ['enc', 'v1', iv, tag, ct]
+  const iv  = Buffer.from(parts[2], 'hex');
+  const tag = Buffer.from(parts[3], 'hex');
+  const ct  = Buffer.from(parts[4], 'hex');
+  const decipher = createDecipheriv('aes-256-gcm', MASTER_KEY, iv);
+  decipher.setAuthTag(tag);
+  return decipher.update(ct).toString('utf8') + decipher.final('utf8');
+}
 
 export interface CompanyRecord {
   companyId: string;
@@ -121,14 +171,14 @@ export class Store {
       [companyId],
     );
     if (!rows[0]) return null;
-    return { publicKey: rows[0].public_key, privateKey: rows[0].private_key };
+    return { publicKey: rows[0].public_key, privateKey: decryptPrivateKey(rows[0].private_key) };
   }
 
   async saveKeys(companyId: string, keys: KeyPair): Promise<void> {
     await this.pool.query(
       `INSERT INTO keys (company_id, public_key, private_key) VALUES ($1, $2, $3)
        ON CONFLICT (company_id) DO UPDATE SET public_key = EXCLUDED.public_key, private_key = EXCLUDED.private_key`,
-      [companyId, keys.publicKey, keys.privateKey],
+      [companyId, keys.publicKey, encryptPrivateKey(keys.privateKey)],
     );
   }
 
@@ -246,6 +296,22 @@ export class Store {
       [jti, companyId],
     );
     return rows.length > 0;
+  }
+
+  async getPassportRevocationDetails(
+    companyId: string,
+    jti: string,
+  ): Promise<{ jti: string; revokedAt: string; reason?: string } | null> {
+    const { rows } = await this.pool.query<{ jti: string; revoked_at: string; reason: string | null }>(
+      `SELECT jti, revoked_at, reason FROM revoked_passports WHERE jti = $1 AND company_id = $2`,
+      [jti, companyId],
+    );
+    if (!rows[0]) return null;
+    return {
+      jti: rows[0].jti,
+      revokedAt: rows[0].revoked_at,
+      ...(rows[0].reason !== null && { reason: rows[0].reason }),
+    };
   }
 
   async getRevokedPassports(companyId: string): Promise<Array<{ jti: string; revokedAt: string; reason?: string }>> {

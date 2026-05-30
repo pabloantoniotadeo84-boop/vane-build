@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import { generateKeyPair, AttestationChain } from '../crypto/index.js';
+import { generateKeyPair, AttestationChain, signPayload } from '../crypto/index.js';
 import {
   agentSpiffeId,
   companySpiffeId,
@@ -428,6 +428,49 @@ app.get('/v1/passports/revoked', async (c) => {
   const companyId = c.get('companyId');
   const revoked = await store.getRevokedPassports(companyId);
   return c.json({ revoked });
+});
+
+// ── OCSP — passport status ─────────────────────────────────────────────────────
+
+/**
+ * Returns a signed OCSP-style response for a passport identified by its jti.
+ * The response is signed with the company's Ed25519 private key so verifiers
+ * can cache it locally and validate the signature without trusting the transport.
+ *
+ * Cache-Control: public, max-age=300 (5 minutes). The signature includes
+ * checkedAt so stale cached responses are distinguishable from fresh ones.
+ */
+app.get('/v1/ocsp/:jti', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+  const jti = c.req.param('jti');
+
+  if (!jti || typeof jti !== 'string') {
+    return c.json({ error: 'Missing passport ID' }, 400);
+  }
+
+  const isRevoked = await store.isPassportRevoked(companyId, jti);
+  const checkedAt = new Date().toISOString();
+
+  const responseData: Record<string, unknown> = {
+    jti,
+    companyId,
+    status: isRevoked ? 'revoked' : 'valid',
+    checkedAt,
+  };
+
+  if (isRevoked) {
+    const details = await store.getPassportRevocationDetails(companyId, jti);
+    if (details) {
+      responseData['revokedAt'] = details.revokedAt;
+      if (details.reason !== undefined) responseData['reason'] = details.reason;
+    }
+  }
+
+  const signature = signPayload(responseData, tenant.keys.privateKey);
+
+  c.header('Cache-Control', 'public, max-age=300');
+  return c.json({ ...responseData, caPublicKey: tenant.keys.publicKey, signature });
 });
 
 // ── Company SVID ──────────────────────────────────────────────────────────────
