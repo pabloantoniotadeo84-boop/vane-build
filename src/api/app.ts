@@ -21,6 +21,7 @@ import type { TLSSocket, PeerCertificate } from 'node:tls';
 import { randomUUID } from 'node:crypto';
 import { logger } from '../logger.js';
 import { captureException } from '../sentry.js';
+import { rateLimitMiddleware } from './rate-limit.js';
 
 // ── Per-company in-memory state ───────────────────────────────────────────────
 
@@ -80,6 +81,10 @@ app.use('*', async (c, next) => {
     companyId: c.get('companyId') ?? null,
   }, 'request');
 });
+
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+
+app.use('*', rateLimitMiddleware());
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
 // Resolution order:
