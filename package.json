@@ -16,8 +16,10 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.0.0",
+    "@types/ws": "^8.18.1",
     "hono": "^4.0.0",
-    "pg": "^8.21.0"
+    "pg": "^8.21.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

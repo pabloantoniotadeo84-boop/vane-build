@@ -1,7 +1,9 @@
-import { serve, createAdaptorServer } from '@hono/node-server';
+import { createAdaptorServer } from '@hono/node-server';
 import { createServer as createHttpsServer } from 'node:https';
 import { readFileSync } from 'node:fs';
 import { app } from './app.js';
+import { attachWebSocketServer } from './ws.js';
+import type { Server } from 'node:http';
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -52,11 +54,14 @@ if (mTlsCaCert) {
     },
   });
 
+  attachWebSocketServer(server as unknown as Server);
   server.listen(PORT, () => {
     console.log(`Counsel API  →  https://localhost:${PORT} (mTLS enabled)`);
   });
 } else {
-  serve({ fetch: app.fetch, port: PORT }, () => {
+  const server = createAdaptorServer({ fetch: app.fetch });
+  attachWebSocketServer(server as unknown as Server);
+  server.listen(PORT, () => {
     console.log(`Counsel API  →  http://localhost:${PORT}`);
   });
 }

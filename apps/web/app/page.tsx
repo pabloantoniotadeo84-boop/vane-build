@@ -30,8 +30,10 @@ interface VerifyResponse {
   failedAtIndex?: number;
 }
 
-const POLL_INTERVAL = 3000;
+type WsStatus = 'connecting' | 'connected' | 'disconnected';
+
 const API_BASE = '/api';
+const WS_URL = process.env.NEXT_PUBLIC_COUNSEL_WS_URL ?? 'ws://localhost:3000/v1/ws';
 
 export default function Dashboard() {
   const [records, setRecords] = useState<AttestationRecord[]>([]);
@@ -39,9 +41,10 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [wsStatus, setWsStatus] = useState<WsStatus>('connecting');
+  const wsRef = useRef<WebSocket | null>(null);
 
-  async function fetchAll() {
+  async function fetchChain() {
     try {
       const [chainRes, verifyRes] = await Promise.all([
         fetch(`${API_BASE}/v1/chain`),
@@ -67,10 +70,38 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    fetchAll();
-    timerRef.current = setInterval(fetchAll, POLL_INTERVAL);
+    fetchChain();
+
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
+    ws.onopen = () => setWsStatus('connected');
+
+    ws.onmessage = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data as string) as {
+          type: string;
+          record: AttestationRecord;
+          valid: boolean;
+          failedAtIndex?: number;
+          merkleRoot?: string;
+        };
+        if (msg.type === 'record') {
+          setRecords((prev) => [msg.record, ...prev]);
+          setVerify({ valid: msg.valid, failedAtIndex: msg.failedAtIndex });
+          setLastUpdated(new Date());
+          setError(null);
+        }
+      } catch {
+        // malformed message — ignore
+      }
+    };
+
+    ws.onerror = () => setWsStatus('disconnected');
+    ws.onclose = () => setWsStatus('disconnected');
+
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      ws.close();
     };
   }, []);
 
@@ -120,11 +151,7 @@ export default function Dashboard() {
           />
           <div className="h-4 w-px bg-[#21262d]" />
           <div className="ml-auto flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            <span className="text-xs text-[#7d8590]">live · polling every {POLL_INTERVAL / 1000}s</span>
+            <WsIndicator status={wsStatus} />
           </div>
         </div>
       </div>
@@ -192,5 +219,37 @@ function Stat({ label, value }: { label: string; value: string | number }) {
       <span className="text-xs text-[#4d565e]">{label}</span>
       <span className="text-sm font-semibold text-[#e6edf3] tabular-nums font-mono">{value}</span>
     </div>
+  );
+}
+
+function WsIndicator({ status }: { status: WsStatus }) {
+  if (status === 'connected') {
+    return (
+      <>
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+        </span>
+        <span className="text-xs text-[#7d8590]">live · websocket</span>
+      </>
+    );
+  }
+  if (status === 'connecting') {
+    return (
+      <>
+        <span className="relative flex h-2 w-2">
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4d565e] animate-pulse" />
+        </span>
+        <span className="text-xs text-[#7d8590]">connecting…</span>
+      </>
+    );
+  }
+  return (
+    <>
+      <span className="relative flex h-2 w-2">
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+      </span>
+      <span className="text-xs text-[#7d8590]">disconnected · data may be stale</span>
+    </>
   );
 }

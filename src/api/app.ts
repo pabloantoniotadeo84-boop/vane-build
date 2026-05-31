@@ -15,6 +15,7 @@ import type { DelegationInfo, KeyPair } from '../crypto/index.js';
 import { Store } from '../db/store.js';
 import { issuePassport, verifyPassport, PASSPORT_TTL_DEFAULT } from '../passport/index.js';
 import type { AttestationReceipt } from '../passport/index.js';
+import { broadcast } from './ws.js';
 import type { IncomingMessage } from 'node:http';
 import type { TLSSocket, PeerCertificate } from 'node:tls';
 
@@ -731,6 +732,13 @@ app.post('/v1/attest', async (c) => {
 
   const record = tenant.chain.append(attestationPayload, tenant.keys.privateKey, delegation);
   await store.insertRecord(companyId, record);
+  const verifyResult = tenant.chain.verify(tenant.keys.publicKey);
+  broadcast({
+    type: 'record',
+    record,
+    valid: verifyResult.valid,
+    ...(verifyResult.valid ? { merkleRoot: verifyResult.merkleRoot } : { failedAtIndex: verifyResult.failedAtIndex }),
+  });
   return c.json(record, 201);
 });
 
