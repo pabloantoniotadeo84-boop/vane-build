@@ -10,15 +10,17 @@ import {
   extractDelegationChain,
   GRANT_TYPE,
   TOKEN_TYPE_JWT,
+  TRUST_DOMAIN,
+  deriveKeyId,
 } from '../crypto/index.js';
 import type { DelegationInfo, KeyPair } from '../crypto/index.js';
 import { Store } from '../db/store.js';
-import { issuePassport, verifyPassport, PASSPORT_TTL_DEFAULT } from '../passport/index.js';
+import { issuePassport, verifyPassport, PASSPORT_TTL_DEFAULT, PASSPORT_AUDIENCE } from '../passport/index.js';
 import type { AttestationReceipt } from '../passport/index.js';
 import { broadcast } from './ws.js';
 import type { IncomingMessage } from 'node:http';
 import type { TLSSocket, PeerCertificate } from 'node:tls';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createPublicKey, createHash } from 'node:crypto';
 import { logger } from '../logger.js';
 import { captureException } from '../sentry.js';
 import { rateLimitMiddleware } from './rate-limit.js';
@@ -95,6 +97,8 @@ app.use('*', rateLimitMiddleware());
 app.use('/v1/*', async (c, next) => {
   const isPublic =
     (c.req.method === 'GET'  && c.req.path === '/v1/health') ||
+    (c.req.method === 'GET'  && c.req.path === '/v1/ca/public-key') ||
+    (c.req.method === 'GET'  && c.req.path === '/v1/ca/well-known') ||
     (c.req.method === 'POST' && c.req.path === '/v1/companies') ||
     (c.req.method === 'POST' && c.req.path === '/v1/setup') ||
     (c.req.method === 'POST' && c.req.path === '/v1/recover-key') ||
@@ -800,6 +804,138 @@ app.get('/v1/proof/:index', (c) => {
   } catch (err) {
     return c.json({ error: (err as Error).message }, 404);
   }
+});
+
+// ── CA public-key & discovery ─────────────────────────────────────────────────
+
+// Convert an Ed25519 SPKI PEM to a JWK object with Counsel-standard fields.
+function pemToJwk(publicKeyPem: string, kid: string): Record<string, unknown> {
+  const raw = createPublicKey(publicKeyPem).export({ format: 'jwk' }) as Record<string, unknown>;
+  return { ...raw, kid, alg: 'EdDSA', use: 'sig' };
+}
+
+// SHA-256 of the SPKI DER, formatted as "SHA256:<base64url>" (SSH-style).
+function pemFingerprint(publicKeyPem: string): string {
+  const der = createPublicKey(publicKeyPem).export({ type: 'spki', format: 'der' }) as Buffer;
+  const b64 = createHash('sha256').update(der).digest('base64').replace(/=+$/, '');
+  return `SHA256:${b64}`;
+}
+
+/**
+ * GET /v1/ca/public-key?companyId=<id>
+ *
+ * Returns the company's CA public key in three formats:
+ *   - pem        — SPKI PEM (copy-paste ready)
+ *   - jwk        — RFC 7517 JSON Web Key (include in your JWKS endpoint)
+ *   - fingerprint— SHA-256 of the SPKI DER, base64-encoded (SSH-style)
+ *
+ * No authentication required. Intended to be cached and fetched on startup
+ * by verifiers that need to validate passports offline.
+ */
+app.get('/v1/ca/public-key', async (c) => {
+  const companyId = c.req.query('companyId');
+  if (!companyId) {
+    return c.json({ error: 'Missing required query parameter: companyId' }, 400);
+  }
+
+  const company = await store.getCompany(companyId);
+  if (!company) return c.json({ error: `Company not found: ${companyId}` }, 404);
+
+  if (!tenants.has(companyId)) await initTenant(companyId);
+  const tenant = tenants.get(companyId)!;
+
+  const kid = deriveKeyId(tenant.keys.publicKey);
+  const jwk = pemToJwk(tenant.keys.publicKey, kid);
+  const fingerprint = pemFingerprint(tenant.keys.publicKey);
+
+  c.header('Cache-Control', 'public, max-age=3600');
+  return c.json({
+    companyId,
+    spiffeId: company.spiffeId,
+    kid,
+    pem: tenant.keys.publicKey,
+    jwk,
+    fingerprint,
+    // Convenience JWKS-compatible wrapper so this URL can be used directly
+    // as a jwks_uri — verifiers only need to look at keys[0].
+    keys: [jwk],
+  });
+});
+
+/**
+ * GET /v1/ca/well-known?companyId=<id>
+ *
+ * OpenID Connect-style discovery document for the company's CA.
+ * Describes the cryptographic configuration, key location, and
+ * passport format expected by verifiers.
+ *
+ * Verifiers should fetch this once, cache it, and use jwks_uri
+ * to obtain the current key set for offline passport verification.
+ *
+ * No authentication required.
+ */
+app.get('/v1/ca/well-known', async (c) => {
+  const companyId = c.req.query('companyId');
+  if (!companyId) {
+    return c.json({ error: 'Missing required query parameter: companyId' }, 400);
+  }
+
+  const company = await store.getCompany(companyId);
+  if (!company) return c.json({ error: `Company not found: ${companyId}` }, 404);
+
+  if (!tenants.has(companyId)) await initTenant(companyId);
+  const tenant = tenants.get(companyId)!;
+
+  const kid = deriveKeyId(tenant.keys.publicKey);
+  const jwk = pemToJwk(tenant.keys.publicKey, kid);
+  const fingerprint = pemFingerprint(tenant.keys.publicKey);
+
+  // Construct the base URL from the request so the document is self-describing.
+  // COUNSEL_BASE_URL env var overrides inference from Host + X-Forwarded-Proto.
+  const proto = process.env.COUNSEL_BASE_URL
+    ? ''
+    : (c.req.header('X-Forwarded-Proto') ?? 'http');
+  const host = c.req.header('Host') ?? 'localhost:3000';
+  const baseUrl = process.env.COUNSEL_BASE_URL ?? `${proto}://${host}`;
+  const jwksUri = `${baseUrl}/v1/ca/public-key?companyId=${encodeURIComponent(companyId)}`;
+
+  c.header('Cache-Control', 'public, max-age=3600');
+  return c.json({
+    // OIDC-compatible fields
+    issuer: `spiffe://${TRUST_DOMAIN}/ca`,
+    jwks_uri: jwksUri,
+    id_token_signing_alg_values_supported: ['EdDSA'],
+    response_types_supported: ['token'],
+    token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic'],
+
+    // Counsel-specific identity context
+    company_id: companyId,
+    company_spiffe_id: company.spiffeId,
+    trust_domain: TRUST_DOMAIN,
+
+    // Cryptographic configuration
+    algorithms_supported: ['EdDSA'],
+    key_type: 'OKP',
+    curve: 'Ed25519',
+    kid,
+    fingerprint,
+
+    // Inline JWKS for verifiers that don't want a second round-trip
+    keys: [jwk],
+
+    // Counsel Agent Passport (CAP) format specification
+    passport_format: {
+      version: 1,
+      token_type: 'CAP+JWT',
+      audience: PASSPORT_AUDIENCE,
+      claims_namespace: 'counsel',
+      scope_format: 'category:name',
+      scope_wildcards_supported: true,
+    },
+
+    // SDK and server metadata
+    counsel_version: '0.1.0',
+  });
 });
 
 // ── Unhandled error handler ───────────────────────────────────────────────────
