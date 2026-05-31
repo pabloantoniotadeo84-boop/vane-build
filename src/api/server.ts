@@ -4,6 +4,10 @@ import { readFileSync } from 'node:fs';
 import { app } from './app.js';
 import { attachWebSocketServer } from './ws.js';
 import type { Server } from 'node:http';
+import { logger } from '../logger.js';
+import { initSentry } from '../sentry.js';
+
+initSentry();
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -33,10 +37,7 @@ if (mTlsCaCert) {
   const serverKey  = process.env.COUNSEL_TLS_KEY;
 
   if (!serverCert || !serverKey) {
-    console.error(
-      '[COUNSEL] ERROR: COUNSEL_MTLS_CA_CERT is set but COUNSEL_TLS_CERT and' +
-      ' COUNSEL_TLS_KEY are also required. Exiting.',
-    );
+    logger.fatal('COUNSEL_MTLS_CA_CERT is set but COUNSEL_TLS_CERT and COUNSEL_TLS_KEY are also required');
     process.exit(1);
   }
 
@@ -56,12 +57,26 @@ if (mTlsCaCert) {
 
   attachWebSocketServer(server as unknown as Server);
   server.listen(PORT, () => {
-    console.log(`Counsel API  →  https://localhost:${PORT} (mTLS enabled)`);
+    logger.info({ port: PORT, tls: 'mtls' }, 'Counsel API listening');
   });
+  registerShutdown(server as unknown as Server);
 } else {
   const server = createAdaptorServer({ fetch: app.fetch });
   attachWebSocketServer(server as unknown as Server);
   server.listen(PORT, () => {
-    console.log(`Counsel API  →  http://localhost:${PORT}`);
+    logger.info({ port: PORT, tls: false }, 'Counsel API listening');
   });
+  registerShutdown(server as unknown as Server);
+}
+
+function registerShutdown(server: Server): void {
+  function shutdown(signal: string): void {
+    logger.info({ signal }, 'Received shutdown signal, closing server');
+    server.close(() => {
+      logger.info('Server closed, exiting');
+      process.exit(0);
+    });
+  }
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT',  () => shutdown('SIGINT'));
 }

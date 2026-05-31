@@ -18,6 +18,9 @@ import type { AttestationReceipt } from '../passport/index.js';
 import { broadcast } from './ws.js';
 import type { IncomingMessage } from 'node:http';
 import type { TLSSocket, PeerCertificate } from 'node:tls';
+import { randomUUID } from 'node:crypto';
+import { logger } from '../logger.js';
+import { captureException } from '../sentry.js';
 
 // ── Per-company in-memory state ───────────────────────────────────────────────
 
@@ -27,7 +30,9 @@ interface Tenant {
 }
 
 const store = new Store();
+logger.info('Connecting to database');
 await store.init();
+logger.info('Database ready');
 
 const tenants = new Map<string, Tenant>();
 
@@ -45,15 +50,36 @@ async function initTenant(companyId: string): Promise<Tenant> {
 }
 
 // Hydrate all existing tenants from the DB on startup.
-for (const company of await store.listCompanies()) {
+const companies = await store.listCompanies();
+logger.info({ count: companies.length }, 'Hydrating tenants');
+for (const company of companies) {
   await initTenant(company.companyId);
 }
+logger.info({ count: tenants.size }, 'Tenants ready');
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
-type Env = { Variables: { companyId: string } };
+type Env = { Variables: { companyId: string; requestId: string } };
 
 export const app = new Hono<Env>();
+
+// ── Request ID + structured logging ──────────────────────────────────────────
+
+app.use('*', async (c, next) => {
+  const requestId = c.req.header('X-Request-ID') ?? randomUUID();
+  c.set('requestId', requestId);
+  c.header('X-Request-ID', requestId);
+  const start = Date.now();
+  await next();
+  logger.info({
+    requestId,
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    durationMs: Date.now() - start,
+    companyId: c.get('companyId') ?? null,
+  }, 'request');
+});
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
 // Resolution order:
@@ -769,4 +795,13 @@ app.get('/v1/proof/:index', (c) => {
   } catch (err) {
     return c.json({ error: (err as Error).message }, 404);
   }
+});
+
+// ── Unhandled error handler ───────────────────────────────────────────────────
+
+app.onError((err, c) => {
+  const requestId = c.get('requestId') ?? null;
+  logger.error({ err, requestId }, 'Unhandled error');
+  captureException(err);
+  return c.json({ error: 'Internal Server Error' }, 500);
 });

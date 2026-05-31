@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { randomBytes, createCipheriv, createDecipheriv, createHash, timingSafeEqual } from 'node:crypto';
 import type { AttestationRecord, KeyPair, AgentRegistration } from '../crypto/types.js';
+import { logger } from '../logger.js';
 
 // ── Envelope encryption ───────────────────────────────────────────────────────
 
@@ -13,11 +14,7 @@ function deriveMasterKey(): Buffer | null {
 const MASTER_KEY: Buffer | null = deriveMasterKey();
 
 if (!MASTER_KEY) {
-  console.warn(
-    '\n[COUNSEL] ⚠️  WARNING: COUNSEL_MASTER_KEY is not set.' +
-    ' Private keys are stored in plaintext in the database.' +
-    ' Set this variable to enable AES-256-GCM envelope encryption.\n',
-  );
+  logger.warn('COUNSEL_MASTER_KEY is not set — private keys are stored in plaintext in the database');
 }
 
 // Stored format: "enc:v1:<iv_hex>:<tag_hex>:<ciphertext_hex>"
