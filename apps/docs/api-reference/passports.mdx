@@ -154,7 +154,7 @@ curl -s -X POST http://localhost:3000/v1/agents/researcher-1/passport/rotate \
 
 Server-side passport verification. Checks the passport signature, expiry, audience, claims structure, and revocation status. Optionally checks whether the passport grants a specific tool scope. Requires authentication.
 
-For most production verifiers, use the `@vane/mcp-middleware` package for **offline** verification without a network call.
+For most production verifiers, use the `@vane.build/mcp-middleware` package for **offline** verification without a network call.
 
 ### Request body
 

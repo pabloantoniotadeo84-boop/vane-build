@@ -1,10 +1,10 @@
 /**
- * @counsel/openai-agents
+ * @vane.build/openai-agents
  *
  * Attests every tool call made by an OpenAI Agents SDK agent to Counsel.
  *
  * @example
- * import { createCounselHooks } from '@counsel/openai-agents';
+ * import { createCounselHooks } from '@vane.build/openai-agents';
  * const hooks = createCounselHooks({ baseUrl, apiKey, agentId });
  * await run(agent, 'Review this contract.', { hooks });
  */

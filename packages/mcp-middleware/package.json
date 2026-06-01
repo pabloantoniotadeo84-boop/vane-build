@@ -1,5 +1,5 @@
 {
-  "name": "@counsel/mcp-middleware",
+  "name": "@vane.build/mcp-middleware",
   "version": "0.1.0",
   "description": "Drop-in MCP middleware for offline Counsel Agent Passport verification",
   "type": "module",

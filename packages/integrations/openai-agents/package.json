@@ -1,5 +1,5 @@
 {
-  "name": "@counsel/openai-agents",
+  "name": "@vane.build/openai-agents",
   "version": "0.1.0",
   "description": "OpenAI Agents SDK hooks that attest every tool call to Counsel",
   "type": "module",

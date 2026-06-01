@@ -1,19 +1,19 @@
 ---
-title: "@vane/mcp-middleware"
+title: "@vane.build/mcp-middleware"
 description: "Drop-in passport verification for any MCP server. Zero network calls — offline only."
 ---
 
 ## Installation
 
 ```bash
-npm install @vane/mcp-middleware
+npm install @vane.build/mcp-middleware
 ```
 
 Requires Node.js 22+. ESM only. **Zero dependencies** — all verification is done with `node:crypto`.
 
 ## Overview
 
-`@vane/mcp-middleware` verifies Vane Agent Passports (CAP+JWT) offline using the CA public key. It never calls the Vane server during verification — the CA public key is the only thing needed.
+`@vane.build/mcp-middleware` verifies Vane Agent Passports (CAP+JWT) offline using the CA public key. It never calls the Vane server during verification — the CA public key is the only thing needed.
 
 Four adapters are provided for different server frameworks:
 
@@ -29,7 +29,7 @@ Four adapters are provided for different server frameworks:
 All adapters are created from a single factory. The only required option is the CA public key.
 
 ```typescript
-import { createVaneMiddleware } from '@vane/mcp-middleware';
+import { createVaneMiddleware } from '@vane.build/mcp-middleware';
 
 const vane = createVaneMiddleware({
   counselPublicKey: process.env.COUNSEL_CA_PUBLIC_KEY!, // Ed25519 SPKI PEM
@@ -69,7 +69,7 @@ app.post('/mcp', async (c) => {
 **Reading the receipt in the downstream handler:**
 
 ```typescript
-import { decodeReceipt } from '@vane/mcp-middleware';
+import { decodeReceipt } from '@vane.build/mcp-middleware';
 
 const encoded = modifiedReq.headers.get('x-vane-receipt');
 const receipt = decodeReceipt(encoded!);
@@ -99,7 +99,7 @@ Express/Connect-compatible middleware. Assumes `req.body` has already been parse
 
 ```typescript
 import express from 'express';
-import { createVaneMiddleware } from '@vane/mcp-middleware';
+import { createVaneMiddleware } from '@vane.build/mcp-middleware';
 
 const app = express();
 const vane = createVaneMiddleware({ counselPublicKey: process.env.COUNSEL_CA_KEY! });
@@ -125,7 +125,7 @@ Wrapper for MCP SDK `CallToolRequest` handlers. The passport must be passed in `
 ```typescript
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { createVaneMiddleware } from '@vane/mcp-middleware';
+import { createVaneMiddleware } from '@vane.build/mcp-middleware';
 
 const vane = createVaneMiddleware({ counselPublicKey: process.env.COUNSEL_CA_KEY! });
 const server = new Server({ name: 'my-mcp-server', version: '1.0.0' }, { capabilities: { tools: {} } });
@@ -194,7 +194,7 @@ type PassportVerificationResult =
 Decodes the base64url-encoded `AttestationReceipt` from the `x-vane-receipt` header.
 
 ```typescript
-import { decodeReceipt, RECEIPT_HEADER } from '@vane/mcp-middleware';
+import { decodeReceipt, RECEIPT_HEADER } from '@vane.build/mcp-middleware';
 
 const encoded = req.headers.get(RECEIPT_HEADER); // 'x-vane-receipt'
 const receipt = decodeReceipt(encoded!);
@@ -207,7 +207,7 @@ const receipt = decodeReceipt(encoded!);
 Thrown by `mcpHandler()` on verification failure.
 
 ```typescript
-import { McpAuthError } from '@vane/mcp-middleware';
+import { McpAuthError } from '@vane.build/mcp-middleware';
 
 try {
   // ...
@@ -239,7 +239,7 @@ interface AttestationReceipt {
   passportIssuedAt: string;  // ISO 8601
   passportExpiresAt: string; // ISO 8601
   verifiedAt: string;        // ISO 8601 — when the receipt was produced
-  verifier: string;          // "@vane/mcp-middleware@0.1.0"
+  verifier: string;          // "@vane.build/mcp-middleware@0.1.0"
 }
 ```
 

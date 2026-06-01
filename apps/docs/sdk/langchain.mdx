@@ -1,12 +1,12 @@
 ---
 title: "LangChain"
-description: "@vane/langchain — attest every LLM call and tool invocation automatically."
+description: "@vane.build/langchain — attest every LLM call and tool invocation automatically."
 ---
 
 ## Installation
 
 ```bash
-npm install @vane/langchain
+npm install @vane.build/langchain
 ```
 
 Peer dependency: `@langchain/core >= 0.2.0`.
@@ -14,7 +14,7 @@ Peer dependency: `@langchain/core >= 0.2.0`.
 ## Three-line setup
 
 ```typescript
-import { VaneCallbackHandler } from '@vane/langchain';
+import { VaneCallbackHandler } from '@vane.build/langchain';
 import { ChatOpenAI } from '@langchain/openai';
 
 const handler = new VaneCallbackHandler({
@@ -90,7 +90,7 @@ import { setGlobalCallbackManager } from '@langchain/core/callbacks/manager';
 ## Example — full agent
 
 ```typescript
-import { VaneCallbackHandler } from '@vane/langchain';
+import { VaneCallbackHandler } from '@vane.build/langchain';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { ChatOpenAI } from '@langchain/openai';
 import { tool } from '@langchain/core/tools';

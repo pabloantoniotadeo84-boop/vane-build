@@ -135,7 +135,7 @@ Verification is performed in this order. A failure at any step terminates verifi
 | `SCOPE_DENIED` | Requested tool scope not covered by any granted scope. |
 | `PASSPORT_REVOKED` | Server-side check found the `jti` in the revocation list. |
 
-`PASSPORT_REVOKED` is only returned by server-side verification (`POST /v1/passport/verify`). Offline verification via `@vane/mcp-middleware` does not check revocation — use `GET /v1/ocsp/:jti` for that.
+`PASSPORT_REVOKED` is only returned by server-side verification (`POST /v1/passport/verify`). Offline verification via `@vane.build/mcp-middleware` does not check revocation — use `GET /v1/ocsp/:jti` for that.
 
 ## `AttestationReceipt`
 
@@ -157,6 +157,6 @@ interface AttestationReceipt {
   passportIssuedAt: string;  // ISO 8601
   passportExpiresAt: string; // ISO 8601
   verifiedAt: string;        // ISO 8601 — when this receipt was produced
-  verifier: string;          // "vane-server/0.1.0" or "@vane/mcp-middleware@0.1.0"
+  verifier: string;          // "vane-server/0.1.0" or "@vane.build/mcp-middleware@0.1.0"
 }
 ```

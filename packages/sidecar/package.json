@@ -1,5 +1,5 @@
 {
-  "name": "@counsel/sidecar",
+  "name": "@vane.build/sidecar",
   "version": "0.1.0",
   "description": "Zero-config sidecar proxy that attaches Counsel passports to outbound calls and verifies inbound credentials",
   "type": "module",

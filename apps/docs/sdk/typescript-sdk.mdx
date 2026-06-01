@@ -1,12 +1,12 @@
 ---
-title: "@vane/sdk"
+title: "@vane.build/sdk"
 description: "TypeScript client for the Vane attestation API."
 ---
 
 ## Installation
 
 ```bash
-npm install @vane/sdk
+npm install @vane.build/sdk
 ```
 
 Requires Node.js 18+. Ships both ESM and CJS builds.
@@ -20,7 +20,7 @@ The `VaneClient` class wraps the Vane API. It handles authentication, serializat
 Two signatures are supported:
 
 ```typescript
-import { VaneClient } from '@vane/sdk';
+import { VaneClient } from '@vane.build/sdk';
 
 // Object form (recommended)
 const client = new VaneClient({
@@ -117,7 +117,7 @@ const { record, proof, root } = await client.getProof(0);
 
 ## TypeScript types
 
-All types are exported from `@vane/sdk`:
+All types are exported from `@vane.build/sdk`:
 
 ```typescript
 import type {
@@ -127,7 +127,7 @@ import type {
   ActClaim,
   ProofNode,
   InclusionProof,
-} from '@vane/sdk';
+} from '@vane.build/sdk';
 ```
 
 ### `AttestationRecord`
@@ -183,7 +183,7 @@ interface ProofNode {
 ## Complete example
 
 ```typescript
-import { VaneClient } from '@vane/sdk';
+import { VaneClient } from '@vane.build/sdk';
 
 const client = new VaneClient({
   baseUrl: process.env.COUNSEL_URL!,

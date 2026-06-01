@@ -43,7 +43,7 @@ export interface AttestationReceipt {
   passportIssuedAt: string;  // ISO 8601
   passportExpiresAt: string; // ISO 8601
   verifiedAt: string;        // ISO 8601
-  verifier: string;          // "@counsel/mcp-middleware@<version>"
+  verifier: string;          // "@vane.build/mcp-middleware@<version>"
 }
 
 // ── Verification result ───────────────────────────────────────────────────────

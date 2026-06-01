@@ -1,5 +1,5 @@
 {
-  "name": "@counsel/langchain",
+  "name": "@vane.build/langchain",
   "version": "0.1.0",
   "description": "LangChain callback handler that attests every tool call and LLM call to Counsel",
   "type": "module",

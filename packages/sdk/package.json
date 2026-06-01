@@ -1,5 +1,5 @@
 {
-  "name": "@counsel/sdk",
+  "name": "@vane.build/sdk",
   "version": "0.1.0",
   "description": "TypeScript SDK for the Counsel attestation API",
   "main": "./dist/cjs/index.js",

@@ -461,7 +461,7 @@ round 2: sub-agent-B presents the round-1 token to act on behalf of company
 - **Delegation** — RFC 8693 token exchange (`/v1/token/exchange`) and simplified delegation issuance (`/v1/token-exchange`); delegation chain preservation across multi-hop exchanges; delegation bound cryptographically to attestation records
 - **Persistence** — SQLite via `node:sqlite` DatabaseSync; schema migration for backward compatibility with older DB files
 - **HTTP API** — all endpoints described above, built on Hono
-- **TypeScript SDK** — `@counsel/sdk` in `packages/sdk`; ships both CJS and ESM builds; `CounselClient` with `attest()` and `getProof()` methods
+- **TypeScript SDK** — `@vane.build/sdk` in `packages/sdk`; ships both CJS and ESM builds; `CounselClient` with `attest()` and `getProof()` methods
 
 ---
 

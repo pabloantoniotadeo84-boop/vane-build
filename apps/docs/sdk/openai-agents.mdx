@@ -1,12 +1,12 @@
 ---
 title: "OpenAI Agents SDK"
-description: "@vane/openai-agents — attest every tool call in your OpenAI Agents SDK agent."
+description: "@vane.build/openai-agents — attest every tool call in your OpenAI Agents SDK agent."
 ---
 
 ## Installation
 
 ```bash
-npm install @vane/openai-agents
+npm install @vane.build/openai-agents
 ```
 
 Peer dependency: `@openai/agents >= 0.0.1`.
@@ -14,7 +14,7 @@ Peer dependency: `@openai/agents >= 0.0.1`.
 ## Three-line setup
 
 ```typescript
-import { createVaneHooks } from '@vane/openai-agents';
+import { createVaneHooks } from '@vane.build/openai-agents';
 import { run } from '@openai/agents';
 
 const hooks = createVaneHooks({
@@ -73,7 +73,7 @@ The hook signatures are a structural match for `@openai/agents` `RunHooks`. If t
 
 ```typescript
 import { Agent, run, tool } from '@openai/agents';
-import { createVaneHooks } from '@vane/openai-agents';
+import { createVaneHooks } from '@vane.build/openai-agents';
 import { z } from 'zod';
 
 const hooks = createVaneHooks({

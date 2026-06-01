@@ -42,7 +42,7 @@ curl -s -X POST \
 After this:
 - `POST /v1/passport/verify` returns `{ "valid": false, "code": "PASSPORT_REVOKED" }`.
 - `GET /v1/ocsp/:jti` returns `{ "status": "revoked" }`.
-- Offline verifiers (`@vane/mcp-middleware`) still accept the passport until its `exp`.
+- Offline verifiers (`@vane.build/mcp-middleware`) still accept the passport until its `exp`.
 
 ### Planned rotation
 
@@ -103,7 +103,7 @@ If you need immediate revocation, call `POST /v1/passport/verify` — it always 
 ## Integrating OCSP in a verifier
 
 ```typescript
-import { createVaneMiddleware, decodeReceipt } from '@vane/mcp-middleware';
+import { createVaneMiddleware, decodeReceipt } from '@vane.build/mcp-middleware';
 
 const vane = createVaneMiddleware({ counselPublicKey: process.env.COUNSEL_CA_KEY! });
 const ocspCache = new Map<string, { status: string; expiresAt: number }>();

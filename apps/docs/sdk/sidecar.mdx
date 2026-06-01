@@ -1,6 +1,6 @@
 ---
 title: "Sidecar Proxy"
-description: "@vane/sidecar — zero-code attestation for any agent via HTTP proxy."
+description: "@vane.build/sidecar — zero-code attestation for any agent via HTTP proxy."
 ---
 
 The Vane sidecar is a local HTTP proxy that runs alongside any AI agent process. It intercepts outbound HTTP/HTTPS calls, attaches the agent's Vane passport, and attests every call — all without changing a line of agent code.
@@ -42,7 +42,7 @@ COUNSEL_API_URL=https://vane.build \
 COUNSEL_API_KEY=counsel_a1b2c3d4... \
 COUNSEL_AGENT_ID=researcher-1 \
 COUNSEL_COMPANY_ID=acme \
-npx @vane/sidecar
+npx @vane.build/sidecar
 ```
 
 On startup, the sidecar:
@@ -123,7 +123,7 @@ COUNSEL_API_KEY=counsel_a1b2c3d4... \
 COUNSEL_AGENT_ID=researcher-1 \
 COUNSEL_COMPANY_ID=acme \
 SIDECAR_AGENT_TARGET=http://localhost:3001 \
-npx @vane/sidecar
+npx @vane.build/sidecar
 ```
 
 Callers hit `http://127.0.0.1:8080/...` — the sidecar verifies the passport locally (no Vane server call) and forwards to `http://localhost:3001/...`.

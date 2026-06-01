@@ -7,7 +7,7 @@ import type {
   VerifyOptions,
 } from './types.js';
 
-const PACKAGE_VERSION = '@counsel/mcp-middleware@0.1.0';
+const PACKAGE_VERSION = '@vane.build/mcp-middleware@0.1.0';
 
 // Header name used to pass the attestation receipt to downstream handlers.
 // Value is a base64url-encoded JSON AttestationReceipt.
