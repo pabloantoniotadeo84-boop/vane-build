@@ -1,0 +1,125 @@
+---
+title: "Railway Deployment"
+description: "Deploy Vane to Railway in under 5 minutes."
+---
+
+## Prerequisites
+
+- A [Railway](https://railway.app) account
+- The [Railway CLI](https://docs.railway.app/develop/cli) installed
+- Your Vane repository on GitHub (or deploy directly from the CLI)
+
+## Step 1: Create a new Railway project
+
+```bash
+railway login
+railway init
+# Select "Empty Project"
+```
+
+## Step 2: Add a PostgreSQL database
+
+From the Railway dashboard: **New Service → Database → PostgreSQL**. Railway provisions the database and sets `DATABASE_URL` in the same project environment automatically.
+
+Or via CLI:
+
+```bash
+railway add --plugin postgresql
+```
+
+## Step 3: Set environment variables
+
+Required:
+
+```bash
+railway variables set COUNSEL_MASTER_KEY=$(openssl rand -hex 32)
+```
+
+Optional but recommended:
+
+```bash
+railway variables set LOG_LEVEL=info
+railway variables set SPIFFE_TRUST_DOMAIN=vane.build
+railway variables set COUNSEL_BASE_URL=https://$(railway domain)
+```
+
+If you have a Sentry project:
+
+```bash
+railway variables set SENTRY_DSN=https://key@o1234.ingest.sentry.io/5678
+```
+
+## Step 4: Deploy
+
+From your local Vane repository:
+
+```bash
+railway up
+```
+
+Railway detects the `package.json` `start` script and runs `node dist/api/server.js`. You need to run the TypeScript build first:
+
+```bash
+npm run build
+railway up
+```
+
+Or configure Railway to build and start:
+
+In `railway.toml` (create at repo root):
+
+```toml
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm ci && npm run build"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/v1/health"
+healthcheckTimeout = 10
+```
+
+## Step 5: Verify
+
+```bash
+RAILWAY_URL=$(railway domain)
+
+# Health check
+curl https://$RAILWAY_URL/v1/health
+# { "status": "ok" }
+
+# Register your first company
+curl -s -X POST https://$RAILWAY_URL/v1/companies \
+  -H "Content-Type: application/json" \
+  -d '{ "companyId": "acme" }' | jq .
+```
+
+## Environment variable reference
+
+Railway sets `DATABASE_URL` automatically when a PostgreSQL plugin is added. All other variables must be set manually.
+
+| Variable | Source | Notes |
+|----------|--------|-------|
+| `DATABASE_URL` | Railway (automatic) | Set when PostgreSQL plugin is added. |
+| `PORT` | Railway (automatic) | Railway injects `PORT` automatically — do not set this manually. |
+| `COUNSEL_MASTER_KEY` | You | Generate with `openssl rand -hex 32`. |
+| `COUNSEL_BASE_URL` | You | Set to your Railway domain, e.g., `https://my-vane.up.railway.app`. |
+| `SPIFFE_TRUST_DOMAIN` | You | Optional. Defaults to `vane.local`. |
+| `LOG_LEVEL` | You | Optional. Defaults to `info`. |
+| `SENTRY_DSN` | You | Optional. |
+
+## Custom domains
+
+In the Railway dashboard: **Settings → Domains → Add Domain**. After adding your custom domain, update `COUNSEL_BASE_URL`:
+
+```bash
+railway variables set COUNSEL_BASE_URL=https://vane.yourdomain.com
+```
+
+## Scaling
+
+Railway scales horizontally. If you run multiple replicas, note that:
+
+- Rate limiting is per-process (in-memory). With multiple replicas, the effective limit is `N × per-process limit`. Add a shared rate limiter (Redis + `ioredis-rate-limiter`) for cluster-wide limits.
+- The in-memory attestation chain per tenant is fully loaded on each replica startup. This is fine for development but becomes expensive at scale — each replica holds the full chain in memory.
+- `DATABASE_URL` is shared across replicas. PostgreSQL handles concurrent writes correctly.

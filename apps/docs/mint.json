@@ -1,0 +1,89 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Vane",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#6366F1",
+    "light": "#818CF8",
+    "dark": "#4338CA",
+    "anchors": {
+      "from": "#6366F1",
+      "to": "#818CF8"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/vane-build"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "introduction",
+        "quickstart",
+        "concepts"
+      ]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/authentication",
+        "api-reference/rate-limits",
+        "api-reference/health",
+        "api-reference/companies",
+        "api-reference/keys",
+        "api-reference/oauth",
+        "api-reference/agents",
+        "api-reference/passports",
+        "api-reference/revocation",
+        "api-reference/ocsp",
+        "api-reference/attestation",
+        "api-reference/chain",
+        "api-reference/delegation",
+        "api-reference/ca",
+        "api-reference/websocket"
+      ]
+    },
+    {
+      "group": "SDK & Integrations",
+      "pages": [
+        "sdk/typescript-sdk",
+        "sdk/mcp-middleware",
+        "sdk/langchain",
+        "sdk/crewai",
+        "sdk/openai-agents",
+        "sdk/sidecar"
+      ]
+    },
+    {
+      "group": "Security",
+      "pages": [
+        "security/ed25519",
+        "security/merkle-tree",
+        "security/passport-format",
+        "security/delegation-chains",
+        "security/envelope-encryption",
+        "security/revocation",
+        "security/mtls"
+      ]
+    },
+    {
+      "group": "Deployment",
+      "pages": [
+        "deployment/environment-variables",
+        "deployment/postgresql",
+        "deployment/railway",
+        "deployment/sentry"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/vane-build"
+  }
+}

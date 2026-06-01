@@ -1,0 +1,28 @@
+---
+title: "Health"
+description: "GET /v1/health — liveness check."
+---
+
+## `GET /v1/health`
+
+Returns 200 if the server is running. No authentication required. Use this for load balancer health checks and readiness probes.
+
+### Response `200`
+
+```json
+{ "status": "ok" }
+```
+
+### Example
+
+```bash
+curl http://localhost:3000/v1/health
+```
+
+```json
+{ "status": "ok" }
+```
+
+### Notes
+
+This endpoint does not check database connectivity. It returns 200 as long as the Node.js process is alive and the HTTP server is accepting connections. For a deeper health check that exercises the database, call `GET /v1/chain` (authenticated) and verify the response.

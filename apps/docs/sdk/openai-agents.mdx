@@ -1,0 +1,124 @@
+---
+title: "OpenAI Agents SDK"
+description: "@vane/openai-agents — attest every tool call in your OpenAI Agents SDK agent."
+---
+
+## Installation
+
+```bash
+npm install @vane/openai-agents
+```
+
+Peer dependency: `@openai/agents >= 0.0.1`.
+
+## Three-line setup
+
+```typescript
+import { createVaneHooks } from '@vane/openai-agents';
+import { run } from '@openai/agents';
+
+const hooks = createVaneHooks({
+  baseUrl: process.env.COUNSEL_URL!,
+  apiKey: process.env.COUNSEL_API_KEY!,
+  agentId: 'researcher-1',
+});
+
+await run(agent, 'Review this contract.', { hooks });
+```
+
+## `createVaneHooks()`
+
+Returns a `RunHooks` object compatible with the OpenAI Agents SDK `run()` function.
+
+### Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `baseUrl` | `string` | Yes | Base URL of your Vane instance. |
+| `apiKey` | `string` | Yes | Company-scoped API key. |
+| `agentId` | `string` | Yes | Agent identifier that appears on every record. |
+| `companyId` | `string` | No | Company ID embedded in attestation payloads. If omitted, the API key's company is used. |
+
+### What gets attested
+
+| Hook | `actionType` | Payload fields |
+|------|-------------|----------------|
+| `onToolStart` | *(deferred — tracked internally)* | — |
+| `onToolEnd` | `"tool-call"` | `agent`, `tool`, `output`, `durationMs` |
+| `onAgentStart` | `"agent-start"` | `agent` |
+| `onAgentEnd` | `"agent-end"` | `agent`, `output` |
+| `onHandoff` | `"agent-handoff"` | `from`, `to` |
+
+Tool duration is tracked by pairing `onToolStart` and `onToolEnd` using a `"agentName::toolName"` key. This is sufficient for agents that don't call the same tool twice concurrently in a single turn.
+
+### Error handling
+
+Attestation calls are fire-and-forget. Errors are logged to `console.error` and execution continues.
+
+## `VaneRunHooks` type
+
+```typescript
+interface VaneRunHooks {
+  onToolStart?: (context: object, agent: { name?: string }, tool: { name?: string }) => Promise<void>;
+  onToolEnd?: (context: object, agent: { name?: string }, tool: { name?: string }, result: string) => Promise<void>;
+  onAgentStart?: (context: object, agent: { name?: string }) => Promise<void>;
+  onAgentEnd?: (context: object, agent: { name?: string }, output: unknown) => Promise<void>;
+  onHandoff?: (context: object, agent: { name?: string }, targetAgent: { name?: string }) => Promise<void>;
+}
+```
+
+The hook signatures are a structural match for `@openai/agents` `RunHooks`. If the SDK changes its hook signatures, TypeScript will surface an error at the `run()` call site, not inside this package.
+
+## Full example
+
+```typescript
+import { Agent, run, tool } from '@openai/agents';
+import { createVaneHooks } from '@vane/openai-agents';
+import { z } from 'zod';
+
+const hooks = createVaneHooks({
+  baseUrl: process.env.COUNSEL_URL!,
+  apiKey: process.env.COUNSEL_API_KEY!,
+  agentId: 'contract-reviewer',
+  companyId: 'acme',
+});
+
+const searchTool = tool({
+  name: 'web_search',
+  description: 'Search the web',
+  parameters: z.object({ query: z.string() }),
+  execute: async ({ query }) => `Results for: ${query}`,
+});
+
+const agent = new Agent({
+  name: 'ContractReviewer',
+  instructions: 'You review contracts for compliance issues.',
+  tools: [searchTool],
+});
+
+const result = await run(agent, 'Find EU AI Act obligations for AI providers.', { hooks });
+console.log(result.finalOutput);
+```
+
+Every tool call, agent start, agent end, and handoff in this run will produce a signed record in Vane.
+
+## Multi-agent handoffs
+
+When agents hand off to each other, Vane records the handoff:
+
+```json
+{
+  "actionType": "agent-handoff",
+  "payload": {
+    "agentId": "contract-reviewer",
+    "companyId": "acme",
+    "actionType": "agent-handoff",
+    "payload": {
+      "from": "ContractReviewer",
+      "to": "ComplianceChecker"
+    }
+  }
+}
+```
+
+This gives you a complete picture of which agent did what, and which agents handed off to which others, all in the signed attestation chain.

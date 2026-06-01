@@ -1,0 +1,74 @@
+---
+title: "WebSocket"
+description: "Real-time attestation stream at ws://host/v1/ws."
+---
+
+## `GET /v1/ws`
+
+WebSocket endpoint for real-time attestation events. Every call to `POST /v1/attest` broadcasts a message to all connected clients immediately after the record is written and verified.
+
+The connection is unauthenticated at the transport level — all clients receive all attestation events for all companies. **Only connect from trusted, internal infrastructure.** In production, place the WebSocket endpoint behind a firewall or VPN.
+
+### Connection
+
+```javascript
+const ws = new WebSocket('ws://localhost:3000/v1/ws');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log(data);
+};
+```
+
+### Message format
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `"record"` | Always `"record"` for attestation events. |
+| `record` | `AttestationRecord` | The newly appended record. |
+| `valid` | `boolean` | Whether the full chain passed verification after this record was added. |
+| `merkleRoot` | `string` | Present when `valid` is `true`. The new Merkle root. |
+| `failedAtIndex` | `number` | Present when `valid` is `false`. The first record that failed verification. |
+
+### Example message
+
+```json
+{
+  "type": "record",
+  "record": {
+    "index": 7,
+    "timestamp": "2026-01-01T12:00:00.000Z",
+    "payload": {
+      "agentId": "researcher-1",
+      "companyId": "acme",
+      "actionType": "web-search",
+      "payload": { "query": "..." }
+    },
+    "hash": "f651a7c3...",
+    "signature": "vdv-nC4o..."
+  },
+  "valid": true,
+  "merkleRoot": "a3f9b2c1..."
+}
+```
+
+### Use case: real-time audit dashboard
+
+```typescript
+const ws = new WebSocket('ws://localhost:3000/v1/ws');
+
+ws.onopen = () => console.log('Connected to Vane attestation stream');
+
+ws.onmessage = (event) => {
+  const { type, record, valid, merkleRoot } = JSON.parse(event.data);
+  if (type === 'record') {
+    console.log(`[${record.index}] ${record.payload.actionType} by ${record.payload.agentId}`);
+    if (!valid) {
+      console.error('Chain integrity failure detected at index', record.index);
+    }
+  }
+};
+
+ws.onclose = () => console.log('Disconnected');
+ws.onerror = (err) => console.error('WebSocket error:', err);
+```

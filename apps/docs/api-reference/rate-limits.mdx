@@ -1,0 +1,45 @@
+---
+title: "Rate Limits"
+description: "Sliding window rate limits applied per API key or IP address."
+---
+
+## Limits
+
+Rate limiting uses a 60-second sliding window. The limit is applied per API key (when a Bearer token is present) or per IP address (for unauthenticated endpoints).
+
+| Tier | Limit | Applies to |
+|------|-------|-----------|
+| `sensitive` | 10 req/min | `POST /v1/setup`, `POST /v1/oauth/token` |
+| `attest` | 100 req/min | `POST /v1/attest` |
+| `standard` | 1000 req/min | Everything else |
+
+## Response headers
+
+Every response includes rate limit headers:
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 97
+X-RateLimit-Reset: 1751325660
+```
+
+When a request is rejected:
+
+```
+HTTP/1.1 429 Too Many Requests
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1751325660
+Retry-After: 42
+
+{ "error": "Too Many Requests" }
+```
+
+- `X-RateLimit-Limit` — the maximum number of requests in the window
+- `X-RateLimit-Remaining` — how many requests remain after this one
+- `X-RateLimit-Reset` — Unix timestamp when the oldest entry in the window expires
+- `Retry-After` — seconds until the oldest entry expires (only on 429)
+
+## Notes
+
+Rate limits are held in memory. A server restart resets all counters. In multi-instance deployments, limits are per-process — add a shared cache (Redis, Upstash) if you need cluster-wide limits.

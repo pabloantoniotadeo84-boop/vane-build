@@ -1,0 +1,153 @@
+---
+title: "Delegation Chains"
+description: "RFC 8693 in plain English — how to read and build multi-hop delegation chains."
+---
+
+## The problem delegation solves
+
+An agent takes an action. Who authorized it?
+
+The naive answer is "whoever holds the API key." But that collapses the distinction between "a company authorized an agent" and "a specific agent acting within a specific scope authorized a sub-agent." Delegation chains make this distinction explicit and cryptographically verifiable.
+
+## RFC 8693 in plain English
+
+RFC 8693 is a standard for representing impersonation and delegation in JWTs. The key concept is the `act` claim: a nested object that records the chain of actors between the original subject and the requestor.
+
+Think of it like a chain of signatures on a letter of authorization:
+
+```
+The letter authorizes: acme (original authority)
+Signed by agent-A: "I am acting on behalf of acme"
+Signed by agent-B: "I am acting on behalf of agent-A, who acts on behalf of acme"
+```
+
+In JWT form:
+
+```json
+{
+  "sub": "spiffe://vane.local/company/acme",
+  "act": {
+    "sub": "spiffe://vane.local/company/acme/agent/orchestrator",
+    "act": {
+      "sub": "spiffe://vane.local/company/acme/agent/sub-researcher"
+    }
+  }
+}
+```
+
+Reading this: `sub-researcher` is acting on behalf of `orchestrator`, which is acting on behalf of `acme`.
+
+## The `delegationChain` array
+
+Vane extracts the `act` tree into a flat `delegationChain` array for ergonomic access:
+
+```
+delegationChain[0]  — the subject (entity being acted on behalf of)
+delegationChain[1]  — first actor
+delegationChain[2]  — second actor (if multi-hop)
+...
+delegationChain[-1] — the proximate actor (the agent that holds this token)
+```
+
+For the example above:
+
+```json
+[
+  "spiffe://vane.local/company/acme",
+  "spiffe://vane.local/company/acme/agent/orchestrator",
+  "spiffe://vane.local/company/acme/agent/sub-researcher"
+]
+```
+
+## Building a delegation token
+
+### Simple (one hop): `POST /v1/token-exchange`
+
+```bash
+curl -s -X POST http://localhost:3000/v1/token-exchange \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "agentId": "researcher-1",
+    "actingOn": "acme",
+    "scope": "attest:write"
+  }'
+```
+
+This is the right choice for: "researcher-1 is acting on behalf of acme."
+
+### Multi-hop: `POST /v1/token/exchange`
+
+For two-hop delegation, you need two JWT-SVIDs and the RFC 8693 exchange:
+
+```bash
+# Step 1: Company SVID (subject)
+COMPANY_SVID=$(curl -s -X POST http://localhost:3000/v1/companies/svid \
+  -H "Authorization: Bearer $API_KEY" | jq -r '.svid')
+
+# Step 2: Orchestrator SVID (first actor)
+ORCH_SVID=$(curl -s http://localhost:3000/v1/agents/orchestrator/svid \
+  -H "Authorization: Bearer $API_KEY" | jq -r '.svid')
+
+# Step 3: Exchange — "orchestrator acts on behalf of acme"
+ROUND1=$(curl -s -X POST http://localhost:3000/v1/token/exchange \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d "{
+    \"grant_type\": \"urn:ietf:params:oauth:grant-type:token-exchange\",
+    \"subject_token\": \"$COMPANY_SVID\",
+    \"subject_token_type\": \"urn:ietf:params:oauth:token-type:jwt\",
+    \"actor_token\": \"$ORCH_SVID\",
+    \"actor_token_type\": \"urn:ietf:params:oauth:token-type:jwt\"
+  }" | jq -r '.access_token')
+
+# Now ROUND1 encodes: { sub: acme, act: { sub: orchestrator } }
+
+# Step 4: Sub-researcher SVID (second actor)
+SUB_SVID=$(curl -s http://localhost:3000/v1/agents/sub-researcher/svid \
+  -H "Authorization: Bearer $API_KEY" | jq -r '.svid')
+
+# Step 5: Exchange again — "sub-researcher acts on behalf of orchestrator, which acts on behalf of acme"
+ROUND2=$(curl -s -X POST http://localhost:3000/v1/token/exchange \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d "{
+    \"grant_type\": \"urn:ietf:params:oauth:grant-type:token-exchange\",
+    \"subject_token\": \"$ROUND1\",
+    \"subject_token_type\": \"urn:ietf:params:oauth:token-type:jwt\",
+    \"actor_token\": \"$SUB_SVID\",
+    \"actor_token_type\": \"urn:ietf:params:oauth:token-type:jwt\"
+  }")
+```
+
+`ROUND2.access_token` now encodes the full three-level chain.
+
+## Binding delegation to attestation records
+
+When you pass a delegation token to `POST /v1/attest`, it is bound cryptographically to the record:
+
+```bash
+curl -s -X POST http://localhost:3000/v1/attest \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d "{
+    \"agentId\": \"sub-researcher\",
+    \"actionType\": \"document-search\",
+    \"payload\": { \"query\": \"penalty clauses\" },
+    \"delegation\": \"$ROUND2_TOKEN\"
+  }"
+```
+
+The server verifies the delegation JWT, extracts the chain, and includes it in the record's hash:
+
+```
+hash = SHA-256(index | "|" | timestamp | "|" | canonicalize(payload) | "|" | canonicalize(delegation))
+```
+
+An auditor inspecting this record can prove that sub-researcher acted with authorization from orchestrator, which had authorization from acme — and that this chain was known at the time the record was written.
+
+## What the delegation does NOT prove
+
+- That the authorization was appropriate (only your access control policy can judge that).
+- That the same agent token wasn't used by a different process (no workload attestation at registration).
+- That the human behind the company account approved this specific action (only your governance process can establish that).

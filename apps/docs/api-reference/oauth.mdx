@@ -1,0 +1,137 @@
+---
+title: "OAuth 2.0"
+description: "Client credentials flow for machine-to-machine authentication."
+---
+
+Vane supports [RFC 6749 §4.4](https://datatracker.ietf.org/doc/html/rfc6749#section-4.4) client credentials for deployments that need OAuth-compatible authentication. OAuth tokens are accepted anywhere an API key is accepted.
+
+---
+
+## `POST /v1/oauth/clients`
+
+Creates an OAuth 2.0 client for the authenticated company. Returns the `client_id` and `client_secret`. **The `client_secret` is shown once** — store it securely.
+
+Requires authentication (API key or existing OAuth token).
+
+### Response `201`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `clientId` | `string` | OAuth client identifier (prefix: `cc_`). |
+| `clientSecret` | `string` | The client secret. Shown once. |
+| `companyId` | `string` | The company this client belongs to. |
+| `createdAt` | `string` | ISO 8601 creation timestamp. |
+
+### Example
+
+```bash
+curl -s -X POST http://localhost:3000/v1/oauth/clients \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{
+  "clientId": "cc_a1b2c3d4e5f60000",
+  "clientSecret": "7f8a9b0c1d2e3f4a...",
+  "companyId": "acme",
+  "createdAt": "2026-01-01T00:00:00.000Z"
+}
+```
+
+---
+
+## `GET /v1/oauth/clients`
+
+Lists all OAuth clients for the authenticated company. Secrets are **not** returned.
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `clients` | `Array` | Array of client objects. |
+| `clients[].clientId` | `string` | The client identifier. |
+| `clients[].createdAt` | `string` | ISO 8601 creation timestamp. |
+
+### Example
+
+```bash
+curl -s http://localhost:3000/v1/oauth/clients \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{
+  "clients": [
+    {
+      "clientId": "cc_a1b2c3d4e5f60000",
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+## `POST /v1/oauth/token`
+
+Exchanges client credentials for a short-lived Bearer token. No authentication required (the credentials are the authentication).
+
+Accepts both `application/x-www-form-urlencoded` (standard OAuth) and `application/json`.
+
+### Request fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `grant_type` | `string` | Yes | Must be `"client_credentials"`. |
+| `client_id` | `string` | Yes | The OAuth client ID. |
+| `client_secret` | `string` | Yes | The OAuth client secret. |
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `access_token` | `string` | The Bearer token (prefix: `oauth_`). Valid for `expires_in` seconds. |
+| `token_type` | `string` | Always `"bearer"`. |
+| `expires_in` | `number` | Token lifetime in seconds (3600). |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "unsupported_grant_type" }` | `grant_type` is not `client_credentials`. |
+| `400` | `{ "error": "invalid_request", "error_description": "..." }` | Missing `client_id` or `client_secret`. |
+| `401` | `{ "error": "invalid_client" }` | Wrong credentials. |
+
+### Example — form-encoded (standard OAuth)
+
+```bash
+curl -s -X POST http://localhost:3000/v1/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials&client_id=cc_a1b2c3&client_secret=7f8a9b0c..."
+```
+
+### Example — JSON body
+
+```bash
+curl -s -X POST http://localhost:3000/v1/oauth/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "grant_type": "client_credentials",
+    "client_id": "cc_a1b2c3d4e5f60000",
+    "client_secret": "7f8a9b0c1d2e3f4a..."
+  }'
+```
+
+```json
+{
+  "access_token": "oauth_e1f2a3b4c5d6...",
+  "token_type": "bearer",
+  "expires_in": 3600
+}
+```
+
+```bash
+# Use the token exactly like an API key
+OAUTH_TOKEN=oauth_e1f2a3b4c5d6...
+curl -H "Authorization: Bearer $OAUTH_TOKEN" http://localhost:3000/v1/chain
+```

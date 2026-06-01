@@ -1,0 +1,162 @@
+---
+title: "Passport Format"
+description: "Complete CAP+JWT specification — every header claim, payload claim, and error code."
+---
+
+## Token type: `CAP+JWT`
+
+A Vane Agent Passport is a standard JWT with `typ: "CAP+JWT"`. The type string is distinct from SVID tokens (`typ: "JWT"`) to prevent replay attacks across token types.
+
+Any JWT library that supports EdDSA can parse a CAP+JWT. The Vane-specific logic is entirely in the `counsel` claim object and the scope matching rules.
+
+## Header
+
+```json
+{
+  "alg": "EdDSA",
+  "typ": "CAP+JWT",
+  "kid": "a1b2c3d4e5f60000"
+}
+```
+
+| Claim | Value | Description |
+|-------|-------|-------------|
+| `alg` | `"EdDSA"` | Hard-coded. No algorithm confusion possible. |
+| `typ` | `"CAP+JWT"` | Distinguishes passports from SVIDs. |
+| `kid` | `string` | 16-hex-char key ID derived as SHA-256(SPKI DER)[0:16]. |
+
+## Payload claims
+
+```json
+{
+  "iss": "spiffe://vane.local/ca",
+  "sub": "spiffe://vane.local/company/acme/agent/researcher-1",
+  "aud": ["counsel:passport:v1"],
+  "jti": "550e8400-e29b-41d4-a716-446655440000",
+  "iat": 1751325600,
+  "exp": 1751329200,
+  "nbf": 1751325600,
+  "counsel": {
+    "v": 1,
+    "agentId": "researcher-1",
+    "org": "acme",
+    "orgSpiffeId": "spiffe://vane.local/company/acme",
+    "scopes": ["tool:*", "attest:write"],
+    "delegationChain": [
+      "spiffe://vane.local/company/acme",
+      "spiffe://vane.local/company/acme/agent/researcher-1"
+    ],
+    "delegationId": "cb6a2a5e-21ad-4d2c-80c9-d37516f276ab"
+  }
+}
+```
+
+### Standard JWT claims (RFC 7519)
+
+| Claim | Type | Description |
+|-------|------|-------------|
+| `iss` | `string` | SPIFFE ID of the issuing Vane CA: `spiffe://{trustDomain}/ca`. |
+| `sub` | `string` | The agent's SPIFFE ID. This is the credential subject. |
+| `aud` | `string[]` | Must include `"counsel:passport:v1"`. Prevents replay across audiences. |
+| `jti` | `string` | UUID v4. Unique passport identifier. Used for revocation tracking. |
+| `iat` | `number` | Unix seconds. When the passport was issued. |
+| `exp` | `number` | Unix seconds. When the passport expires. |
+| `nbf` | `number` | Unix seconds. Before this time, the passport is not valid. Always equals `iat` at issuance. |
+
+### Vane-specific claims
+
+All Vane-specific claims are namespaced under the `counsel` object to avoid collision with JWT extensions.
+
+| Claim | Type | Description |
+|-------|------|-------------|
+| `counsel.v` | `1` | Schema version. Verifiers MUST reject unknown versions. |
+| `counsel.agentId` | `string` | Human-readable agent identifier. |
+| `counsel.org` | `string` | The issuing organization's name (company ID). |
+| `counsel.orgSpiffeId` | `string` | The issuing organization's SPIFFE ID. |
+| `counsel.scopes` | `string[]` | Authorization scopes. Non-empty array. See scope rules below. |
+| `counsel.delegationChain` | `string[]` | Ordered SPIFFE IDs from authorizing org to the agent. The last element MUST equal `sub`. |
+| `counsel.delegationId` | `string` | Optional. `jti` of the RFC 8693 token this passport was derived from. Present when the passport was issued from a delegation. |
+
+## Scope format
+
+Scopes use `category:name` format. Matching is evaluated left-to-right against the `scopes` array:
+
+| Pattern | Matches |
+|---------|---------|
+| `*` | Any scope |
+| `cat:*` | Any scope whose category is `cat` |
+| `cat:name` | Exactly `cat:name` |
+
+Standard scope categories:
+
+| Category | Purpose |
+|----------|---------|
+| `tool` | MCP tool calls (e.g., `tool:web-search`, `tool:*`) |
+| `attest` | Attestation writes (`attest:write`) |
+| `resource` | Resource access (`resource:read`) |
+
+## Verification steps
+
+Verification is performed in this order. A failure at any step terminates verification immediately.
+
+| Step | Check | Error code on failure |
+|------|-------|-----------------------|
+| 1 | Parse — split by `.`, decode header and payload JSON | `MALFORMED_TOKEN` |
+| 2 | Algorithm — `header.alg` must be `"EdDSA"` | `ALGORITHM_MISMATCH` |
+| 3 | Token type — `header.typ` must be `"CAP+JWT"` | `WRONG_TOKEN_TYPE` |
+| 4 | Signature — Ed25519 verify over `header.payload` using CA public key | `SIGNATURE_INVALID` |
+| 5 | Expiry — `exp` must be in the future | `TOKEN_EXPIRED` |
+| 6 | Not-before — `nbf` must be in the past (if present) | `TOKEN_NOT_YET_VALID` |
+| 7 | Audience — `aud` must include `"counsel:passport:v1"` | `AUDIENCE_MISMATCH` |
+| 8 | Issuer — `iss` must be a valid SPIFFE URI | `INVALID_ISSUER` |
+| 9 | Subject — `sub` must be a valid SPIFFE URI | `INVALID_SUBJECT` |
+| 10 | Vane claims — `counsel` must be a non-null object | `MALFORMED_CLAIMS` |
+| 11 | Version — `counsel.v` must be in supported versions | `UNSUPPORTED_VERSION` |
+| 12 | Scopes — `counsel.scopes` must be a non-empty array | `MALFORMED_CLAIMS` |
+| 13 | Chain — `counsel.delegationChain` must be non-empty, tail must equal `sub` | `CHAIN_INCOHERENT` |
+| 14 | Scope check — if a tool name was provided, scopes must cover `tool:<name>` | `SCOPE_DENIED` |
+
+## Error codes
+
+| Code | Meaning |
+|------|---------|
+| `MALFORMED_TOKEN` | Not three `.`-separated segments, or base64url decode failed. |
+| `ALGORITHM_MISMATCH` | `alg` is not `EdDSA`. |
+| `WRONG_TOKEN_TYPE` | `typ` is not `CAP+JWT`. |
+| `SIGNATURE_INVALID` | Ed25519 signature does not verify. |
+| `TOKEN_EXPIRED` | `exp` is in the past. |
+| `TOKEN_NOT_YET_VALID` | `nbf` is in the future. |
+| `AUDIENCE_MISMATCH` | `aud` does not include `"counsel:passport:v1"`. |
+| `INVALID_ISSUER` | `iss` is not a valid SPIFFE URI. |
+| `INVALID_SUBJECT` | `sub` is not a valid SPIFFE URI. |
+| `UNSUPPORTED_VERSION` | `counsel.v` is not 1. |
+| `MALFORMED_CLAIMS` | `counsel` object is missing or malformed. |
+| `CHAIN_INCOHERENT` | `delegationChain` tail does not equal `sub`. |
+| `SCOPE_DENIED` | Requested tool scope not covered by any granted scope. |
+| `PASSPORT_REVOKED` | Server-side check found the `jti` in the revocation list. |
+
+`PASSPORT_REVOKED` is only returned by server-side verification (`POST /v1/passport/verify`). Offline verification via `@vane/mcp-middleware` does not check revocation — use `GET /v1/ocsp/:jti` for that.
+
+## `AttestationReceipt`
+
+Every successful verification produces an `AttestationReceipt`. This is not a signature — it is a transparency record produced by the verifier. It can be logged and stored independently of the passport.
+
+```typescript
+interface AttestationReceipt {
+  v: 1;
+  type: 'VaneAttestationReceipt';
+  passportId: string;        // jti — reference the original passport by ID
+  agentId: string;
+  agentSpiffeId: string;
+  org: string;
+  orgSpiffeId: string;
+  tool: string;              // which tool was called
+  scopeGranted: string;      // which scope in the passport covered this call
+  delegationChain: string[];
+  issuedBy: string;          // iss — which Vane CA signed the passport
+  passportIssuedAt: string;  // ISO 8601
+  passportExpiresAt: string; // ISO 8601
+  verifiedAt: string;        // ISO 8601 — when this receipt was produced
+  verifier: string;          // "vane-server/0.1.0" or "@vane/mcp-middleware@0.1.0"
+}
+```

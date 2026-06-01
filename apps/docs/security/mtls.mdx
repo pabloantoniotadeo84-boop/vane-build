@@ -1,0 +1,116 @@
+---
+title: "mTLS"
+description: "Configure mutual TLS client authentication — how it works and what it protects."
+---
+
+## Overview
+
+When `COUNSEL_MTLS_CA_CERT` is set, the Vane server switches from HTTP to HTTPS and requests (but does not require) a client certificate on every connection. Clients that present a certificate signed by the configured CA, with a Common Name (CN) matching a registered company ID, authenticate via that certificate without needing a Bearer token.
+
+Clients without certificates fall through to normal API key / OAuth token authentication, so existing callers continue to work unmodified.
+
+## Configuration
+
+Three environment variables are required to enable mTLS:
+
+| Variable | Description |
+|----------|-------------|
+| `COUNSEL_MTLS_CA_CERT` | PEM-encoded CA certificate used to verify client certificates. Accepts either the raw PEM string or a file path. |
+| `COUNSEL_TLS_CERT` | PEM-encoded server certificate. Accepts PEM string or file path. |
+| `COUNSEL_TLS_KEY` | PEM-encoded server private key. Accepts PEM string or file path. |
+
+If `COUNSEL_MTLS_CA_CERT` is set but `COUNSEL_TLS_CERT` or `COUNSEL_TLS_KEY` is missing, the server logs a fatal error and exits.
+
+```bash
+COUNSEL_MTLS_CA_CERT=/etc/ssl/vane-ca.pem \
+COUNSEL_TLS_CERT=/etc/ssl/vane-server.pem \
+COUNSEL_TLS_KEY=/etc/ssl/vane-server-key.pem \
+npm start
+```
+
+Or with inline PEM:
+
+```bash
+COUNSEL_MTLS_CA_CERT="$(cat /etc/ssl/vane-ca.pem)" \
+COUNSEL_TLS_CERT="$(cat /etc/ssl/server.pem)" \
+COUNSEL_TLS_KEY="$(cat /etc/ssl/server-key.pem)" \
+npm start
+```
+
+## How authentication works
+
+1. A client connects with a TLS client certificate whose CN is `acme`.
+2. Node.js presents the certificate to Vane via the `TLSSocket.getPeerCertificate()` API.
+3. Vane extracts the CN and looks up `acme` in the database.
+4. If `acme` is a registered company, the request is authenticated as that company. No Bearer token required.
+5. If the CN does not match a registered company, or no certificate was presented, authentication falls through to Bearer token validation.
+
+The server uses `requestCert: true, rejectUnauthorized: false` — it requests a certificate from every client but does not terminate connections that omit one. This ensures backward compatibility.
+
+## What mTLS protects
+
+**Without mTLS:** An attacker who intercepts an API key can make authenticated requests from anywhere. The API key is a static credential.
+
+**With mTLS:** Authentication requires possession of a valid private key whose certificate was signed by the configured CA. The API key alone is insufficient.
+
+mTLS is most valuable when:
+- Agents are running in infrastructure you control (e.g., k8s pods with automatically-rotated TLS credentials via cert-manager).
+- You want to enforce that API calls can only come from specific machines, not just anyone with the key string.
+- You are integrating with SPIRE or another SPIFFE-compatible workload identity system that issues client certificates.
+
+## Generating test certificates
+
+For development, generate a self-signed CA and a client certificate:
+
+```bash
+# Generate CA key and certificate
+openssl genrsa -out ca-key.pem 4096
+openssl req -new -x509 -key ca-key.pem -out ca-cert.pem -days 365 \
+  -subj "/CN=Vane Test CA/O=Test"
+
+# Generate server key and certificate
+openssl genrsa -out server-key.pem 4096
+openssl req -new -key server-key.pem -out server.csr \
+  -subj "/CN=localhost/O=Vane"
+openssl x509 -req -in server.csr -CA ca-cert.pem -CAkey ca-key.pem \
+  -CAcreateserial -out server-cert.pem -days 365
+
+# Generate client certificate for company "acme"
+openssl genrsa -out client-key.pem 4096
+openssl req -new -key client-key.pem -out client.csr \
+  -subj "/CN=acme/O=Vane"  # CN must be the companyId
+openssl x509 -req -in client.csr -CA ca-cert.pem -CAkey ca-key.pem \
+  -CAcreateserial -out client-cert.pem -days 365
+```
+
+## Calling the server with a client certificate
+
+```bash
+# curl with client certificate
+curl --cert client-cert.pem --key client-key.pem \
+  --cacert ca-cert.pem \
+  https://localhost:3000/v1/chain
+```
+
+```typescript
+// Node.js with client certificate
+import https from 'node:https';
+import fs from 'node:fs';
+
+const agent = new https.Agent({
+  cert: fs.readFileSync('client-cert.pem'),
+  key: fs.readFileSync('client-key.pem'),
+  ca: fs.readFileSync('ca-cert.pem'),
+});
+
+const response = await fetch('https://localhost:3000/v1/chain', { agent } as any);
+```
+
+## Relationship to passport verification
+
+mTLS is for authenticating the **API caller** to the Vane server. It is separate from passport verification, which is for authenticating **agents** to third-party MCP servers.
+
+mTLS authenticates company infrastructure → Vane.
+Passports authenticate agents → MCP servers.
+
+These two mechanisms are complementary, not alternatives.

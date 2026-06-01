@@ -1,0 +1,128 @@
+---
+title: "CrewAI"
+description: "vane-crewai — attest every agent step and task completion in your crew."
+---
+
+## Installation
+
+```bash
+pip install vane-crewai
+```
+
+No external dependencies. Uses only the Python standard library (`urllib`, `threading`, `json`).
+
+Requires Python 3.9+.
+
+## Three-line setup
+
+```python
+from counsel_crewai import VaneObserver
+
+observer = VaneObserver(
+    base_url="https://vane.build",
+    api_key="counsel_a1b2c3d4...",
+    agent_id="contract-reviewer",
+)
+crew = observer.wrap(crew)
+```
+
+## `VaneObserver`
+
+### Constructor
+
+```python
+VaneObserver(
+    base_url: str,
+    api_key: str,
+    agent_id: str,
+    company_id: str = "",
+)
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `base_url` | `str` | Yes | Base URL of your Vane instance. Trailing slash is stripped. |
+| `api_key` | `str` | Yes | Company-scoped API key. |
+| `agent_id` | `str` | Yes | Agent identifier that appears on every record. |
+| `company_id` | `str` | No | Company ID embedded in attestation payloads. If empty, the API key's company is used. |
+
+### `wrap(crew)`
+
+Attaches attestation callbacks to the crew and returns it. Preserves any existing `step_callback` and `task_callback` — both the original callbacks and the attestation callbacks will be called.
+
+```python
+crew = observer.wrap(crew)
+# crew.step_callback and crew.task_callback are now wrapped
+```
+
+### What gets attested
+
+| Event | `actionType` | Payload fields |
+|-------|-------------|----------------|
+| Tool invocation (AgentAction) | `"tool-call"` | `tool`, `toolInput`, `observation` |
+| Agent finished (AgentFinish) | `"agent-finish"` | `output` (the return_values dict) |
+| Any other step output | `"agent-step"` | `raw` (string representation) |
+| Task completed | `"task-complete"` | `description`, `agent`, `output` |
+
+### Error handling
+
+All HTTP calls happen in **daemon threads**. If the Vane server is unavailable, the error is printed to stdout and the crew execution continues uninterrupted. Attestation failures never block or crash your crew.
+
+## Full example
+
+```python
+from crewai import Agent, Task, Crew
+from crewai_tools import SerperDevTool
+from counsel_crewai import VaneObserver
+
+# Set up the observer
+observer = VaneObserver(
+    base_url="https://vane.build",
+    api_key="counsel_a1b2c3d4...",
+    agent_id="legal-researcher",
+    company_id="acme",
+)
+
+# Create your crew normally
+researcher = Agent(
+    role="Legal Researcher",
+    goal="Find relevant legal precedents",
+    backstory="Expert in EU AI regulation",
+    tools=[SerperDevTool()],
+    verbose=True,
+)
+
+task = Task(
+    description="Research EU AI Act compliance requirements for financial services",
+    agent=researcher,
+    expected_output="A structured summary of compliance requirements",
+)
+
+crew = Crew(agents=[researcher], tasks=[task])
+
+# Wrap the crew — three lines total
+crew = observer.wrap(crew)
+
+result = crew.kickoff()
+print(result)
+```
+
+Every tool call and task completion in this crew will produce a signed record in Vane.
+
+## Using with existing callbacks
+
+If your crew already has step or task callbacks, they are preserved:
+
+```python
+def my_existing_step_callback(step_output):
+    print(f"Step: {step_output}")
+
+crew = Crew(
+    agents=[...],
+    tasks=[...],
+    step_callback=my_existing_step_callback,
+)
+
+# Both my_existing_step_callback AND counsel attestation will run
+crew = observer.wrap(crew)
+```

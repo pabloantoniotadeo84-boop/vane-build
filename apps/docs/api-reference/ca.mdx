@@ -1,0 +1,168 @@
+---
+title: "CA & Discovery"
+description: "Retrieve the CA public key and OIDC discovery document. No authentication required."
+---
+
+These endpoints are designed to be public and cached. They give verifiers everything they need to verify passports and attestation records offline, without any authentication.
+
+---
+
+## `GET /v1/ca/public-key`
+
+Returns the company's CA public key in three formats: PEM, JWK, and fingerprint. No authentication required. Cached for 1 hour.
+
+This is the **only thing a verifier needs** to verify any passport or OCSP response issued by this company.
+
+### Query parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `companyId` | `string` | Yes | The company whose public key to retrieve. |
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `companyId` | `string` | The company identifier. |
+| `spiffeId` | `string` | The company's SPIFFE ID. |
+| `kid` | `string` | Key ID: first 16 hex chars of SHA-256(SPKI DER). Stable and deterministic. |
+| `pem` | `string` | Ed25519 public key in SPKI PEM format. |
+| `jwk` | `object` | RFC 7517 JSON Web Key. |
+| `fingerprint` | `string` | SHA-256 of the SPKI DER, in SSH-style format: `SHA256:<base64url>`. |
+| `keys` | `object[]` | JWKS-compatible wrapper — `keys[0]` is the same as `jwk`. Use this URL directly as a `jwks_uri`. |
+
+**JWK fields:**
+
+| Field | Value | Description |
+|-------|-------|-------------|
+| `kty` | `"OKP"` | Key type: Octet Key Pair (Ed25519). |
+| `crv` | `"Ed25519"` | The curve. |
+| `x` | `string` | The public key bytes, base64url-encoded. |
+| `kid` | `string` | Key ID, matching the top-level `kid`. |
+| `alg` | `"EdDSA"` | Algorithm. |
+| `use` | `"sig"` | Key usage: signature verification. |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "Missing required query parameter: companyId" }` | No `companyId` provided. |
+| `404` | `{ "error": "Company not found: acme" }` | Unknown company. |
+
+### Example
+
+```bash
+curl -s "http://localhost:3000/v1/ca/public-key?companyId=acme" | jq .
+```
+
+```json
+{
+  "companyId": "acme",
+  "spiffeId": "spiffe://vane.local/company/acme",
+  "kid": "a1b2c3d4e5f60000",
+  "pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA...\n-----END PUBLIC KEY-----\n",
+  "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "MCowBQYD...",
+    "kid": "a1b2c3d4e5f60000",
+    "alg": "EdDSA",
+    "use": "sig"
+  },
+  "fingerprint": "SHA256:a1b2c3d4e5f6...",
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "MCowBQYD...",
+      "kid": "a1b2c3d4e5f60000",
+      "alg": "EdDSA",
+      "use": "sig"
+    }
+  ]
+}
+```
+
+---
+
+## `GET /v1/ca/well-known`
+
+Returns an OIDC-style discovery document describing the company's cryptographic configuration. No authentication required. Cached for 1 hour.
+
+This document is designed to be fetched once at verifier startup and cached. It includes the `jwks_uri` pointing to the public key endpoint, plus inline JWKS to avoid a second round-trip.
+
+### Query parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `companyId` | `string` | Yes | The company whose configuration to retrieve. |
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `issuer` | `string` | SPIFFE ID of the CA: `spiffe://{trustDomain}/ca`. |
+| `jwks_uri` | `string` | URL of the JWKS endpoint (the `GET /v1/ca/public-key` endpoint). |
+| `id_token_signing_alg_values_supported` | `string[]` | `["EdDSA"]`. |
+| `response_types_supported` | `string[]` | `["token"]`. |
+| `token_endpoint_auth_methods_supported` | `string[]` | `["client_secret_post", "client_secret_basic"]`. |
+| `company_id` | `string` | The company identifier. |
+| `company_spiffe_id` | `string` | The company's SPIFFE ID. |
+| `trust_domain` | `string` | The trust domain (e.g., `"vane.local"`). |
+| `algorithms_supported` | `string[]` | `["EdDSA"]`. |
+| `key_type` | `"OKP"` | Key type. |
+| `curve` | `"Ed25519"` | The curve. |
+| `kid` | `string` | Key ID. |
+| `fingerprint` | `string` | SHA-256 fingerprint. |
+| `keys` | `object[]` | Inline JWKS. |
+| `passport_format` | `object` | CAP+JWT format specification (see below). |
+| `counsel_version` | `string` | Server version. |
+
+**`passport_format` fields:**
+
+| Field | Value | Description |
+|-------|-------|-------------|
+| `version` | `1` | Passport schema version. |
+| `token_type` | `"CAP+JWT"` | Token type identifier in JWT header. |
+| `audience` | `"counsel:passport:v1"` | Required `aud` value. |
+| `claims_namespace` | `"counsel"` | Namespace for Vane-specific claims. |
+| `scope_format` | `"category:name"` | Format of scope strings. |
+| `scope_wildcards_supported` | `true` | Whether `cat:*` and `*` wildcards are supported. |
+
+<Tip>
+Set `COUNSEL_BASE_URL` to your public URL so the `jwks_uri` in the discovery document is correct when running behind a reverse proxy. If not set, the URL is inferred from the `Host` and `X-Forwarded-Proto` headers.
+</Tip>
+
+### Example
+
+```bash
+curl -s "http://localhost:3000/v1/ca/well-known?companyId=acme" | jq .
+```
+
+```json
+{
+  "issuer": "spiffe://vane.local/ca",
+  "jwks_uri": "http://localhost:3000/v1/ca/public-key?companyId=acme",
+  "id_token_signing_alg_values_supported": ["EdDSA"],
+  "response_types_supported": ["token"],
+  "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
+  "company_id": "acme",
+  "company_spiffe_id": "spiffe://vane.local/company/acme",
+  "trust_domain": "vane.local",
+  "algorithms_supported": ["EdDSA"],
+  "key_type": "OKP",
+  "curve": "Ed25519",
+  "kid": "a1b2c3d4e5f60000",
+  "fingerprint": "SHA256:...",
+  "keys": [{ ... }],
+  "passport_format": {
+    "version": 1,
+    "token_type": "CAP+JWT",
+    "audience": "counsel:passport:v1",
+    "claims_namespace": "counsel",
+    "scope_format": "category:name",
+    "scope_wildcards_supported": true
+  },
+  "counsel_version": "0.1.0"
+}
+```

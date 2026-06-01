@@ -1,0 +1,265 @@
+---
+title: "@vane/mcp-middleware"
+description: "Drop-in passport verification for any MCP server. Zero network calls — offline only."
+---
+
+## Installation
+
+```bash
+npm install @vane/mcp-middleware
+```
+
+Requires Node.js 22+. ESM only. **Zero dependencies** — all verification is done with `node:crypto`.
+
+## Overview
+
+`@vane/mcp-middleware` verifies Vane Agent Passports (CAP+JWT) offline using the CA public key. It never calls the Vane server during verification — the CA public key is the only thing needed.
+
+Four adapters are provided for different server frameworks:
+
+| Adapter | Framework |
+|---------|-----------|
+| `fetchMiddleware()` | Hono, Next.js Edge, Cloudflare Workers |
+| `expressMiddleware()` | Express, Connect |
+| `mcpHandler()` | MCP SDK (`@modelcontextprotocol/sdk`) |
+| `verify()` | Any — raw verification function |
+
+## `createVaneMiddleware()`
+
+All adapters are created from a single factory. The only required option is the CA public key.
+
+```typescript
+import { createVaneMiddleware } from '@vane/mcp-middleware';
+
+const vane = createVaneMiddleware({
+  counselPublicKey: process.env.COUNSEL_CA_PUBLIC_KEY!, // Ed25519 SPKI PEM
+  exposeErrors: true, // default: true — include error codes in 401 responses
+});
+```
+
+**`VaneMiddlewareOptions`:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `counselPublicKey` | `string` | required | Ed25519 SPKI PEM of the Vane CA. Obtain from `GET /v1/ca/public-key?companyId=<id>`. Pin this value in your deployment. |
+| `exposeErrors` | `boolean` | `true` | If `false`, 401 responses contain only `{ "error": "Unauthorized" }` without error codes or messages. |
+
+---
+
+## `fetchMiddleware()`
+
+Fetch-compatible middleware for Hono, Next.js Edge, and Cloudflare Workers.
+
+Reads `Authorization: Bearer <passport>`, parses the MCP JSON-RPC body to extract the tool name, verifies the passport, and either forwards the request with an `x-vane-receipt` header or returns `401`.
+
+```typescript
+const handler = counsel.fetchMiddleware();
+
+// Hono example
+app.post('/mcp', async (c) => {
+  const req = c.req.raw;
+  const res = await handler(req, async (modifiedReq) => {
+    // modifiedReq has x-vane-receipt header set
+    return processRequest(modifiedReq);
+  });
+  return res;
+});
+```
+
+**Reading the receipt in the downstream handler:**
+
+```typescript
+import { decodeReceipt } from '@vane/mcp-middleware';
+
+const encoded = modifiedReq.headers.get('x-vane-receipt');
+const receipt = decodeReceipt(encoded!);
+
+console.log(receipt.agentId);         // "researcher-1"
+console.log(receipt.org);             // "acme"
+console.log(receipt.scopeGranted);    // "tool:*"
+console.log(receipt.tool);            // "web-search"
+console.log(receipt.delegationChain); // ["spiffe://..."]
+```
+
+**On failure:** Returns `Response` with status `401` and JSON body:
+
+```json
+{
+  "error": "Unauthorized",
+  "code": "TOKEN_EXPIRED",
+  "message": "Passport has expired"
+}
+```
+
+---
+
+## `expressMiddleware()`
+
+Express/Connect-compatible middleware. Assumes `req.body` has already been parsed by `express.json()`. Attaches the decoded `AttestationReceipt` to `req.counselReceipt` on success.
+
+```typescript
+import express from 'express';
+import { createVaneMiddleware } from '@vane/mcp-middleware';
+
+const app = express();
+const vane = createVaneMiddleware({ counselPublicKey: process.env.COUNSEL_CA_KEY! });
+
+app.use(express.json());
+app.use(counsel.expressMiddleware());
+
+app.post('/mcp', (req, res) => {
+  const receipt = (req as any).counselReceipt;
+  console.log(`Agent ${receipt.agentId} called tool ${receipt.tool}`);
+  res.json({ result: 'ok' });
+});
+```
+
+**On failure:** Sends `401` with JSON error body. The `next()` middleware is NOT called — the request is terminated.
+
+---
+
+## `mcpHandler()`
+
+Wrapper for MCP SDK `CallToolRequest` handlers. The passport must be passed in `request.params._meta.authorization`.
+
+```typescript
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { createVaneMiddleware } from '@vane/mcp-middleware';
+
+const vane = createVaneMiddleware({ counselPublicKey: process.env.COUNSEL_CA_KEY! });
+const server = new Server({ name: 'my-mcp-server', version: '1.0.0' }, { capabilities: { tools: {} } });
+
+server.setRequestHandler(
+  CallToolRequestSchema,
+  counsel.mcpHandler(async (request, receipt) => {
+    // receipt is a verified AttestationReceipt
+    console.log(`Verified: agent ${receipt.agentId} calling ${receipt.tool}`);
+
+    if (request.params.name === 'search') {
+      return {
+        content: [{ type: 'text', text: 'search results...' }],
+      };
+    }
+    throw new Error('Unknown tool');
+  }),
+);
+```
+
+**On failure:** Throws `McpAuthError` with a `code` property matching the passport error code.
+
+The passport is expected at `request.params._meta.authorization`. Set this in the MCP client transport before calling tools:
+
+```typescript
+// In the MCP client
+const result = await client.callTool({
+  name: 'search',
+  arguments: { query: 'EU AI Act' },
+  _meta: { authorization: agentPassport },
+});
+```
+
+---
+
+## `verify()`
+
+Raw passport verification — call this when you already have the token and want to verify it outside a request context.
+
+```typescript
+const result = counsel.verify(token, {
+  tool: 'web-search', // optional — check that passport grants tool:web-search
+  now: Date.now() / 1000, // optional — override current time (for testing)
+});
+
+if (result.valid) {
+  console.log(result.claims.counsel.agentId);
+  console.log(result.scopeGranted);
+} else {
+  console.error(result.code, result.error);
+}
+```
+
+**Returns:** `PassportVerificationResult`
+
+```typescript
+type PassportVerificationResult =
+  | { valid: true; claims: VanePassportClaims; scopeGranted: string }
+  | { valid: false; error: string; code: PassportErrorCode };
+```
+
+---
+
+## `decodeReceipt()`
+
+Decodes the base64url-encoded `AttestationReceipt` from the `x-vane-receipt` header.
+
+```typescript
+import { decodeReceipt, RECEIPT_HEADER } from '@vane/mcp-middleware';
+
+const encoded = req.headers.get(RECEIPT_HEADER); // 'x-vane-receipt'
+const receipt = decodeReceipt(encoded!);
+```
+
+---
+
+## `McpAuthError`
+
+Thrown by `mcpHandler()` on verification failure.
+
+```typescript
+import { McpAuthError } from '@vane/mcp-middleware';
+
+try {
+  // ...
+} catch (err) {
+  if (err instanceof McpAuthError) {
+    console.error(err.code);    // 'TOKEN_EXPIRED'
+    console.error(err.message); // 'Passport has expired'
+  }
+}
+```
+
+---
+
+## `AttestationReceipt` type
+
+```typescript
+interface AttestationReceipt {
+  v: 1;
+  type: 'VaneAttestationReceipt';
+  passportId: string;        // jti of the verified passport
+  agentId: string;
+  agentSpiffeId: string;
+  org: string;
+  orgSpiffeId: string;
+  tool: string;
+  scopeGranted: string;
+  delegationChain: string[];
+  issuedBy: string;          // iss — which Vane instance signed this
+  passportIssuedAt: string;  // ISO 8601
+  passportExpiresAt: string; // ISO 8601
+  verifiedAt: string;        // ISO 8601 — when the receipt was produced
+  verifier: string;          // "@vane/mcp-middleware@0.1.0"
+}
+```
+
+---
+
+## Getting the CA public key
+
+Fetch the key once at deployment time and store it as an environment variable:
+
+```bash
+curl -s "https://vane.build/v1/ca/public-key?companyId=acme" | jq -r '.pem'
+```
+
+Or use the discovery document's `jwks_uri` at startup:
+
+```typescript
+const discovery = await fetch(
+  `https://vane.build/v1/ca/well-known?companyId=acme`
+).then(r => r.json());
+
+const keyRes = await fetch(discovery.jwks_uri).then(r => r.json());
+const caPublicKey = keyRes.pem;
+```

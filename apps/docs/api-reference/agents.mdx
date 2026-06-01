@@ -1,0 +1,131 @@
+---
+title: "Agents"
+description: "Register agents and issue their identity credentials."
+---
+
+All endpoints require authentication. Agents are namespaced per company — the same `agentId` string can exist in multiple companies.
+
+---
+
+## `POST /v1/agents/register`
+
+Registers an agent under the authenticated company and issues its initial JWT-SVID. Uses `INSERT OR REPLACE` — calling this again with the same `agentId` updates the registration without creating a duplicate.
+
+### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `agentId` | `string` | Yes | Unique identifier for this agent within the company. Embedded in the SPIFFE ID. |
+| `metadata` | `object` | No | Arbitrary JSON metadata stored with the agent record. |
+
+### Response `201`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agentId` | `string` | The agent identifier. |
+| `spiffeId` | `string` | `spiffe://{trustDomain}/company/{companyId}/agent/{agentId}` |
+| `svid` | `string` | JWT-SVID signed with the company's Ed25519 key. TTL: 3600 s. |
+| `registeredAt` | `string` | ISO 8601 timestamp. |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "Missing or invalid field: agentId is required" }` | `agentId` missing or not a string. |
+
+### Example
+
+```bash
+curl -s -X POST http://localhost:3000/v1/agents/register \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "agentId": "researcher-1",
+    "metadata": { "model": "gpt-4o", "version": "2025-01" }
+  }'
+```
+
+```json
+{
+  "agentId": "researcher-1",
+  "spiffeId": "spiffe://vane.local/company/acme/agent/researcher-1",
+  "svid": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImExYjJjM2Q0In0...",
+  "registeredAt": "2026-01-01T00:00:00.000Z"
+}
+```
+
+---
+
+## `GET /v1/agents/:agentId`
+
+Returns the registration record for a specific agent. Returns `404` if the agent is not registered under the authenticated company.
+
+### Path parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `agentId` | `string` | The agent identifier. |
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agentId` | `string` | The agent identifier. |
+| `spiffeId` | `string` | The agent's SPIFFE ID. |
+| `companyId` | `string` | The company this agent belongs to. |
+| `registeredAt` | `string` | ISO 8601 registration timestamp. |
+| `metadata` | `object` | Present only if metadata was set at registration. |
+
+### Example
+
+```bash
+curl -s http://localhost:3000/v1/agents/researcher-1 \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{
+  "agentId": "researcher-1",
+  "spiffeId": "spiffe://vane.local/company/acme/agent/researcher-1",
+  "companyId": "acme",
+  "registeredAt": "2026-01-01T00:00:00.000Z",
+  "metadata": { "model": "gpt-4o" }
+}
+```
+
+---
+
+## `GET /v1/agents/:agentId/svid`
+
+Issues a fresh JWT-SVID for the specified agent. Returns `404` if the agent is not registered under the authenticated company.
+
+SVIDs are short-lived (TTL: 3600 s) and are primarily used as inputs to the RFC 8693 token exchange (`POST /v1/token/exchange`). For agent authentication at MCP servers, use passports instead — they carry richer claims and can be verified offline.
+
+### Path parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `agentId` | `string` | The agent identifier. |
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agentId` | `string` | The agent identifier. |
+| `spiffeId` | `string` | The agent's SPIFFE ID. |
+| `svid` | `string` | Fresh JWT-SVID. TTL: 3600 s. |
+
+### Example
+
+```bash
+curl -s http://localhost:3000/v1/agents/researcher-1/svid \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{
+  "agentId": "researcher-1",
+  "spiffeId": "spiffe://vane.local/company/acme/agent/researcher-1",
+  "svid": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImExYjJjM2Q0In0..."
+}
+```

@@ -1,0 +1,120 @@
+---
+title: "API Keys"
+description: "Create, list, and delete company API keys."
+---
+
+All endpoints require authentication. API keys are scoped to the authenticated company — you cannot view or delete keys belonging to other companies.
+
+---
+
+## `POST /v1/keys`
+
+Creates a new API key for the authenticated company. Optionally attaches a human-readable label.
+
+### Request body (optional)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `label` | `string` | No | Human-readable label. Useful for identifying which service uses which key. |
+
+### Response `201`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `key` | `string` | The new API key (prefix: `counsel_`). Shown once. |
+| `createdAt` | `string` | ISO 8601 creation timestamp. |
+
+### Example
+
+```bash
+curl -s -X POST http://localhost:3000/v1/keys \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "label": "production-agent" }'
+```
+
+```json
+{
+  "key": "counsel_f7e8d9c0b1a2...",
+  "createdAt": "2026-01-01T00:01:00.000Z"
+}
+```
+
+---
+
+## `GET /v1/keys`
+
+Lists all API keys for the authenticated company. Key values are returned in full — treat this response as sensitive.
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `keys` | `Array` | Array of key objects, ordered by creation time. |
+| `keys[].key` | `string` | The API key value. |
+| `keys[].label` | `string \| null` | Label, or `null` if none was set. |
+| `keys[].createdAt` | `string` | ISO 8601 creation timestamp. |
+
+### Example
+
+```bash
+curl -s http://localhost:3000/v1/keys \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{
+  "keys": [
+    {
+      "key": "counsel_a1b2c3d4...",
+      "label": "bootstrap",
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "key": "counsel_f7e8d9c0...",
+      "label": "production-agent",
+      "createdAt": "2026-01-01T00:01:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+## `DELETE /v1/keys/:key`
+
+Deletes an API key. The key is immediately invalid for future requests. You cannot delete the last key for a company (that would lock you out).
+
+<Warning>
+This action is irreversible. Any service using the deleted key will receive `401 Unauthorized` on its next request.
+</Warning>
+
+### Path parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | `string` | The full API key to delete. Must belong to the authenticated company. |
+
+### Response `200`
+
+```json
+{ "deleted": true }
+```
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `404` | `{ "error": "API key not found" }` | Key does not exist or belongs to a different company. |
+
+### Example
+
+```bash
+curl -s -X DELETE \
+  http://localhost:3000/v1/keys/counsel_f7e8d9c0b1a2... \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{ "deleted": true }
+```

@@ -1,0 +1,216 @@
+---
+title: "@vane/sdk"
+description: "TypeScript client for the Vane attestation API."
+---
+
+## Installation
+
+```bash
+npm install @vane/sdk
+```
+
+Requires Node.js 18+. Ships both ESM and CJS builds.
+
+## `VaneClient`
+
+The `VaneClient` class wraps the Vane API. It handles authentication, serialization, and error mapping.
+
+### Constructor
+
+Two signatures are supported:
+
+```typescript
+import { VaneClient } from '@vane/sdk';
+
+// Object form (recommended)
+const client = new VaneClient({
+  baseUrl: 'https://vane.build',
+  apiKey: 'counsel_a1b2c3d4...',
+});
+
+// Positional form
+const client = new VaneClient('https://vane.build', 'counsel_a1b2c3d4...');
+```
+
+**`VaneClientOptions`:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `baseUrl` | `string` | Base URL of your Vane instance. Trailing slash is stripped automatically. |
+| `apiKey` | `string` | Company-scoped API key. |
+
+### `attest()`
+
+Appends a signed record to the attestation chain.
+
+```typescript
+const record = await client.attest(
+  agentId,      // string — the agent taking the action
+  companyId,    // string — your company ID (embedded in payload; server uses API key for auth)
+  actionType,   // string — what the agent did
+  payload,      // unknown — any JSON-serializable value
+  delegationToken?, // string — optional delegation JWT
+);
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `agentId` | `string` | Yes | The acting agent's ID. |
+| `companyId` | `string` | Yes | Your company ID. Sent in the request body and embedded in the stored payload (the server always uses the API key's company for auth). |
+| `actionType` | `string` | Yes | Short action descriptor. |
+| `payload` | `unknown` | Yes | Any JSON-serializable value. |
+| `delegationToken` | `string` | No | A delegation JWT from `POST /v1/token-exchange`. |
+
+**Returns:** `Promise<AttestationRecord>`
+
+**Throws:** `Error` with message `"Vane attest failed (${status}): ${body}"` on non-2xx responses.
+
+**Example:**
+
+```typescript
+const record = await client.attest(
+  'researcher-1',
+  'acme',
+  'web-search',
+  {
+    query: 'EU AI Act compliance requirements',
+    results: 10,
+    topUrl: 'https://example.com/eu-ai-act',
+  },
+);
+
+console.log(record.index);     // 0
+console.log(record.hash);      // 'f651a7c3...'
+console.log(record.signature); // 'vdv-nC4o...'
+```
+
+### `getProof()`
+
+Retrieves a Merkle inclusion proof for a record.
+
+```typescript
+const proof = await client.getProof(index); // number
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `index` | `number` | Zero-based record index. |
+
+**Returns:** `Promise<InclusionProof>`
+
+**Throws:** `Error` on non-2xx responses.
+
+**Example:**
+
+```typescript
+const { record, proof, root } = await client.getProof(0);
+
+// Verify the proof manually:
+// Start from record.hash, apply each sibling, assert result equals root
+```
+
+---
+
+## TypeScript types
+
+All types are exported from `@vane/sdk`:
+
+```typescript
+import type {
+  VaneClientOptions,
+  AttestationRecord,
+  DelegationInfo,
+  ActClaim,
+  ProofNode,
+  InclusionProof,
+} from '@vane/sdk';
+```
+
+### `AttestationRecord`
+
+```typescript
+interface AttestationRecord {
+  index: number;
+  timestamp: string;         // ISO 8601
+  payload: unknown;
+  delegation?: DelegationInfo;
+  hash: string;              // SHA-256 hex
+  signature: string;         // base64url Ed25519 signature
+}
+```
+
+### `DelegationInfo`
+
+```typescript
+interface DelegationInfo {
+  subject: string;           // SPIFFE ID of the subject
+  delegationChain: string[]; // [subject, ..., actor]
+  act: ActClaim | null;
+  tokenId: string;           // jti of the delegation token
+}
+```
+
+### `ActClaim`
+
+```typescript
+interface ActClaim {
+  sub: string;
+  act?: ActClaim; // nested for multi-hop chains
+}
+```
+
+### `InclusionProof`
+
+```typescript
+interface InclusionProof {
+  record: AttestationRecord;
+  proof: ProofNode[];
+  root: string;
+}
+
+interface ProofNode {
+  sibling: string;
+  position: 'left' | 'right';
+}
+```
+
+---
+
+## Complete example
+
+```typescript
+import { VaneClient } from '@vane/sdk';
+
+const client = new VaneClient({
+  baseUrl: process.env.COUNSEL_URL!,
+  apiKey: process.env.COUNSEL_API_KEY!,
+});
+
+async function main() {
+  // Attest a tool call
+  const record = await client.attest(
+    'researcher-1',
+    'acme',
+    'tool-call',
+    {
+      tool: 'web-search',
+      input: 'EU AI Act compliance',
+      output: 'Found 42 relevant documents',
+      durationMs: 830,
+    },
+  );
+
+  console.log(`Attested at index ${record.index}`);
+
+  // Get an inclusion proof for the record
+  const { proof, root } = await client.getProof(record.index);
+  console.log(`Merkle root: ${root}`);
+  console.log(`Proof has ${proof.length} nodes`);
+}
+
+main().catch(console.error);
+```

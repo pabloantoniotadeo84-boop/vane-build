@@ -1,0 +1,145 @@
+---
+title: "Delegation"
+description: "Issue and exchange delegation tokens for multi-agent authorization chains."
+---
+
+Delegation tokens prove that an agent is acting on behalf of an entity — and that this authorization was cryptographically granted, not merely claimed. Two endpoints cover different use cases:
+
+- `POST /v1/token-exchange` — simplified, intended for most applications
+- `POST /v1/token/exchange` — full RFC 8693 exchange for multi-hop chains
+
+All endpoints require authentication.
+
+---
+
+## `POST /v1/token-exchange`
+
+The simplified delegation endpoint. Builds SPIFFE IDs from raw identifiers using the authenticated company's context and issues a signed delegation JWT.
+
+Use this when you want to record "agent X acted on behalf of company Y" without constructing JWT-SVIDs manually.
+
+### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `agentId` | `string` | Yes | The acting agent. Must be registered under the authenticated company. |
+| `actingOn` | `string` | Yes | The entity being acted on behalf of. Becomes `sub` as `spiffe://.../company/{actingOn}`. |
+| `scope` | `string` | Yes | Space-separated permission string embedded as the `scope` claim. |
+
+### Response `201`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `token` | `string` | The signed delegation JWT. Pass this as `delegation` in `POST /v1/attest`. |
+| `sub` | `string` | The subject SPIFFE ID (`spiffe://.../company/{actingOn}`). |
+| `act` | `object` | The `act` claim: `{ "sub": "<agent SPIFFE ID>" }`. |
+| `jti` | `string` | Unique token ID. |
+| `scope` | `string` | The scope embedded in the token. |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "Missing or invalid field: agentId is required" }` | `agentId` missing. |
+| `400` | `{ "error": "Missing or invalid field: actingOn is required" }` | `actingOn` missing. |
+| `400` | `{ "error": "Missing or invalid field: scope is required" }` | `scope` missing. |
+| `404` | `{ "error": "Agent not found: researcher-1" }` | Agent not registered under this company. |
+
+### Example
+
+```bash
+curl -s -X POST http://localhost:3000/v1/token-exchange \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "agentId": "researcher-1",
+    "actingOn": "acme",
+    "scope": "attest:write"
+  }'
+```
+
+```json
+{
+  "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImExYjJjM2Q0In0...",
+  "sub": "spiffe://vane.local/company/acme",
+  "act": {
+    "sub": "spiffe://vane.local/company/acme/agent/researcher-1"
+  },
+  "jti": "cb6a2a5e-21ad-4d2c-80c9-d37516f276ab",
+  "scope": "attest:write"
+}
+```
+
+---
+
+## `POST /v1/token/exchange`
+
+Full RFC 8693 §2 token exchange. Takes two pre-issued JWT-SVIDs and produces a delegation token encoding the full `sub`/`act` chain. Both tokens must have been issued by the authenticated company's key pair.
+
+Use this when building multi-hop delegation chains where each level of the hierarchy needs to be represented in the token.
+
+### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `grant_type` | `string` | Yes | Must be `"urn:ietf:params:oauth:grant-type:token-exchange"`. |
+| `subject_token` | `string` | Yes | JWT-SVID of the entity being acted on behalf of (the **subject**). |
+| `subject_token_type` | `string` | Yes | Must be `"urn:ietf:params:oauth:token-type:jwt"`. |
+| `actor_token` | `string` | Yes | JWT-SVID of the acting agent (the **actor**). |
+| `actor_token_type` | `string` | Yes | Must be `"urn:ietf:params:oauth:token-type:jwt"`. |
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `access_token` | `string` | The delegation JWT with nested `act` claims. |
+| `issued_token_type` | `string` | `"urn:ietf:params:oauth:token-type:jwt"`. |
+| `token_type` | `"N_A"` | Per RFC 8693 — this token is not a Bearer token in the OAuth sense. |
+| `expires_in` | `number` | Lifetime in seconds (3600). |
+| `delegation_chain` | `string[]` | Ordered list of SPIFFE IDs from subject to actor. |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "unsupported_grant_type: ..." }` | Wrong `grant_type`. |
+| `400` | `{ "error": "unsupported_token_type: ..." }` | Wrong token type. |
+| `400` | `{ "error": "Missing or invalid field: subject_token is required" }` | Missing token. |
+| `400` | `{ "error": "..." }` | Token verification failed (invalid signature, expired, wrong audience). |
+
+### Example — agent A acts on behalf of company
+
+```bash
+# Step 1: Get a SVID for the company (subject)
+COMPANY_SVID=$(curl -s -X POST http://localhost:3000/v1/companies/svid \
+  -H "Authorization: Bearer $API_KEY" | jq -r '.svid')
+
+# Step 2: Get a SVID for the agent (actor)
+AGENT_SVID=$(curl -s http://localhost:3000/v1/agents/researcher-1/svid \
+  -H "Authorization: Bearer $API_KEY" | jq -r '.svid')
+
+# Step 3: Exchange for a delegation token
+curl -s -X POST http://localhost:3000/v1/token/exchange \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d "{
+    \"grant_type\": \"urn:ietf:params:oauth:grant-type:token-exchange\",
+    \"subject_token\": \"$COMPANY_SVID\",
+    \"subject_token_type\": \"urn:ietf:params:oauth:token-type:jwt\",
+    \"actor_token\": \"$AGENT_SVID\",
+    \"actor_token_type\": \"urn:ietf:params:oauth:token-type:jwt\"
+  }"
+```
+
+```json
+{
+  "access_token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImExYjJjM2Q0In0...",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:jwt",
+  "token_type": "N_A",
+  "expires_in": 3600,
+  "delegation_chain": [
+    "spiffe://vane.local/company/acme",
+    "spiffe://vane.local/company/acme/agent/researcher-1"
+  ]
+}
+```

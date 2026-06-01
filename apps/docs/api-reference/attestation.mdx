@@ -1,0 +1,137 @@
+---
+title: "Attestation"
+description: "POST /v1/attest — append a signed record to the attestation chain."
+---
+
+## `POST /v1/attest`
+
+The core endpoint. Appends a signed, indexed record to the authenticated company's attestation chain. The record's hash is computed over `index | timestamp | canonicalize(payload)` and signed with the company's Ed25519 private key.
+
+Requires authentication. Rate limit: **100 requests/minute** per API key (see [Rate Limits](/api-reference/rate-limits)).
+
+### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `agentId` | `string` | Yes | The agent taking this action. Does not need to be pre-registered, but pre-registration is recommended for identity coherence. |
+| `actionType` | `string` | Yes | A short descriptor for what the agent did. Freeform — use whatever taxonomy makes sense for your audit needs (e.g., `"web-search"`, `"tool-call"`, `"llm-completion"`). |
+| `payload` | `any` | Yes | Arbitrary JSON describing the action. Stored verbatim and included in the hash. |
+| `delegation` | `string` | No | A delegation JWT from `POST /v1/token-exchange` or `POST /v1/token/exchange`. When present, the delegation is verified and bound cryptographically to the record. |
+
+<Note>
+`companyId` is **not** accepted in the request body. It is derived authoritatively from the API key and embedded in the stored payload automatically. Passing it in the body (as the TypeScript SDK does for legacy reasons) is harmless — the server ignores it and uses the authenticated company.
+</Note>
+
+### Response `201` — `AttestationRecord`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `index` | `number` | Zero-based position in this company's chain. |
+| `timestamp` | `string` | ISO 8601 timestamp set by the server. |
+| `payload` | `object` | The stored payload, including server-injected `agentId`, `companyId`, and `actionType`. |
+| `delegation` | `DelegationInfo` | Present only when a delegation token was supplied. |
+| `hash` | `string` | SHA-256 hex over `index\|timestamp\|canonicalize(payload)[|canonicalize(delegation)]`. |
+| `signature` | `string` | Ed25519 over `hash`, base64url-encoded. |
+
+**`DelegationInfo` fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `subject` | `string` | `sub` claim from the delegation token — the entity being acted on behalf of. |
+| `delegationChain` | `string[]` | The full chain of principals, from subject to acting agent. |
+| `act` | `object \| null` | Raw `act` claim for nested delegation. |
+| `tokenId` | `string` | `jti` of the delegation token — ties this record to the exchange event. |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "Missing or invalid fields: agentId, actionType, payload are required" }` | One or more required fields missing. |
+| `400` | `{ "error": "Invalid delegation: ..." }` | Delegation JWT is malformed, expired, or has an invalid signature. |
+
+### Example — simple attestation
+
+```bash
+curl -s -X POST http://localhost:3000/v1/attest \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "agentId": "researcher-1",
+    "actionType": "web-search",
+    "payload": {
+      "query": "EU AI Act compliance requirements",
+      "results": 10,
+      "topUrl": "https://example.com/eu-ai-act"
+    }
+  }'
+```
+
+```json
+{
+  "index": 0,
+  "timestamp": "2026-01-01T12:00:00.000Z",
+  "payload": {
+    "agentId": "researcher-1",
+    "companyId": "acme",
+    "actionType": "web-search",
+    "payload": {
+      "query": "EU AI Act compliance requirements",
+      "results": 10,
+      "topUrl": "https://example.com/eu-ai-act"
+    }
+  },
+  "hash": "f651a7c3e4b8d2a1c9f0e7b4d3c2a1b0...",
+  "signature": "vdv-nC4oR3t8sY2pL6kXqZ1mW9jB0eA..."
+}
+```
+
+### Example — attested action with delegation
+
+```bash
+# First get a delegation token
+DELEGATION=$(curl -s -X POST http://localhost:3000/v1/token-exchange \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "agentId": "researcher-1",
+    "actingOn": "acme",
+    "scope": "attest:write"
+  }' | jq -r '.token')
+
+# Attest with the delegation token bound
+curl -s -X POST http://localhost:3000/v1/attest \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d "{
+    \"agentId\": \"researcher-1\",
+    \"actionType\": \"data-export\",
+    \"payload\": { \"rows\": 1500, \"destination\": \"s3://acme-reports/\" },
+    \"delegation\": \"$DELEGATION\"
+  }"
+```
+
+```json
+{
+  "index": 1,
+  "timestamp": "2026-01-01T12:05:00.000Z",
+  "payload": {
+    "agentId": "researcher-1",
+    "companyId": "acme",
+    "actionType": "data-export",
+    "payload": { "rows": 1500, "destination": "s3://acme-reports/" }
+  },
+  "delegation": {
+    "subject": "spiffe://vane.local/company/acme",
+    "delegationChain": [
+      "spiffe://vane.local/company/acme",
+      "spiffe://vane.local/company/acme/agent/researcher-1"
+    ],
+    "act": {
+      "sub": "spiffe://vane.local/company/acme/agent/researcher-1"
+    },
+    "tokenId": "cb6a2a5e-21ad-4d2c-80c9-d37516f276ab"
+  },
+  "hash": "a3f9b2c1d8e5f6a4b7c3d0e9f2a5b8c1...",
+  "signature": "Xt8q1R7mNp3kL5jB2cY6wA9oH4vE7uI..."
+}
+```

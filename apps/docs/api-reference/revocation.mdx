@@ -1,0 +1,96 @@
+---
+title: "Revocation"
+description: "Revoke passports and inspect the revocation list."
+---
+
+All endpoints require authentication. Revocation is per-company — you can only revoke passports issued by the authenticated company.
+
+---
+
+## `POST /v1/passports/:jti/revoke`
+
+Revokes a passport by its `jti` (the unique ID in the passport's JWT claims). The revocation is permanent and takes effect immediately for server-side verification. Verifiers using offline verification should check the OCSP endpoint to detect revocations.
+
+### Path parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `jti` | `string` | The UUID from the passport's `jti` claim. |
+
+### Request body (optional)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reason` | `string` | No | Human-readable reason for revocation. Stored and returned in OCSP responses. |
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `jti` | `string` | The revoked passport's ID. |
+| `revokedAt` | `string` | ISO 8601 revocation timestamp. |
+| `reason` | `string` | Present if a reason was provided. |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "Missing passport ID" }` | `jti` path parameter is missing. |
+| `409` | `{ "error": "Passport is already revoked" }` | Revocation is idempotent per `jti` — this prevents double-revocation. |
+
+### Example
+
+```bash
+curl -s -X POST \
+  http://localhost:3000/v1/passports/550e8400-e29b-41d4-a716-446655440000/revoke \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{ "reason": "agent compromised" }'
+```
+
+```json
+{
+  "jti": "550e8400-e29b-41d4-a716-446655440000",
+  "revokedAt": "2026-01-01T01:00:00.000Z",
+  "reason": "agent compromised"
+}
+```
+
+---
+
+## `GET /v1/passports/revoked`
+
+Returns the full revocation list for the authenticated company, ordered by revocation time.
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `revoked` | `Array` | Array of revocation records. |
+| `revoked[].jti` | `string` | The revoked passport's ID. |
+| `revoked[].revokedAt` | `string` | ISO 8601 revocation timestamp. |
+| `revoked[].reason` | `string` | Present if a reason was recorded. |
+
+### Example
+
+```bash
+curl -s http://localhost:3000/v1/passports/revoked \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{
+  "revoked": [
+    {
+      "jti": "550e8400-e29b-41d4-a716-446655440000",
+      "revokedAt": "2026-01-01T01:00:00.000Z",
+      "reason": "agent compromised"
+    },
+    {
+      "jti": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "revokedAt": "2026-01-01T02:00:00.000Z",
+      "reason": "rotated"
+    }
+  ]
+}
+```

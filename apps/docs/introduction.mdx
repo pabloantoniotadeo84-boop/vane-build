@@ -1,0 +1,76 @@
+---
+title: "What is Vane?"
+description: "A trust and attestation layer for AI agents — tamper-evident logs, cryptographic identity, and delegation proofs."
+---
+
+## The problem
+
+When an AI agent takes an action — queries a database, calls an API, modifies a file — there is no standard way to answer these questions after the fact:
+
+- **Who authorized this?** Did a human approve it, or did the agent act autonomously?
+- **Which agent did it?** If you have ten agent instances, which one made this call?
+- **Has the record been altered?** Can you prove the log hasn't been modified since it was written?
+- **Can I verify this without calling your server?** Can a third party audit your agent's behavior without trusting your infrastructure?
+
+These questions matter enormously in cross-organization workflows: when your MCP server is being called by an agent from another company, when a regulated industry requires an audit trail, when you need to prove to a customer that an agent acted within its authorization.
+
+## What Vane does
+
+Vane is a server you run (or deploy on Railway) that provides three primitives:
+
+**1. Cryptographic identity.** Every company and agent gets a [SPIFFE](https://spiffe.io) workload identity — a URI like `spiffe://vane.local/company/acme/agent/researcher-1`. These identities are tied to Ed25519 key pairs controlled by Vane. Every record and every credential is signed with those keys.
+
+**2. Agent passports.** An agent gets a short-lived signed credential — a Vane Agent Passport (CAP+JWT) — that encodes its identity, its authorization scopes, and the delegation chain that authorized it. Any MCP server can verify this credential **offline**, without calling Vane. No network round-trip, no trust in the caller's claims.
+
+**3. Tamper-evident attestation.** Every action an agent takes can be attested as a signed record in an append-only chain. Records are hash-chained (each record's hash includes the previous record's hash as context via its index) and organized into a Merkle tree. Anyone holding the CA public key can verify the full chain or produce an inclusion proof for any individual record.
+
+## How it fits into your architecture
+
+```
+                    ┌─────────────────────────────────┐
+                    │  Your Vane deployment          │
+                    │  (vane.build)            │
+                    │                                   │
+                    │  • Issues agent passports         │
+                    │  • Signs attestation records      │
+                    │  • Publishes CA public key        │
+                    └──────────────┬──────────────────-┘
+                                   │ API key auth
+              ┌────────────────────┼────────────────────┐
+              │                    │                     │
+    ┌─────────▼──────┐   ┌─────────▼──────┐   ┌────────▼───────┐
+    │ Your LangChain  │   │ OpenAI Agents  │   │ CrewAI         │
+    │ agent           │   │ SDK agent      │   │ crew           │
+    │ (VaneCallback│   │ (createVane-│   │ (VaneObs-   │
+    │  Handler)       │   │  Hooks)        │   │  erver)        │
+    └────────────────┘   └──────────────-┘   └────────────────┘
+
+                         ↓ outbound calls
+
+    ┌─────────────────────────────────────────────────────────┐
+    │ Third-party MCP server                                   │
+    │                                                          │
+    │  createVaneMiddleware({ counselPublicKey: ... })      │
+    │  → verifies the agent's passport offline                 │
+    │  → gets an AttestationReceipt for every tool call       │
+    └─────────────────────────────────────────────────────────┘
+```
+
+## What makes it verifiable
+
+Everything Vane produces can be verified with a single Ed25519 public key. The CA public key is published at `GET /v1/ca/public-key?companyId=<id>` with no authentication required. Once a verifier has that key, it can:
+
+- Verify any agent passport without calling Vane
+- Verify any attestation record's signature
+- Re-derive the Merkle root from any set of records
+- Verify a Merkle inclusion proof in O(log n) without the full chain
+
+The key is static (until a planned rotation), suitable for pinning in verifier deployments.
+
+## What it does not do (yet)
+
+- **Workload attestation at registration.** Any holder of a company API key can register an agent with any name. Production deployments would want node attestation (TPM, k8s projected service accounts, SPIRE) before issuing an SVID.
+- **JWT revocation.** Revoked passports are tracked in the revocation list (`GET /v1/passports/revoked`) and OCSP (`GET /v1/ocsp/:jti`), but issued SVIDs are valid until expiry — there is no CRL or short-lived rotation for those tokens.
+- **Key rotation.** Replacing a company's key pair invalidates all existing signatures. A planned rotation mechanism is not yet implemented.
+
+These are known gaps, not oversights — see [Known Limitations](/concepts#known-limitations) for the full list.

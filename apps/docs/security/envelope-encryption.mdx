@@ -1,0 +1,77 @@
+---
+title: "Envelope Encryption"
+description: "How COUNSEL_MASTER_KEY protects private keys at rest with AES-256-GCM."
+---
+
+## The problem
+
+Each company's Ed25519 private key is stored in a PostgreSQL database. Without envelope encryption, the private key is stored in plaintext — anyone with database read access can extract it and forge signatures.
+
+With `COUNSEL_MASTER_KEY` set, private keys are encrypted with AES-256-GCM before storage. The master key never touches the database.
+
+## How it works
+
+At server startup, the master key is derived:
+
+```
+MASTER_KEY = SHA-256(COUNSEL_MASTER_KEY as UTF-8)
+```
+
+This produces a 256-bit key from an arbitrary-length passphrase. SHA-256 is used here purely for key stretching from string to bytes — it is not a key derivation function (KDF). For production deployments, use a 64-character random hex string as `COUNSEL_MASTER_KEY` so the entropy is already adequate.
+
+When a new company is registered and its key pair is generated, the private key is encrypted:
+
+```
+IV  = random 12 bytes (AES-GCM nonce)
+CT, TAG = AES-256-GCM.Encrypt(MASTER_KEY, IV, plaintext_pem)
+stored = "enc:v1:{IV_hex}:{TAG_hex}:{CT_hex}"
+```
+
+The stored format is `enc:v1:` followed by colon-separated hex: IV, authentication tag, ciphertext. The version prefix `enc:v1:` allows future format changes.
+
+When the key is loaded:
+
+```
+AES-256-GCM.Decrypt(MASTER_KEY, IV, TAG, CT) → plaintext_pem
+```
+
+AES-GCM provides both confidentiality and authenticity — if the master key is wrong or the ciphertext is tampered with, decryption fails with an authentication error before any plaintext is exposed.
+
+## What this protects
+
+- A database dump or backup will contain only ciphertext — useless without the master key.
+- An attacker with read-only database access cannot forge signatures.
+- An attacker with both database access AND the master key can forge signatures — this is why the master key must be stored separately from the database (different secret store, different infrastructure access path).
+
+## What this does NOT protect
+
+- An attacker who compromises the Vane server process at runtime (the plaintext key is in memory while the server runs).
+- Loss of the master key — you cannot decrypt existing private keys without it. Back it up.
+- Key rotation — changing `COUNSEL_MASTER_KEY` does not automatically re-encrypt existing keys. You would need to manually decrypt and re-encrypt each company's key.
+
+## Backward compatibility
+
+If a private key in the database is plaintext (i.e., it does not start with `enc:v1:`), it is used as-is. A warning is logged:
+
+```
+WARNING: Plaintext private key found in database. Re-save keys to encrypt.
+```
+
+If a private key is encrypted but `COUNSEL_MASTER_KEY` is not set:
+
+```
+Error: Encrypted private key found in database but COUNSEL_MASTER_KEY is not set
+```
+
+The server will fail to load that tenant. Set the master key before starting.
+
+## Generating a master key
+
+```bash
+# Generate a cryptographically random 64-character hex string
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# or
+openssl rand -hex 32
+```
+
+Store this value in your secret manager (Railway secret, AWS Secrets Manager, HashiCorp Vault) and inject it as `COUNSEL_MASTER_KEY` at runtime. Never commit it to version control.

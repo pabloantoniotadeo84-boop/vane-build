@@ -1,0 +1,72 @@
+---
+title: "Authentication"
+description: "How to authenticate requests to the Vane API."
+---
+
+## Overview
+
+Most endpoints require authentication. Vane resolves the calling tenant (company) from the credential you present. All requests are automatically scoped to that company — you cannot access another company's data.
+
+Three authentication methods are supported, tried in this order:
+
+### 1. mTLS client certificate
+
+When the server is started with `COUNSEL_MTLS_CA_CERT` set, it runs in HTTPS mode and extracts the client certificate's Common Name (CN) as the `companyId`. If the CN matches a registered company, that company's identity is used with no Bearer token required.
+
+Existing Bearer-token callers continue to work unmodified — mTLS is additive, not a replacement.
+
+See [mTLS configuration](/security/mtls) for setup details.
+
+### 2. API key
+
+The primary authentication method for most deployments. Pass the key as a Bearer token:
+
+```
+Authorization: Bearer counsel_a1b2c3d4e5f6...
+```
+
+API keys are created at company registration (one bootstrap key) and via `POST /v1/keys`. Each key is permanently scoped to its company.
+
+API keys are opaque hex strings prefixed with `counsel_`. They are validated with a direct database lookup — no JWT parsing, no expiry.
+
+### 3. OAuth 2.0 Bearer token
+
+Short-lived tokens issued via the client credentials flow (`POST /v1/oauth/token`). These tokens have the prefix `oauth_` and expire after 3600 seconds. They are accepted anywhere an API key is accepted.
+
+OAuth is useful for machine-to-machine authentication in environments that expect the OAuth 2.0 protocol (e.g., standard HTTP clients with OAuth library support).
+
+---
+
+## Public endpoints
+
+These endpoints require **no authentication**:
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/v1/health` | Health check |
+| `POST` | `/v1/companies` | Company registration |
+| `POST` | `/v1/setup` | Alias for `/v1/companies` |
+| `POST` | `/v1/recover-key` | Localhost-only key recovery |
+| `POST` | `/v1/oauth/token` | OAuth token issuance |
+| `GET` | `/v1/ca/public-key` | CA public key (by company) |
+| `GET` | `/v1/ca/well-known` | OIDC discovery document |
+
+---
+
+## Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `401` | `{ "error": "Unauthorized" }` | Missing or invalid credential |
+| `403` | `{ "error": "Forbidden" }` | Remote caller on localhost-only endpoint |
+
+---
+
+## Correlation IDs
+
+Every response includes an `X-Request-ID` header. If you send `X-Request-ID` on the request, your value is echoed back. If you don't, a UUID is generated for that request. Use this to correlate structured log entries with API calls.
+
+```bash
+curl -H "X-Request-ID: my-trace-123" http://localhost:3000/v1/health
+# Response includes: X-Request-ID: my-trace-123
+```

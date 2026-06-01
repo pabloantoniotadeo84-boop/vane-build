@@ -1,0 +1,117 @@
+---
+title: "Merkle Tree Attestation"
+description: "What tamper-evidence means in practice and how inclusion proofs work."
+---
+
+## What tamper-evidence means
+
+An attestation record is signed. But a signature alone only proves the record was valid when it was signed — it says nothing about whether the record was silently deleted from the log, or whether two records were swapped.
+
+Vane adds two more protections:
+
+1. **Index binding.** Each record's hash includes its position (`index`) in the chain. You cannot move a record to a different position without invalidating its hash.
+
+2. **Merkle tree.** All record hashes are organized into a binary Merkle tree. The root of this tree is a single hash that commits to all records simultaneously. If any record changes, the root changes.
+
+Together these mean: if you have a trusted Merkle root, you can verify any individual record against it with O(log n) work — without downloading the full chain.
+
+## Construction
+
+Given N records with hashes `h[0]`, `h[1]`, ..., `h[N-1]`:
+
+1. **Pad** to the next power of two by repeating the last leaf. (Standard binary Merkle padding.)
+2. **Hash pairs** bottom-up: `SHA-256(leftHash + rightHash)`.
+3. The single remaining hash is the root.
+
+Example with 3 records (padded to 4):
+
+```
+             root
+            /    \
+         n01     n23
+        /   \   /   \
+       h0   h1 h2   h2  ← h2 is repeated
+```
+
+Leaf concatenation order: `SHA-256(h0 || h1)`, `SHA-256(h2 || h2)`, then `SHA-256(n01 || n23)`.
+
+## Inclusion proofs
+
+A proof for record at index `i` contains the set of sibling hashes needed to re-derive the root from `h[i]`. Each node in the proof specifies whether the sibling is on the left or right.
+
+### Reading a proof
+
+```json
+{
+  "record": { "index": 0, "hash": "f651a7c3...", ... },
+  "proof": [
+    { "sibling": "a3f9b2c1...", "position": "right" },
+    { "sibling": "7e2d4a8f...", "position": "right" }
+  ],
+  "root": "d5c6e7f8..."
+}
+```
+
+`position` is the position of the **sibling** in its pair, not the current node.
+
+### Verifying a proof
+
+```python
+import hashlib
+
+def verify_proof(record_hash: str, proof: list, claimed_root: str) -> bool:
+    current = bytes.fromhex(record_hash)
+    
+    for step in proof:
+        sibling = bytes.fromhex(step['sibling'])
+        if step['position'] == 'left':
+            # sibling is on the left: hash(sibling + current)
+            combined = sibling + current
+        else:
+            # sibling is on the right: hash(current + sibling)
+            combined = current + sibling
+        current = hashlib.sha256(combined).digest()
+    
+    return current.hex() == claimed_root
+```
+
+```typescript
+import { createHash } from 'node:crypto';
+
+function verifyProof(
+  recordHash: string,
+  proof: { sibling: string; position: 'left' | 'right' }[],
+  claimedRoot: string,
+): boolean {
+  let current = Buffer.from(recordHash, 'hex');
+
+  for (const { sibling, position } of proof) {
+    const siblingBuf = Buffer.from(sibling, 'hex');
+    const combined =
+      position === 'left'
+        ? Buffer.concat([siblingBuf, current])
+        : Buffer.concat([current, siblingBuf]);
+    current = createHash('sha256').update(combined).digest();
+  }
+
+  return current.toString('hex') === claimedRoot;
+}
+```
+
+## Practical audit workflow
+
+**Checkpoint:** An auditor calls `GET /v1/verify` and records the `merkleRoot` with a trusted timestamp. This is their anchor.
+
+**Later audit:** The auditor downloads any specific record via `GET /v1/proof/:index`. They run `verifyProof(record.hash, proof, knownRoot)`. If it passes, the record was in the chain at the time of the checkpoint.
+
+**Full chain audit:** The auditor downloads `GET /v1/chain`, re-computes every record's hash, verifies every signature against the CA public key, builds the Merkle tree, and checks the root matches. This requires zero Vane trust — only the CA public key.
+
+## What tamper evidence does not guarantee
+
+The Merkle tree proves that records were in the chain in a specific order and have not been modified. It does not prove:
+
+- That the records are complete (records could have been appended but not disclosed).
+- That the timestamps are accurate (timestamps are set by the server).
+- That the Vane server was not compromised at write time.
+
+For regulated environments, the Merkle root should be checkpointed in a system independent of Vane — a public blockchain, a notary service, or a multi-party signature scheme.

@@ -1,0 +1,95 @@
+---
+title: "Sentry"
+description: "Configure error monitoring with Sentry."
+---
+
+## Overview
+
+Vane integrates with Sentry via `@sentry/node`. When `SENTRY_DSN` is set, unhandled exceptions in request handlers are captured and sent to Sentry. If `SENTRY_DSN` is not set, Sentry is not initialized and the server runs without error reporting.
+
+## Setup
+
+### 1. Create a Sentry project
+
+In your Sentry dashboard: **Projects → Create Project → Node.js**. Copy the DSN — it looks like:
+
+```
+https://a1b2c3d4e5f67890@o1234567.ingest.sentry.io/1234567
+```
+
+### 2. Set the DSN
+
+```bash
+# Local development
+echo "SENTRY_DSN=https://..." >> .env
+
+# Railway
+railway variables set SENTRY_DSN=https://a1b2c3d4e5f67890@o1234567.ingest.sentry.io/1234567
+
+# Any other platform
+export SENTRY_DSN=https://...
+```
+
+### 3. Verify
+
+Start the server and trigger an error. Check your Sentry dashboard — the error should appear within seconds.
+
+A simple test: call a valid endpoint with a malformed JSON body:
+
+```bash
+curl -s -X POST http://localhost:3000/v1/companies \
+  -H "Content-Type: application/json" \
+  -d 'not-json'
+```
+
+This returns a 400 (expected) but should not send to Sentry — only unhandled errors (5xx) are captured.
+
+## What gets captured
+
+Vane uses `captureException` in the global error handler:
+
+```typescript
+app.onError((err, c) => {
+  const requestId = c.get('requestId') ?? null;
+  logger.error({ err, requestId }, 'Unhandled error');
+  captureException(err);  // ← sends to Sentry
+  return c.json({ error: 'Internal Server Error' }, 500);
+});
+```
+
+This captures unhandled exceptions that reach the top-level error handler (HTTP 500 responses). It does not capture:
+
+- Expected errors (4xx responses)
+- PostgreSQL connection errors that are caught and re-thrown as JSON errors
+- Errors in background tasks (e.g., attestation fire-and-forget calls)
+
+## Correlation with structured logs
+
+Every request has an `X-Request-ID` header. The request ID is included in the structured log entry for every request. When debugging a Sentry event, look up the request ID in your log aggregation system to find the full request context.
+
+```json
+{
+  "level": "error",
+  "requestId": "f7e8a1b2-c3d4-5678-9abc-def012345678",
+  "method": "POST",
+  "path": "/v1/attest",
+  "status": 500,
+  "durationMs": 42,
+  "err": { "message": "...", "stack": "..." }
+}
+```
+
+## Structured logging
+
+Even without Sentry, all request logs are structured JSON (via Pino) and include:
+
+| Field | Description |
+|-------|-------------|
+| `requestId` | Correlation ID from `X-Request-ID` header |
+| `method` | HTTP method |
+| `path` | Request path |
+| `status` | Response status code |
+| `durationMs` | Request duration in milliseconds |
+| `companyId` | Authenticated company (null for public endpoints) |
+
+Log level is controlled by `LOG_LEVEL`. Set `LOG_LEVEL=debug` to see additional internal events.

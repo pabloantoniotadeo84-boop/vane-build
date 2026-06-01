@@ -1,0 +1,166 @@
+---
+title: "Sidecar Proxy"
+description: "@vane/sidecar — zero-code attestation for any agent via HTTP proxy."
+---
+
+The Vane sidecar is a local HTTP proxy that runs alongside any AI agent process. It intercepts outbound HTTP/HTTPS calls, attaches the agent's Vane passport, and attests every call — all without changing a line of agent code.
+
+## How it works
+
+```
+Your agent process
+    │
+    │  HTTP_PROXY=http://127.0.0.1:8080
+    │  HTTPS_PROXY=http://127.0.0.1:8080
+    ▼
+Vane Sidecar (:8080)
+    ├── Outbound HTTP: injects Vane-Passport header, attests call
+    ├── Outbound HTTPS: MITM → injects header → re-encrypts → forwards
+    └── Inbound (/:path): verifies Vane-Passport, reverse-proxies to agent
+```
+
+For HTTPS, the sidecar performs transparent MITM using a locally-generated ECDSA P-256 root CA. The agent process must trust this CA certificate.
+
+## Configuration
+
+All configuration is via environment variables. None have defaults except `SIDECAR_PORT` and `SIDECAR_CA_CERT_FILE`.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `COUNSEL_API_URL` | **Yes** | — | Base URL of the Vane server (e.g., `https://vane.build`). |
+| `COUNSEL_API_KEY` | **Yes** | — | Company-scoped API key. |
+| `COUNSEL_AGENT_ID` | **Yes** | — | Agent ID pre-registered on the Vane server. |
+| `COUNSEL_COMPANY_ID` | **Yes** | — | Company ID. |
+| `SIDECAR_PORT` | No | `8080` | Port to listen on. Always binds to `127.0.0.1`. |
+| `SIDECAR_AGENT_TARGET` | No | — | Where to forward verified inbound calls (e.g., `http://localhost:3001`). Required for inbound (reverse proxy) mode. |
+| `SIDECAR_CA_CERT_FILE` | No | `./vane-ca.pem` | Path to write the MITM CA certificate. |
+
+## Starting the sidecar
+
+```bash
+COUNSEL_API_URL=https://vane.build \
+COUNSEL_API_KEY=counsel_a1b2c3d4... \
+COUNSEL_AGENT_ID=researcher-1 \
+COUNSEL_COMPANY_ID=acme \
+npx @vane/sidecar
+```
+
+On startup, the sidecar:
+1. Fetches an agent passport from Vane (using `POST /v1/agents/{agentId}/passport`)
+2. Generates a MITM CA certificate and writes it to `SIDECAR_CA_CERT_FILE`
+3. Starts listening on `127.0.0.1:SIDECAR_PORT`
+4. Prints configuration instructions
+
+Output:
+
+```
+[vane-sidecar] Proxy listening on http://127.0.0.1:8080
+[vane-sidecar] Agent: researcher-1  Company: acme
+
+[vane-sidecar] ── MITM CA certificate ───────────────────────────────────
+[vane-sidecar] Written to: ./vane-ca.pem
+[vane-sidecar] Fetch via:  GET http://127.0.0.1:8080/vane-ca-cert.pem
+[vane-sidecar] Trust it with one of:
+[vane-sidecar]   NODE_EXTRA_CA_CERTS=./vane-ca.pem          (Node.js)
+[vane-sidecar]   REQUESTS_CA_BUNDLE=./vane-ca.pem           (Python/requests)
+[vane-sidecar]   SSL_CERT_FILE=./vane-ca.pem                (OpenSSL-linked tools)
+[vane-sidecar] ─────────────────────────────────────────────────────────
+
+[vane-sidecar] Set on your agent process:
+[vane-sidecar]   HTTP_PROXY=http://127.0.0.1:8080
+[vane-sidecar]   HTTPS_PROXY=http://127.0.0.1:8080
+[vane-sidecar]   NODE_EXTRA_CA_CERTS=./vane-ca.pem
+```
+
+## Using the sidecar — outbound (forward proxy)
+
+Configure your agent process to use the sidecar as its HTTP proxy. Every outbound call will automatically get the agent's `Vane-Passport` header injected.
+
+### HTTP
+
+```bash
+HTTP_PROXY=http://127.0.0.1:8080 \
+  python my_agent.py
+```
+
+### HTTPS (Node.js agent)
+
+Install the MITM CA cert, then set the proxy:
+
+```bash
+# Download the CA cert from the sidecar's built-in endpoint
+curl http://127.0.0.1:8080/vane-ca-cert.pem -o vane-ca.pem
+
+NODE_EXTRA_CA_CERTS=./vane-ca.pem \
+HTTPS_PROXY=http://127.0.0.1:8080 \
+  node my_agent.js
+```
+
+### HTTPS (Python agent with requests)
+
+```bash
+REQUESTS_CA_BUNDLE=./vane-ca.pem \
+HTTPS_PROXY=http://127.0.0.1:8080 \
+  python my_agent.py
+```
+
+### What happens on each outbound call
+
+1. The sidecar intercepts the request.
+2. It fetches the cached passport (refreshed automatically when < 5 minutes remain before expiry).
+3. It injects `Vane-Passport: <token>` into the request headers.
+4. If no `Authorization` header is already set, it also injects `Authorization: Bearer <passport>`.
+5. It forwards the request to the real destination.
+6. It sends an attestation record to Vane (fire-and-forget: `actionType: "outbound-http"`, payload: `{ method, url, host, path }`).
+
+## Using the sidecar — inbound (reverse proxy)
+
+Set `SIDECAR_AGENT_TARGET` to your agent's local address. The sidecar will verify incoming `Vane-Passport` (or `Authorization: Bearer <cap-jwt>`) headers before forwarding to your agent.
+
+```bash
+COUNSEL_API_URL=https://vane.build \
+COUNSEL_API_KEY=counsel_a1b2c3d4... \
+COUNSEL_AGENT_ID=researcher-1 \
+COUNSEL_COMPANY_ID=acme \
+SIDECAR_AGENT_TARGET=http://localhost:3001 \
+npx @vane/sidecar
+```
+
+Callers hit `http://127.0.0.1:8080/...` — the sidecar verifies the passport locally (no Vane server call) and forwards to `http://localhost:3001/...`.
+
+**Requests without a valid passport receive:**
+
+```json
+HTTP/1.1 401 Unauthorized
+{ "error": "Missing Vane passport", "hint": "Set \"Vane-Passport: <token>\" header or \"Authorization: Bearer <cap-jwt>\"" }
+```
+
+or:
+
+```json
+HTTP/1.1 401 Unauthorized
+{ "error": "Vane passport is invalid or has expired" }
+```
+
+## Downloading the MITM CA certificate
+
+The CA cert is always available at:
+
+```
+GET http://127.0.0.1:<SIDECAR_PORT>/vane-ca-cert.pem
+```
+
+No authentication required. This endpoint exists so agents can bootstrap trust at startup without needing the cert pre-baked into their environment.
+
+## Passport caching and refresh
+
+The sidecar caches the agent passport and automatically refreshes it when fewer than 5 minutes remain before expiry. A new passport is fetched from `POST /v1/agents/{agentId}/passport` with `scopes: ["tool:*", "attest:write"]` and a 3600-second TTL.
+
+If the Vane server is unavailable when a refresh is needed, the sidecar returns `502` on the proxied request.
+
+## Notes
+
+- The sidecar always binds to `127.0.0.1` — it is not accessible from other machines.
+- The MITM CA uses ECDSA P-256 (not Ed25519) because the `@peculiar/x509` library used to issue certificates uses WebCrypto for CA operations.
+- Leaf certificates per hostname are cached for 1 hour; the CA cert is valid for 1 year.
+- Only HTTP/1.1 is supported for HTTPS MITM. HTTP/2 upstream connections are not implemented.

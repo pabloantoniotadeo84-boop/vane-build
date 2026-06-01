@@ -1,0 +1,247 @@
+---
+title: "Quickstart"
+description: "From zero to first attested action in under 10 minutes."
+---
+
+## Prerequisites
+
+- `curl` and `jq`
+- A Vane server to connect to — either:
+  - **Production:** `https://vane.build` (sign up at [vane.build](https://vane.build))
+  - **Self-hosted:** `http://localhost:3000` (run `npm run dev` from the repo root, requires PostgreSQL at `DATABASE_URL`)
+
+Set a shell variable so the examples stay short:
+
+```bash
+# Production
+BASE=https://vane.build
+
+# Self-hosted
+BASE=http://localhost:3000
+```
+
+---
+
+## Step 1: Register your company
+
+Every company gets an isolated key pair, attestation chain, and API key. `companyId` is your permanent tenant identifier — choose something you won't need to change.
+
+```bash
+curl -s -X POST $BASE/v1/companies \
+  -H "Content-Type: application/json" \
+  -d '{ "companyId": "acme" }' | jq .
+```
+
+```json
+{
+  "companyId": "acme",
+  "spiffeId": "spiffe://vane.local/company/acme",
+  "registeredAt": "2026-01-01T00:00:00.000Z",
+  "apiKey": "counsel_a1b2c3d4e5f6..."
+}
+```
+
+<Warning>
+The `apiKey` is shown once and never again. Save it immediately.
+</Warning>
+
+```bash
+API_KEY=counsel_a1b2c3d4e5f6...  # paste your key here
+```
+
+---
+
+## Step 2: Register an agent
+
+An agent is any process that takes actions on behalf of your company. The `agentId` is a stable identifier for this specific agent role.
+
+```bash
+curl -s -X POST $BASE/v1/agents/register \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{ "agentId": "researcher-1" }' | jq .
+```
+
+```json
+{
+  "agentId": "researcher-1",
+  "spiffeId": "spiffe://vane.local/company/acme/agent/researcher-1",
+  "svid": "eyJhbGci...",
+  "registeredAt": "2026-01-01T00:00:00.000Z"
+}
+```
+
+The agent now has a SPIFFE workload identity and an initial JWT-SVID.
+
+---
+
+## Step 3: Issue an agent passport
+
+A passport is a short-lived signed credential that encodes the agent's identity and what it's authorized to do. Unlike SVIDs, passports can be verified by third parties **without calling Vane**.
+
+```bash
+curl -s -X POST $BASE/v1/agents/researcher-1/passport \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "scopes": ["tool:*", "attest:write"],
+    "ttl": 3600
+  }' | jq .
+```
+
+```json
+{
+  "agentId": "researcher-1",
+  "spiffeId": "spiffe://vane.local/company/acme/agent/researcher-1",
+  "org": "acme",
+  "orgSpiffeId": "spiffe://vane.local/company/acme",
+  "scopes": ["tool:*", "attest:write"],
+  "delegationChain": [
+    "spiffe://vane.local/company/acme",
+    "spiffe://vane.local/company/acme/agent/researcher-1"
+  ],
+  "passport": "eyJhbGci...",
+  "expiresIn": 3600,
+  "caPublicKey": "-----BEGIN PUBLIC KEY-----\n..."
+}
+```
+
+The `passport` token is what the agent presents to MCP servers. The `caPublicKey` is what those servers use to verify it offline. Extract both:
+
+```bash
+PASSPORT=$(curl -s -X POST $BASE/v1/agents/researcher-1/passport \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{"scopes":["tool:*"],"ttl":3600}' | jq -r '.passport')
+```
+
+---
+
+## Step 4: Attest an action
+
+Record a tamper-evident log entry for an action your agent took. The record is signed with your company's Ed25519 key and appended to an append-only chain.
+
+```bash
+curl -s -X POST $BASE/v1/attest \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "agentId": "researcher-1",
+    "actionType": "web-search",
+    "payload": {
+      "query": "annual revenue Acme Corp 2025",
+      "results": 10
+    }
+  }' | jq .
+```
+
+```json
+{
+  "index": 0,
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "payload": {
+    "agentId": "researcher-1",
+    "companyId": "acme",
+    "actionType": "web-search",
+    "payload": {
+      "query": "annual revenue Acme Corp 2025",
+      "results": 10
+    }
+  },
+  "hash": "f651a7c3e4b8...",
+  "signature": "vdv-nC4o..."
+}
+```
+
+`hash` is SHA-256 over `index | timestamp | canonicalize(payload)`. `signature` is Ed25519 over that hash.
+
+---
+
+## Step 5: Verify the chain offline
+
+Get the Merkle root and confirm every record's signature is valid. You can do this without trusting Vane — just the CA public key.
+
+```bash
+curl -s $BASE/v1/verify \
+  -H "Authorization: Bearer $API_KEY" | jq .
+```
+
+```json
+{
+  "valid": true,
+  "merkleRoot": "a3f9b2c1..."
+}
+```
+
+To verify a single record with an inclusion proof:
+
+```bash
+curl -s $BASE/v1/proof/0 \
+  -H "Authorization: Bearer $API_KEY" | jq .
+```
+
+```json
+{
+  "record": {
+    "index": 0,
+    "timestamp": "2026-01-01T00:00:00.000Z",
+    "payload": { ... },
+    "hash": "f651a7c3...",
+    "signature": "vdv-nC4o..."
+  },
+  "proof": [],
+  "root": "a3f9b2c1..."
+}
+```
+
+With one record the proof is empty (the record is the root). As the chain grows, each proof contains O(log n) siblings. See [Merkle Tree](/security/merkle-tree) for how to re-derive the root from a proof.
+
+---
+
+## Step 6: Fetch the CA public key for offline verification
+
+Any third-party verifier needs only this key to verify passports and records:
+
+```bash
+curl -s "$BASE/v1/ca/public-key?companyId=acme" | jq .
+```
+
+```json
+{
+  "companyId": "acme",
+  "spiffeId": "spiffe://vane.local/company/acme",
+  "kid": "a1b2c3d4e5f60000",
+  "pem": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n",
+  "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "...",
+    "kid": "a1b2c3d4e5f60000",
+    "alg": "EdDSA",
+    "use": "sig"
+  },
+  "fingerprint": "SHA256:...",
+  "keys": [{ ... }]
+}
+```
+
+No authentication required — this endpoint is designed to be public and cached.
+
+---
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="book-open" href="/concepts">
+    Understand passports, attestation chains, and delegation.
+  </Card>
+  <Card title="MCP Middleware" icon="shield-check" href="/sdk/mcp-middleware">
+    Add passport verification to any MCP server in three lines.
+  </Card>
+  <Card title="LangChain Integration" icon="link" href="/sdk/langchain">
+    Attest every LLM call and tool invocation automatically.
+  </Card>
+  <Card title="Sidecar Proxy" icon="arrows-left-right" href="/sdk/sidecar">
+    Zero-code attestation for any agent via HTTP proxy.
+  </Card>
+</CardGroup>

@@ -1,0 +1,141 @@
+---
+title: "Revocation & OCSP"
+description: "How passport revocation works, what the OCSP endpoint returns, and caching behavior."
+---
+
+## Overview
+
+Vane supports passport revocation via two mechanisms:
+
+1. **Revocation list** (`GET /v1/passports/revoked`) — full list of all revoked passports for a company.
+2. **OCSP status check** (`GET /v1/ocsp/:jti`) — signed status response for a specific passport.
+
+Both are authenticated endpoints. The OCSP response is signed with the company's Ed25519 key, so the status can be verified without trusting the HTTP transport.
+
+## The revocation trade-off
+
+Vane passports are verified **offline** by default. This is a feature — it allows MCP servers to verify agent credentials without a round-trip to Vane. But it means revocation is not instant for offline verifiers.
+
+The options:
+
+| Approach | Revocation latency | Network requirement |
+|----------|--------------------|---------------------|
+| Offline only (default) | Until passport expiry | None |
+| Check OCSP on each call | Immediate | Calls Vane on every verify |
+| Cache OCSP with 5-min TTL | Up to 5 minutes | Periodic Vane call |
+
+For most use cases, short TTLs (1 hour) plus OCSP on suspicious activity is the right balance. For high-security environments, use `POST /v1/passport/verify` (server-side, checks revocation automatically).
+
+## Revocation workflow
+
+### Immediate revocation
+
+```bash
+# Revoke a passport
+curl -s -X POST \
+  http://localhost:3000/v1/passports/550e8400-e29b-41d4-a716-446655440000/revoke \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "reason": "agent compromised" }'
+```
+
+After this:
+- `POST /v1/passport/verify` returns `{ "valid": false, "code": "PASSPORT_REVOKED" }`.
+- `GET /v1/ocsp/:jti` returns `{ "status": "revoked" }`.
+- Offline verifiers (`@vane/mcp-middleware`) still accept the passport until its `exp`.
+
+### Planned rotation
+
+Use `POST /v1/agents/:agentId/passport/rotate` instead of manual revocation. This atomically revokes the old passport and issues a new one with the same scopes, preventing a gap in authorization.
+
+## OCSP response format
+
+The OCSP response is signed with the company's Ed25519 key. The signature covers the response data object (excluding `caPublicKey` and `signature`):
+
+```json
+{
+  "jti": "550e8400-e29b-41d4-a716-446655440000",
+  "companyId": "acme",
+  "status": "revoked",
+  "checkedAt": "2026-01-01T01:05:00.000Z",
+  "revokedAt": "2026-01-01T01:00:00.000Z",
+  "reason": "agent compromised",
+  "caPublicKey": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n",
+  "signature": "Xt8q1R7m..."
+}
+```
+
+To verify the OCSP signature independently:
+
+1. Remove `caPublicKey` and `signature` from the response.
+2. Canonicalize the remaining object (sort keys recursively, JSON-stringify).
+3. Compute SHA-256 of the canonical string.
+4. Verify the Ed25519 signature over that hash using the `caPublicKey`.
+
+```typescript
+import { verify, createPublicKey, createHash } from 'node:crypto';
+
+function verifyOcspResponse(response: Record<string, unknown>): boolean {
+  const { caPublicKey, signature, ...data } = response;
+  
+  // Canonicalize: sort keys recursively
+  const canonical = JSON.stringify(sortKeys(data));
+  const hash = createHash('sha256').update(canonical, 'utf8').digest();
+  
+  return verify(
+    null,
+    hash,
+    createPublicKey(caPublicKey as string),
+    Buffer.from(signature as string, 'base64url'),
+  );
+}
+```
+
+## Caching
+
+OCSP responses include `Cache-Control: public, max-age=300` (5 minutes). This means:
+
+- A verifier that caches OCSP responses will see revocations within 5 minutes.
+- A freshly revoked passport may still pass OCSP checks for up to 5 minutes if the cache holds a stale `"valid"` response.
+
+If you need immediate revocation, call `POST /v1/passport/verify` — it always checks the live database state.
+
+## Integrating OCSP in a verifier
+
+```typescript
+import { createVaneMiddleware, decodeReceipt } from '@vane/mcp-middleware';
+
+const vane = createVaneMiddleware({ counselPublicKey: process.env.COUNSEL_CA_KEY! });
+const ocspCache = new Map<string, { status: string; expiresAt: number }>();
+
+async function checkOcsp(jti: string): Promise<boolean> {
+  const cached = ocspCache.get(jti);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.status === 'valid';
+  }
+
+  const response = await fetch(
+    `https://vane.build/v1/ocsp/${jti}`,
+    { headers: { Authorization: `Bearer ${process.env.COUNSEL_API_KEY}` } },
+  ).then(r => r.json());
+
+  ocspCache.set(jti, {
+    status: response.status,
+    expiresAt: Date.now() + 5 * 60 * 1000, // respect the 5-minute cache
+  });
+
+  return response.status === 'valid';
+}
+
+// In your MCP handler:
+server.setRequestHandler(
+  CallToolRequestSchema,
+  counsel.mcpHandler(async (request, receipt) => {
+    const isValid = await checkOcsp(receipt.passportId);
+    if (!isValid) {
+      throw new Error('Passport has been revoked');
+    }
+    // proceed with tool handling
+  }),
+);
+```

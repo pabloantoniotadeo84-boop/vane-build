@@ -1,0 +1,182 @@
+---
+title: "PostgreSQL Setup"
+description: "Database requirements, schema, and connection configuration."
+---
+
+## Requirements
+
+- PostgreSQL 12+ (the trigger syntax used for append-only enforcement works on PostgreSQL 12 and later)
+- Vane connects via the `pg` npm package using `DATABASE_URL`
+
+## Connection string format
+
+```
+postgresql://[user]:[password]@[host]:[port]/[database]
+postgresql://[user]:[password]@[host]:[port]/[database]?sslmode=require
+```
+
+Set `DATABASE_URL` in your environment:
+
+```bash
+DATABASE_URL=postgresql://counsel_user:secret@localhost:5432/counsel
+```
+
+For Railway, Supabase, Neon, or other managed PostgreSQL providers, use the connection string they provide directly.
+
+## Schema
+
+Vane creates all tables automatically on startup via `CREATE TABLE IF NOT EXISTS`. No manual migration is needed. The tables are:
+
+### `companies`
+
+```sql
+CREATE TABLE companies (
+  company_id    TEXT PRIMARY KEY,
+  spiffe_id     TEXT NOT NULL UNIQUE,
+  registered_at TEXT NOT NULL,
+  metadata      TEXT
+);
+```
+
+### `keys`
+
+```sql
+CREATE TABLE keys (
+  company_id  TEXT PRIMARY KEY REFERENCES companies(company_id),
+  public_key  TEXT NOT NULL,
+  private_key TEXT NOT NULL  -- AES-256-GCM encrypted if COUNSEL_MASTER_KEY is set
+);
+```
+
+### `api_keys`
+
+```sql
+CREATE TABLE api_keys (
+  key        TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(company_id),
+  label      TEXT,
+  created_at TEXT NOT NULL
+);
+```
+
+### `agents`
+
+```sql
+CREATE TABLE agents (
+  agent_id      TEXT NOT NULL,
+  company_id    TEXT NOT NULL REFERENCES companies(company_id),
+  spiffe_id     TEXT NOT NULL UNIQUE,
+  registered_at TEXT NOT NULL,
+  metadata      TEXT,
+  PRIMARY KEY (agent_id, company_id)
+);
+```
+
+### `records`
+
+```sql
+CREATE TABLE records (
+  company_id TEXT    NOT NULL REFERENCES companies(company_id),
+  idx        INTEGER NOT NULL,
+  timestamp  TEXT    NOT NULL,
+  payload    TEXT    NOT NULL,
+  delegation TEXT,
+  hash       TEXT    NOT NULL,
+  signature  TEXT    NOT NULL,
+  PRIMARY KEY (company_id, idx)
+);
+```
+
+The `records` table has append-only enforcement via PostgreSQL triggers installed at startup:
+
+```sql
+-- Rejects any UPDATE or DELETE on the records table
+CREATE OR REPLACE FUNCTION records_append_only()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'records table is append-only: % is not permitted', TG_OP;
+END;
+$$;
+
+CREATE TRIGGER records_no_update
+  BEFORE UPDATE ON records
+  FOR EACH ROW EXECUTE FUNCTION records_append_only();
+
+CREATE TRIGGER records_no_delete
+  BEFORE DELETE ON records
+  FOR EACH ROW EXECUTE FUNCTION records_append_only();
+```
+
+This is a database-level guarantee that the attestation log is append-only — even if the application server is compromised, direct database access cannot silently delete records.
+
+### `revoked_passports`
+
+```sql
+CREATE TABLE revoked_passports (
+  jti        TEXT NOT NULL,
+  company_id TEXT NOT NULL REFERENCES companies(company_id),
+  revoked_at TEXT NOT NULL,
+  reason     TEXT,
+  PRIMARY KEY (jti, company_id)
+);
+```
+
+### `oauth_clients`
+
+```sql
+CREATE TABLE oauth_clients (
+  client_id     TEXT PRIMARY KEY,
+  client_secret TEXT NOT NULL,  -- SHA-256 hashed
+  company_id    TEXT NOT NULL REFERENCES companies(company_id),
+  created_at    TEXT NOT NULL
+);
+```
+
+OAuth client secrets are stored as SHA-256 hashes. The raw secret is shown once at creation and never stored.
+
+### `oauth_tokens`
+
+```sql
+CREATE TABLE oauth_tokens (
+  token      TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(company_id),
+  expires_at BIGINT NOT NULL,  -- Unix epoch milliseconds
+  created_at TEXT NOT NULL
+);
+```
+
+## Creating the database user
+
+For production, create a dedicated PostgreSQL user with minimal privileges:
+
+```sql
+-- Create the database
+CREATE DATABASE counsel;
+
+-- Create the user
+CREATE USER counsel_user WITH PASSWORD 'a-very-strong-password';
+
+-- Grant only what's needed (no superuser, no createdb)
+GRANT CONNECT ON DATABASE counsel TO counsel_user;
+\c counsel
+GRANT USAGE ON SCHEMA public TO counsel_user;
+GRANT CREATE ON SCHEMA public TO counsel_user;
+GRANT SELECT, INSERT, DELETE ON ALL TABLES IN SCHEMA public TO counsel_user;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO counsel_user;
+```
+
+Vane does not need `UPDATE` or `DROP` on the `records` table. Restricting these at the PostgreSQL level adds defense-in-depth.
+
+## SSL connections
+
+For managed PostgreSQL providers, require SSL:
+
+```bash
+DATABASE_URL="postgresql://counsel_user:secret@db.example.com:5432/counsel?sslmode=require"
+```
+
+The `pg` package respects the `sslmode` query parameter.
+
+## Connection pooling
+
+The `Store` class creates one `pg.Pool` at startup. The pool defaults to 10 connections. For high-traffic deployments, consider PgBouncer or your provider's connection pooler (e.g., Supabase's Transaction mode pooler).

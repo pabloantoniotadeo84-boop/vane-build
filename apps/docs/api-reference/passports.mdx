@@ -1,0 +1,237 @@
+---
+title: "Passports"
+description: "Issue, rotate, and verify Vane Agent Passports (CAP+JWT)."
+---
+
+A Vane Agent Passport (CAP+JWT) is a short-lived signed credential that encodes an agent's identity and authorization. Third-party verifiers can verify passports **offline** using only the CA public key.
+
+All endpoints require authentication.
+
+---
+
+## `POST /v1/agents/:agentId/passport`
+
+Issues a new passport for the specified agent. Returns `404` if the agent is not registered under the authenticated company.
+
+### Path parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `agentId` | `string` | The agent identifier. |
+
+### Request body (optional)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `scopes` | `string[]` | `["tool:*", "attest:write"]` | Authorization scopes. At least one is required. See [scope format](/concepts#scope-format). |
+| `ttl` | `number` | `3600` | Passport lifetime in seconds. Maximum: `86400`. |
+
+### Response `201`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agentId` | `string` | The agent identifier. |
+| `spiffeId` | `string` | The agent's SPIFFE ID. This is the `sub` claim in the passport. |
+| `org` | `string` | The issuing company ID. |
+| `orgSpiffeId` | `string` | The issuing company's SPIFFE ID. |
+| `scopes` | `string[]` | The scopes granted in this passport. |
+| `delegationChain` | `string[]` | `[orgSpiffeId, agentSpiffeId]` — the authorization path. |
+| `passport` | `string` | The CAP+JWT token. Give this to the agent. |
+| `expiresIn` | `number` | TTL in seconds. |
+| `caPublicKey` | `string` | Ed25519 SPKI PEM. Pin this in verifiers for offline verification. |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `404` | `{ "error": "Agent not found: researcher-1" }` | Agent not registered under this company. |
+
+### Example
+
+```bash
+curl -s -X POST http://localhost:3000/v1/agents/researcher-1/passport \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "scopes": ["tool:*", "attest:write"],
+    "ttl": 3600
+  }'
+```
+
+```json
+{
+  "agentId": "researcher-1",
+  "spiffeId": "spiffe://vane.local/company/acme/agent/researcher-1",
+  "org": "acme",
+  "orgSpiffeId": "spiffe://vane.local/company/acme",
+  "scopes": ["tool:*", "attest:write"],
+  "delegationChain": [
+    "spiffe://vane.local/company/acme",
+    "spiffe://vane.local/company/acme/agent/researcher-1"
+  ],
+  "passport": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJhMWIyYzNkNCJ9...",
+  "expiresIn": 3600,
+  "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA...\n-----END PUBLIC KEY-----\n"
+}
+```
+
+---
+
+## `POST /v1/agents/:agentId/passport/rotate`
+
+Rotates a passport. Revokes the current passport and issues a new one with identical scopes and TTL. The current valid passport must be presented in the `Vane-Passport` header.
+
+This is the correct path for credential refresh — it ensures there is no gap in authorization, and the old credential is immediately invalidated.
+
+### Path parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `agentId` | `string` | The agent identifier. |
+
+### Request headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `Authorization` | Yes | `Bearer <api-key>` |
+| `Vane-Passport` | Yes | The current valid passport to rotate. |
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agentId` | `string` | The agent identifier. |
+| `spiffeId` | `string` | The agent's SPIFFE ID. |
+| `org` | `string` | The issuing company ID. |
+| `orgSpiffeId` | `string` | The issuing company's SPIFFE ID. |
+| `scopes` | `string[]` | Scopes carried forward from the old passport. |
+| `delegationChain` | `string[]` | Delegation chain carried forward. |
+| `passport` | `string` | The new CAP+JWT token. |
+| `expiresIn` | `number` | TTL in seconds. |
+| `caPublicKey` | `string` | Ed25519 SPKI PEM. |
+| `rotatedFrom` | `string` | `jti` of the revoked passport. |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "Missing Vane-Passport header" }` | No current passport provided. |
+| `401` | `{ "error": "...", "code": "..." }` | Current passport is invalid or expired. |
+| `403` | `{ "error": "Passport does not belong to the specified agent" }` | Passport `sub` doesn't match `agentId`. |
+| `403` | `{ "error": "Passport was not issued by the authenticated company" }` | Passport `org` doesn't match authenticated company. |
+| `404` | `{ "error": "Agent not found: researcher-1" }` | Agent not registered. |
+| `409` | `{ "error": "Passport has already been revoked", "code": "PASSPORT_REVOKED" }` | Cannot rotate an already-revoked passport. |
+
+### Example
+
+```bash
+curl -s -X POST http://localhost:3000/v1/agents/researcher-1/passport/rotate \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Vane-Passport: $CURRENT_PASSPORT"
+```
+
+```json
+{
+  "agentId": "researcher-1",
+  "spiffeId": "spiffe://vane.local/company/acme/agent/researcher-1",
+  "org": "acme",
+  "orgSpiffeId": "spiffe://vane.local/company/acme",
+  "scopes": ["tool:*", "attest:write"],
+  "delegationChain": [
+    "spiffe://vane.local/company/acme",
+    "spiffe://vane.local/company/acme/agent/researcher-1"
+  ],
+  "passport": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJhMWIyYzNkNCJ9...",
+  "expiresIn": 3600,
+  "caPublicKey": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n",
+  "rotatedFrom": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+---
+
+## `POST /v1/passport/verify`
+
+Server-side passport verification. Checks the passport signature, expiry, audience, claims structure, and revocation status. Optionally checks whether the passport grants a specific tool scope. Requires authentication.
+
+For most production verifiers, use the `@vane/mcp-middleware` package for **offline** verification without a network call.
+
+### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `passport` | `string` | Yes | The CAP+JWT token to verify. |
+| `tool` | `string` | No | If provided, check that the passport grants `tool:<tool>`. |
+
+### Response `200` — valid
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | `true` | Passport is valid. |
+| `claims` | `VanePassportClaims` | All decoded claims. See [passport format](/security/passport-format). |
+| `scopeGranted` | `string` | The specific scope in the passport that covers the requested tool (or the broadest scope if no tool was specified). |
+| `receipt` | `AttestationReceipt` | Structured receipt for audit logging. |
+
+### Response `400` — invalid
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | `false` | Passport is not valid. |
+| `error` | `string` | Human-readable error message. |
+| `code` | `string` | Machine-readable error code. See [error codes](/security/passport-format#error-codes). |
+
+### Example — verify with tool check
+
+```bash
+curl -s -X POST http://localhost:3000/v1/passport/verify \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "passport": "eyJhbGci...",
+    "tool": "web-search"
+  }'
+```
+
+```json
+{
+  "valid": true,
+  "claims": {
+    "iss": "spiffe://vane.local/ca",
+    "sub": "spiffe://vane.local/company/acme/agent/researcher-1",
+    "aud": ["counsel:passport:v1"],
+    "jti": "550e8400-e29b-41d4-a716-446655440000",
+    "iat": 1751325600,
+    "exp": 1751329200,
+    "nbf": 1751325600,
+    "counsel": {
+      "v": 1,
+      "agentId": "researcher-1",
+      "org": "acme",
+      "orgSpiffeId": "spiffe://vane.local/company/acme",
+      "scopes": ["tool:*", "attest:write"],
+      "delegationChain": [
+        "spiffe://vane.local/company/acme",
+        "spiffe://vane.local/company/acme/agent/researcher-1"
+      ]
+    }
+  },
+  "scopeGranted": "tool:*",
+  "receipt": {
+    "v": 1,
+    "type": "VaneAttestationReceipt",
+    "passportId": "550e8400-e29b-41d4-a716-446655440000",
+    "agentId": "researcher-1",
+    "agentSpiffeId": "spiffe://vane.local/company/acme/agent/researcher-1",
+    "org": "acme",
+    "orgSpiffeId": "spiffe://vane.local/company/acme",
+    "tool": "web-search",
+    "scopeGranted": "tool:*",
+    "delegationChain": ["spiffe://vane.local/company/acme", "...agent/researcher-1"],
+    "issuedBy": "spiffe://vane.local/ca",
+    "passportIssuedAt": "2026-01-01T00:00:00.000Z",
+    "passportExpiresAt": "2026-01-01T01:00:00.000Z",
+    "verifiedAt": "2026-01-01T00:05:00.000Z",
+    "verifier": "vane-server/0.1.0"
+  }
+}
+```

@@ -1,0 +1,160 @@
+---
+title: "Chain & Verification"
+description: "Retrieve the attestation chain, verify it, and fetch Merkle inclusion proofs."
+---
+
+All endpoints require authentication and are scoped to the authenticated company's chain.
+
+---
+
+## `GET /v1/chain`
+
+Returns all attestation records in insertion order. The full chain is returned — there is no pagination. Records are ordered by `index` ascending.
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `records` | `AttestationRecord[]` | All records in the chain, ordered by index. |
+
+See [`POST /v1/attest`](/api-reference/attestation) for the `AttestationRecord` field reference.
+
+### Example
+
+```bash
+curl -s http://localhost:3000/v1/chain \
+  -H "Authorization: Bearer $API_KEY" | jq .
+```
+
+```json
+{
+  "records": [
+    {
+      "index": 0,
+      "timestamp": "2026-01-01T12:00:00.000Z",
+      "payload": { "agentId": "researcher-1", "companyId": "acme", "actionType": "web-search", "payload": { ... } },
+      "hash": "f651a7c3...",
+      "signature": "vdv-nC4o..."
+    },
+    {
+      "index": 1,
+      "timestamp": "2026-01-01T12:05:00.000Z",
+      "payload": { ... },
+      "delegation": { ... },
+      "hash": "a3f9b2c1...",
+      "signature": "Xt8q1R7m..."
+    }
+  ]
+}
+```
+
+---
+
+## `GET /v1/verify`
+
+Verifies every record's hash and signature, then computes and returns the Merkle root. O(N) over the chain length.
+
+### Response `200` — all records valid
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | `true` | Every hash and signature verified. |
+| `merkleRoot` | `string` | SHA-256 Merkle root of all record hashes. |
+
+### Response `200` — verification failed
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | `false` | At least one record failed verification. |
+| `failedAtIndex` | `number` | The first record index where verification failed. |
+| `error` | `string` | Description of the failure. |
+
+### Example
+
+```bash
+curl -s http://localhost:3000/v1/verify \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{
+  "valid": true,
+  "merkleRoot": "a3f9b2c1d8e5f6a4b7c3d0e9f2a5b8c1e4d7f0a3b6c9d2e5f8a1b4c7d0e3f6"
+}
+```
+
+---
+
+## `GET /v1/proof/:index`
+
+Returns a Merkle inclusion proof for a single record. An external auditor can verify this proof in O(log n) without the full chain.
+
+### Path parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `index` | `number` | Zero-based record index. Must be a non-negative integer. |
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `record` | `AttestationRecord` | The record at the requested index. |
+| `proof` | `ProofNode[]` | Sibling hashes needed to re-derive the root. |
+| `root` | `string` | The Merkle root. Equals the value from `GET /v1/verify`. |
+
+**`ProofNode` fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sibling` | `string` | SHA-256 hash of the sibling node. |
+| `position` | `"left" \| "right"` | Position of the **sibling** in its pair. |
+
+### How to verify the proof
+
+```
+Start: current = record.hash
+
+For each ProofNode in proof:
+  if position == "left":
+    current = SHA-256(sibling + current)
+  if position == "right":
+    current = SHA-256(current + sibling)
+
+Assert: current == root
+```
+
+This verifies in O(log n) without any Vane server call, using only the record, the proof, and the known root.
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "index must be a non-negative integer" }` | Invalid index parameter. |
+| `404` | `{ "error": "..." }` | Index out of bounds. |
+
+### Example
+
+```bash
+curl -s http://localhost:3000/v1/proof/0 \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{
+  "record": {
+    "index": 0,
+    "timestamp": "2026-01-01T12:00:00.000Z",
+    "payload": { ... },
+    "hash": "f651a7c3...",
+    "signature": "vdv-nC4o..."
+  },
+  "proof": [
+    {
+      "sibling": "a3f9b2c1...",
+      "position": "right"
+    }
+  ],
+  "root": "7e2d4a8f..."
+}
+```

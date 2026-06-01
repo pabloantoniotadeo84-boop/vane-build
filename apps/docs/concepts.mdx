@@ -1,0 +1,207 @@
+---
+title: "Core Concepts"
+description: "Agent passports, attestation chains, delegation chains, revocation, and rotation — explained plainly."
+---
+
+## Agent passports
+
+An agent passport (CAP+JWT) is a short-lived signed credential that answers: **"Who is this agent, what is it allowed to do, and who authorized it?"**
+
+Think of it like a badge at a secure facility. The badge was issued by a known authority (your Vane instance), has a photo (the agent's SPIFFE identity), lists what rooms it can access (scopes), and expires at the end of the day. A guard at any door can verify the badge by checking the authority's public seal — they don't need to call the badge office.
+
+### What a passport encodes
+
+```json
+{
+  "iss": "spiffe://vane.local/ca",
+  "sub": "spiffe://vane.local/company/acme/agent/researcher-1",
+  "aud": ["counsel:passport:v1"],
+  "jti": "550e8400-e29b-41d4-a716-446655440000",
+  "iat": 1751325600,
+  "exp": 1751329200,
+  "nbf": 1751325600,
+  "counsel": {
+    "v": 1,
+    "agentId": "researcher-1",
+    "org": "acme",
+    "orgSpiffeId": "spiffe://vane.local/company/acme",
+    "scopes": ["tool:*", "attest:write"],
+    "delegationChain": [
+      "spiffe://vane.local/company/acme",
+      "spiffe://vane.local/company/acme/agent/researcher-1"
+    ]
+  }
+}
+```
+
+- `jti` — unique ID for revocation tracking
+- `counsel.scopes` — what the agent is authorized to do (see scope format below)
+- `counsel.delegationChain` — the full chain from authorizing organization to the agent
+
+### Scope format
+
+Scopes use `category:name` format. Matching is evaluated left-to-right:
+
+| Scope | Covers |
+|-------|--------|
+| `*` | Everything |
+| `tool:*` | Any MCP tool call |
+| `tool:search` | Only the `search` tool |
+| `attest:write` | Writing attestation records |
+| `resource:read` | Reading resources |
+
+When the MCP middleware verifies `tool:search`, it checks whether any scope in the passport's `scopes` array covers `tool:search`. A passport with `tool:*` passes; one with only `tool:summarize` does not.
+
+### Passport TTL
+
+The default TTL is 3600 seconds (1 hour). You can request up to 86400 seconds (24 hours) at issuance. Shorter is safer — expired passports are rejected outright by any verifier.
+
+### Offline verification
+
+A verifier holding the CA public key verifies a passport in this order:
+
+1. Parse the JWT (three base64url segments separated by `.`)
+2. Check `alg = EdDSA` — no algorithm confusion possible
+3. Check `typ = CAP+JWT` — prevents replay with SVID tokens (which use `typ = JWT`)
+4. Verify the Ed25519 signature over `header.payload`
+5. Check `exp` — passport must not have expired
+6. Check `nbf` — passport must have taken effect
+7. Check `aud` includes `counsel:passport:v1`
+8. Check `iss` is a valid SPIFFE URI
+9. Check `sub` is a valid SPIFFE URI
+10. Validate the `counsel` object (version, scopes, delegationChain)
+11. Check `delegationChain` tail equals `sub`
+12. If a tool name was provided, check scopes cover `tool:<name>`
+
+Steps 1–12 require only the CA public key. No Vane server is contacted.
+
+---
+
+## Attestation chains
+
+An attestation chain is the auditable log of everything an agent has done. Think of it as a ledger: each page (record) is numbered, dated, contains the content, and is signed by the same authority. If any page is altered, the numbering breaks.
+
+### Record structure
+
+```json
+{
+  "index": 7,
+  "timestamp": "2026-01-01T12:00:00.000Z",
+  "payload": {
+    "agentId": "researcher-1",
+    "companyId": "acme",
+    "actionType": "web-search",
+    "payload": { "query": "...", "results": 10 }
+  },
+  "hash": "f651a7c3...",
+  "signature": "vdv-nC4o..."
+}
+```
+
+The `hash` is computed as:
+
+```
+SHA-256(index + "|" + timestamp + "|" + canonicalize(payload))
+```
+
+The `index` is included so you can't swap two authentic records without breaking their hashes. `canonicalize` sorts object keys recursively before serializing, so the same logical object always produces the same bytes regardless of insertion order.
+
+The `signature` is Ed25519 over the `hash` (not over the full preimage). Signing the hash keeps verification fast regardless of payload size.
+
+### Merkle tree
+
+All record hashes are organized into a binary Merkle tree. This lets anyone verify a single record's inclusion in O(log n) without downloading the full chain:
+
+1. Start with the record's `hash`
+2. Hash it with each sibling in the proof (sibling-left means `SHA-256(sibling + hash)`, sibling-right means `SHA-256(hash + sibling)`)
+3. If the final result equals the root, the record is in the chain
+
+The root returned by `GET /v1/verify` and `GET /v1/proof/:index` is always the same value. An external auditor can checkpoint the root at a point in time and later verify any record against it.
+
+---
+
+## Delegation chains
+
+A delegation chain answers: **"On behalf of whom did this agent act, and who authorized that?"**
+
+### Simple delegation
+
+When researcher-1 acts on behalf of acme (the most common case), the chain is just two elements:
+
+```
+["spiffe://vane.local/company/acme", "spiffe://vane.local/company/acme/agent/researcher-1"]
+```
+
+Reading left to right: acme authorized researcher-1 to act.
+
+### Multi-hop delegation (RFC 8693)
+
+When a sub-agent acts on behalf of a company via an intermediate agent, the chain grows:
+
+```
+["spiffe://vane.local/company/acme", 
+ "spiffe://vane.local/company/acme/agent/orchestrator", 
+ "spiffe://vane.local/company/acme/agent/sub-researcher"]
+```
+
+This uses RFC 8693 token exchange. The `act` claim in the JWT encodes the same chain as a nested object:
+
+```json
+{
+  "sub": "spiffe://vane.local/company/acme",
+  "act": {
+    "sub": "spiffe://vane.local/company/acme/agent/orchestrator",
+    "act": {
+      "sub": "spiffe://vane.local/company/acme/agent/sub-researcher"
+    }
+  }
+}
+```
+
+When a delegation token is bound to an attestation record, it is cryptographically embedded in the record's hash. An auditor can prove not just that an action was taken, but exactly who authorized it through what chain.
+
+---
+
+## Revocation
+
+Passports can be revoked by their `jti` (unique ID). Revocation is immediate on the Vane server but does not invalidate tokens already held by verifiers — that's the inherent trade-off of offline verification.
+
+### How revocation works
+
+1. `POST /v1/passports/:jti/revoke` — records the revocation in the database
+2. `GET /v1/passports/revoked` — returns the full revocation list for a company
+3. `GET /v1/ocsp/:jti` — status check for a specific passport (with Ed25519-signed response)
+
+The OCSP response is signed by the company's key and cached for 5 minutes (`Cache-Control: public, max-age=300`). A verifier that calls the OCSP endpoint is getting a cryptographically verified status, not just a database lookup.
+
+### Passport rotation
+
+`POST /v1/agents/:agentId/passport/rotate` is the controlled credential refresh path. It requires the current valid passport in the `Vane-Passport` header, revokes the old passport (marking it as `reason: "rotated"`), and issues a new one with the same scopes and TTL. This is the correct way to refresh credentials without a gap in authorization.
+
+---
+
+## SPIFFE identities
+
+Every entity in Vane has a SPIFFE ID — a URI that encodes its position in the trust hierarchy.
+
+| Entity | SPIFFE ID |
+|--------|-----------|
+| Company | `spiffe://vane.local/company/acme` |
+| Agent | `spiffe://vane.local/company/acme/agent/researcher-1` |
+| CA issuer | `spiffe://vane.local/ca` |
+
+The trust domain (`vane.local` by default) is controlled by the `SPIFFE_TRUST_DOMAIN` environment variable. All companies in one Vane deployment share a trust domain.
+
+---
+
+## Known limitations
+
+| # | Limitation |
+|---|-----------|
+| 1 | **No workload attestation at registration.** Any holder of a company API key can register any `agentId`. |
+| 2 | **Company creation is open.** `POST /v1/companies` requires no global admin credential. |
+| 3 | **No JWT revocation for SVIDs.** Issued SVIDs are valid until expiry. |
+| 4 | **Single trust domain.** All companies share `vane.local`. |
+| 5 | **No key rotation.** Replacing a key pair invalidates all existing signatures. |
+| 6 | **In-memory chain per tenant.** Each company's chain is held in memory; won't scale to millions of records without pagination. |
+| 7 | **Merkle root recomputed on every verify.** O(N) per call; no caching. |

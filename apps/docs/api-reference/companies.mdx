@@ -1,0 +1,157 @@
+---
+title: "Companies"
+description: "Register and manage company tenants."
+---
+
+## `POST /v1/companies`
+
+Creates a new company tenant. Generates an Ed25519 key pair, an empty attestation chain, and a bootstrap API key. No authentication required. Returns `409` if a company with this `companyId` already exists.
+
+**Also available as `POST /v1/setup`** — identical behavior, kept for backward compatibility.
+
+### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `companyId` | `string` | Yes | Permanent, unique identifier for this company. Used in SPIFFE IDs and as the tenant key. |
+| `metadata` | `object` | No | Arbitrary JSON metadata stored with the company record. |
+
+### Response `201`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `companyId` | `string` | The company identifier. |
+| `spiffeId` | `string` | SPIFFE ID: `spiffe://{trustDomain}/company/{companyId}` |
+| `registeredAt` | `string` | ISO 8601 timestamp. |
+| `apiKey` | `string` | Bootstrap API key (prefix: `counsel_`). Shown once — save immediately. |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "Missing or invalid field: companyId is required" }` | `companyId` is missing or not a string. |
+| `409` | `{ "error": "Company already exists: acme" }` | A company with this ID is already registered. |
+
+### Example
+
+```bash
+curl -s -X POST http://localhost:3000/v1/companies \
+  -H "Content-Type: application/json" \
+  -d '{ "companyId": "acme", "metadata": { "plan": "enterprise" } }'
+```
+
+```json
+{
+  "companyId": "acme",
+  "spiffeId": "spiffe://vane.local/company/acme",
+  "registeredAt": "2026-01-01T00:00:00.000Z",
+  "apiKey": "counsel_a1b2c3d4e5f67890..."
+}
+```
+
+---
+
+## `GET /v1/company`
+
+Returns the authenticated company's own record. Useful for validating an API key and retrieving metadata. Requires authentication.
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `companyId` | `string` | The company identifier. |
+| `spiffeId` | `string` | The company's SPIFFE ID. |
+| `registeredAt` | `string` | ISO 8601 registration timestamp. |
+| `metadata` | `object` | Present only if metadata was set at registration. |
+
+### Example
+
+```bash
+curl -s http://localhost:3000/v1/company \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{
+  "companyId": "acme",
+  "spiffeId": "spiffe://vane.local/company/acme",
+  "registeredAt": "2026-01-01T00:00:00.000Z",
+  "metadata": { "plan": "enterprise" }
+}
+```
+
+---
+
+## `POST /v1/recover-key`
+
+Emergency key recovery. Returns the first API key created for a company. **Localhost-only** — remote callers receive `403`. No authentication required.
+
+This endpoint is a safety hatch for when you lose your API key. In production, restrict access to it at the network level (firewall, VPC) rather than relying solely on the IP check.
+
+### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `companyId` | `string` | Yes | The company whose key to recover. |
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `key` | `string` | The API key. |
+| `label` | `string \| null` | The key's label (usually `"bootstrap"` for the first key). |
+| `createdAt` | `string` | ISO 8601 creation timestamp. |
+
+### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `400` | `{ "error": "companyId is required" }` | Missing or invalid `companyId`. |
+| `403` | `{ "error": "Forbidden" }` | Called from a non-localhost IP. |
+| `404` | `{ "error": "No API keys found for company: acme" }` | Company has no API keys. |
+
+### Example
+
+```bash
+# Must be called from localhost
+curl -s -X POST http://localhost:3000/v1/recover-key \
+  -H "Content-Type: application/json" \
+  -d '{ "companyId": "acme" }'
+```
+
+```json
+{
+  "key": "counsel_a1b2c3d4...",
+  "label": "bootstrap",
+  "createdAt": "2026-01-01T00:00:00.000Z"
+}
+```
+
+---
+
+## `POST /v1/companies/svid`
+
+Issues a JWT-SVID for the authenticated company's identity. The resulting token is used as the `subject_token` in a full RFC 8693 token exchange. Requires authentication.
+
+### Response `200`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `companyId` | `string` | The company identifier. |
+| `spiffeId` | `string` | The company's SPIFFE ID. |
+| `svid` | `string` | JWT-SVID signed with the company's Ed25519 key. TTL: 3600 s. |
+
+### Example
+
+```bash
+curl -s -X POST http://localhost:3000/v1/companies/svid \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```json
+{
+  "companyId": "acme",
+  "spiffeId": "spiffe://vane.local/company/acme",
+  "svid": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImExYjJjM2Q0In0..."
+}
+```

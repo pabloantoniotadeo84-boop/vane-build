@@ -1,0 +1,97 @@
+---
+title: "Ed25519 Signing"
+description: "Why Ed25519, what it protects, and how it's used throughout Vane."
+---
+
+## Why Ed25519
+
+Vane uses Ed25519 (EdDSA with the Curve25519 base field) for all cryptographic signing. The choice is deliberate:
+
+**No parameter choices.** ECDSA requires a fresh random nonce per signature. If that nonce is ever reused — even once — the private key is exposed. Ed25519 uses a deterministic nonce derived from the private key and the message. There is no random number to generate wrong.
+
+**No algorithm confusion.** RSA and ECDSA have many modes: different key sizes, different hash functions, different padding schemes. Getting this wrong is the source of entire classes of vulnerability. Ed25519 has exactly one configuration. `crypto.sign(null, data, privateKey)` works because the algorithm is implied by the key type — there is no way to accidentally use the wrong digest.
+
+**Compact.** 32-byte public keys, 64-byte signatures. A passport fits in a small HTTP header. A full attestation record is readable in a curl response.
+
+**Built into Node.js.** Ed25519 has been available in `node:crypto` since Node 12. Vane has zero external cryptographic dependencies. No supply-chain risk from a crypto library you didn't write.
+
+## Key generation
+
+Each company gets one Ed25519 key pair, generated at registration:
+
+```typescript
+import { generateKeyPairSync } from 'node:crypto';
+
+const { privateKey, publicKey } = generateKeyPairSync('ed25519', {
+  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+});
+```
+
+Private keys are stored in PKCS8 PEM format. Public keys are stored in SPKI PEM format. When `COUNSEL_MASTER_KEY` is set, private keys are encrypted with AES-256-GCM before storage. See [Envelope Encryption](/security/envelope-encryption).
+
+## Key ID derivation
+
+The `kid` claim in JWT headers is derived deterministically from the public key:
+
+```
+kid = SHA-256(SPKI DER)[0:16] (hex)
+```
+
+This is stable across restarts and does not need to be stored separately. Any holder of the public key can recompute the expected `kid`.
+
+## Signing attestation records
+
+Each attestation record's `hash` is computed as:
+
+```
+SHA-256( index | "|" | timestamp | "|" | canonicalize(payload) [| "|" | canonicalize(delegation)] )
+```
+
+The `signature` is:
+
+```typescript
+import { sign } from 'node:crypto';
+
+const signature = sign(null, Buffer.from(hash, 'hex'), privateKey).toString('base64url');
+```
+
+`sign(null, ...)` — the first argument is `null` because the hash function is determined by the key type (Ed25519 uses SHA-512 internally; you do not choose it).
+
+## Signing JWTs and passports
+
+JWT headers and payloads are base64url-encoded. The signature covers the concatenation `header.payload`:
+
+```typescript
+const signingInput = `${base64url(header)}.${base64url(payload)}`;
+const sig = sign(null, Buffer.from(signingInput), privateKey).toString('base64url');
+const jwt = `${signingInput}.${sig}`;
+```
+
+Verification:
+
+```typescript
+import { verify, createPublicKey } from 'node:crypto';
+
+const valid = verify(
+  null,
+  Buffer.from(`${headerB64}.${payloadB64}`),
+  createPublicKey(publicKeyPem),
+  Buffer.from(sigB64, 'base64url'),
+);
+```
+
+## What signing protects
+
+A valid Ed25519 signature over a hash proves two things:
+
+1. **Integrity.** The signed data has not been modified since it was signed. Any alteration — even a single byte change in a payload — produces a different hash, which the signature no longer covers.
+2. **Origin.** The signature was produced by the holder of the private key. Since each company's private key is unique to that company, a valid signature is proof of which company produced the record.
+
+It does not prove:
+- **When** the action occurred beyond the timestamp field (which itself is covered by the hash).
+- That the server was not compromised at signing time.
+
+## SPKI PEM as the canonical public key format
+
+All public key endpoints return SPKI PEM. This is the format `createPublicKey()` accepts directly. If you need to verify signatures from another language, SPKI is the interoperable format supported by OpenSSL, libsodium, and most JVM crypto libraries.
