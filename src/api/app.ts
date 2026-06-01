@@ -18,6 +18,7 @@ import { Store } from '../db/store.js';
 import { issuePassport, verifyPassport, PASSPORT_TTL_DEFAULT, PASSPORT_AUDIENCE } from '../passport/index.js';
 import type { AttestationReceipt } from '../passport/index.js';
 import { broadcast } from './ws.js';
+import { fireWebhookEvent, startWebhookScheduler } from '../webhooks/index.js';
 import type { IncomingMessage } from 'node:http';
 import type { TLSSocket, PeerCertificate } from 'node:tls';
 import { randomUUID, createPublicKey, createHash } from 'node:crypto';
@@ -59,6 +60,9 @@ for (const company of companies) {
   await initTenant(company.companyId);
 }
 logger.info({ count: tenants.size }, 'Tenants ready');
+
+startWebhookScheduler(store);
+logger.info('Webhook retry scheduler started');
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
@@ -446,7 +450,7 @@ app.post('/v1/agents/:agentId/passport', async (c) => {
     publicKeyPem: tenant.keys.publicKey,
   });
 
-  return c.json({
+  const passportResponse = {
     agentId,
     spiffeId: agent.spiffeId,
     org: companyId,
@@ -456,7 +460,9 @@ app.post('/v1/agents/:agentId/passport', async (c) => {
     passport,
     expiresIn: ttl,
     caPublicKey: tenant.keys.publicKey,
-  }, 201);
+  };
+  void fireWebhookEvent(store, companyId, 'passport.issued', passportResponse);
+  return c.json(passportResponse, 201);
 });
 
 app.post('/v1/agents/:agentId/passport/rotate', async (c) => {
@@ -505,7 +511,7 @@ app.post('/v1/agents/:agentId/passport/rotate', async (c) => {
     publicKeyPem: tenant.keys.publicKey,
   });
 
-  return c.json({
+  const rotateResponse = {
     agentId,
     spiffeId: agent.spiffeId,
     org: companyId,
@@ -516,7 +522,9 @@ app.post('/v1/agents/:agentId/passport/rotate', async (c) => {
     expiresIn: ttl,
     caPublicKey: tenant.keys.publicKey,
     rotatedFrom: claims.jti,
-  }, 200);
+  };
+  void fireWebhookEvent(store, companyId, 'passport.rotated', rotateResponse);
+  return c.json(rotateResponse, 200);
 });
 
 app.post('/v1/passport/verify', async (c) => {
@@ -592,7 +600,9 @@ app.post('/v1/passports/:jti/revoke', async (c) => {
   }
 
   await store.revokePassport(companyId, jti, reason);
-  return c.json({ jti, revokedAt: new Date().toISOString(), ...(reason !== undefined && { reason }) }, 200);
+  const revokeResponse = { jti, revokedAt: new Date().toISOString(), ...(reason !== undefined && { reason }) };
+  void fireWebhookEvent(store, companyId, 'passport.revoked', revokeResponse);
+  return c.json(revokeResponse, 200);
 });
 
 app.get('/v1/passports/revoked', async (c) => {
@@ -774,6 +784,7 @@ app.post('/v1/attest', async (c) => {
     valid: verifyResult.valid,
     ...(verifyResult.valid ? { merkleRoot: verifyResult.merkleRoot } : { failedAtIndex: verifyResult.failedAtIndex }),
   });
+  void fireWebhookEvent(store, companyId, 'attestation.created', { record: record as unknown as Record<string, unknown> });
   return c.json(record, 201);
 });
 
@@ -935,6 +946,87 @@ app.get('/v1/ca/well-known', async (c) => {
 
     // SDK and server metadata
     counsel_version: '0.1.0',
+  });
+});
+
+// ── Webhooks ──────────────────────────────────────────────────────────────────
+
+app.post('/v1/webhooks', async (c) => {
+  const companyId = c.get('companyId');
+
+  let body: Record<string, unknown>;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Request body must be valid JSON' }, 400);
+  }
+
+  const { url, events } = body;
+  if (typeof url !== 'string' || !url) {
+    return c.json({ error: 'Missing or invalid field: url is required' }, 400);
+  }
+  if (!Array.isArray(events) || events.length === 0 || !events.every((e): e is string => typeof e === 'string')) {
+    return c.json({ error: 'Missing or invalid field: events must be a non-empty array of strings' }, 400);
+  }
+
+  try {
+    new URL(url);
+  } catch {
+    return c.json({ error: 'Invalid url: must be a valid URL' }, 400);
+  }
+
+  const { webhook, rawSecret } = await store.createWebhook(companyId, url, events);
+  return c.json({ ...webhook, secret: rawSecret }, 201);
+});
+
+app.get('/v1/webhooks', async (c) => {
+  const companyId = c.get('companyId');
+  const webhooks = await store.listWebhooks(companyId);
+  return c.json({ webhooks });
+});
+
+app.delete('/v1/webhooks/:id', async (c) => {
+  const companyId = c.get('companyId');
+  const id = c.req.param('id');
+  const deleted = await store.deleteWebhook(id, companyId);
+  if (!deleted) return c.json({ error: 'Webhook not found' }, 404);
+  return c.json({ deleted: true });
+});
+
+app.post('/v1/webhooks/:id/test', async (c) => {
+  const companyId = c.get('companyId');
+  const id = c.req.param('id');
+
+  const webhook = await store.getWebhookById(id, companyId);
+  if (!webhook) return c.json({ error: 'Webhook not found' }, 404);
+
+  const wh = await store.getWebhookForDelivery(id);
+  if (!wh) return c.json({ error: 'Webhook not found or inactive' }, 404);
+
+  const event = 'webhook.test';
+  const payload: Record<string, unknown> = {
+    webhookId: id,
+    url: webhook.url,
+    events: webhook.events,
+    sentAt: new Date().toISOString(),
+  };
+
+  const delivery = await store.createDelivery(id, event, payload);
+
+  const { attemptDelivery } = await import('../webhooks/delivery.js');
+  const result = await attemptDelivery(wh.url, wh.rawSecret, event, payload);
+
+  if (result.success) {
+    await store.markDeliveryDelivered(delivery.id, 1);
+  } else {
+    await store.markDeliveryFailed(delivery.id, 1, result.error ?? 'delivery failed');
+  }
+
+  return c.json({
+    success: result.success,
+    deliveryId: delivery.id,
+    ...(result.statusCode !== undefined && { statusCode: result.statusCode }),
+    ...(result.error !== undefined && { error: result.error }),
   });
 });
 

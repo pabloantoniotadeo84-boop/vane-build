@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
-import { randomBytes, createCipheriv, createDecipheriv, createHash, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, createCipheriv, createDecipheriv, createHash, timingSafeEqual } from 'node:crypto';
 import type { AttestationRecord, KeyPair, AgentRegistration } from '../crypto/types.js';
+import type { WebhookRow, DeliveryRow } from '../webhooks/types.js';
 import { logger } from '../logger.js';
 
 // ── Envelope encryption ───────────────────────────────────────────────────────
@@ -132,6 +133,38 @@ export class Store {
         expires_at BIGINT NOT NULL,
         created_at TEXT NOT NULL
       )
+    `);
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS webhooks (
+        id          TEXT PRIMARY KEY,
+        company_id  TEXT NOT NULL REFERENCES companies(company_id),
+        url         TEXT NOT NULL,
+        events      TEXT[] NOT NULL,
+        secret_hash TEXT NOT NULL,
+        active      BOOLEAN NOT NULL DEFAULT true,
+        created_at  TEXT NOT NULL
+      )
+    `);
+    await this.pool.query(`
+      CREATE INDEX IF NOT EXISTS webhooks_company_id_idx ON webhooks (company_id)
+    `);
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS webhook_deliveries (
+        id            TEXT PRIMARY KEY,
+        webhook_id    TEXT NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+        event         TEXT NOT NULL,
+        payload       JSONB NOT NULL,
+        status        TEXT NOT NULL DEFAULT 'pending',
+        attempts      INTEGER NOT NULL DEFAULT 0,
+        next_retry_at TEXT,
+        last_error    TEXT,
+        created_at    TEXT NOT NULL
+      )
+    `);
+    await this.pool.query(`
+      CREATE INDEX IF NOT EXISTS webhook_deliveries_retry_idx
+        ON webhook_deliveries (status, next_retry_at)
+        WHERE status = 'pending' AND next_retry_at IS NOT NULL
     `);
 
     // ── Append-only enforcement on records ────────────────────────────────────
@@ -439,5 +472,171 @@ export class Store {
   async purgeExpiredOAuthTokens(): Promise<void> {
     const cutoff = Date.now() - 3600 * 1000;
     await this.pool.query(`DELETE FROM oauth_tokens WHERE expires_at < $1`, [cutoff]);
+  }
+
+  // ── Webhooks ──────────────────────────────────────────────────────────────────
+
+  async createWebhook(
+    companyId: string,
+    url: string,
+    events: string[],
+  ): Promise<{ webhook: WebhookRow; rawSecret: string }> {
+    const id = randomUUID();
+    const rawSecret = randomBytes(32).toString('hex');
+    const encryptedSecret = encryptPrivateKey(rawSecret);
+    const createdAt = new Date().toISOString();
+
+    await this.pool.query(
+      `INSERT INTO webhooks (id, company_id, url, events, secret_hash, active, created_at)
+       VALUES ($1, $2, $3, $4, $5, true, $6)`,
+      [id, companyId, url, events, encryptedSecret, createdAt],
+    );
+
+    return {
+      webhook: { id, companyId, url, events, active: true, createdAt },
+      rawSecret,
+    };
+  }
+
+  async listWebhooks(companyId: string): Promise<WebhookRow[]> {
+    const { rows } = await this.pool.query<{
+      id: string; company_id: string; url: string; events: string[]; active: boolean; created_at: string;
+    }>(
+      `SELECT id, company_id, url, events, active, created_at
+       FROM webhooks WHERE company_id = $1 ORDER BY created_at ASC`,
+      [companyId],
+    );
+    return rows.map(r => ({
+      id: r.id,
+      companyId: r.company_id,
+      url: r.url,
+      events: r.events,
+      active: r.active,
+      createdAt: r.created_at,
+    }));
+  }
+
+  async getWebhookById(id: string, companyId: string): Promise<WebhookRow | null> {
+    const { rows } = await this.pool.query<{
+      id: string; company_id: string; url: string; events: string[]; active: boolean; created_at: string;
+    }>(
+      `SELECT id, company_id, url, events, active, created_at
+       FROM webhooks WHERE id = $1 AND company_id = $2`,
+      [id, companyId],
+    );
+    if (!rows[0]) return null;
+    const r = rows[0];
+    return { id: r.id, companyId: r.company_id, url: r.url, events: r.events, active: r.active, createdAt: r.created_at };
+  }
+
+  async deleteWebhook(id: string, companyId: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `DELETE FROM webhooks WHERE id = $1 AND company_id = $2`,
+      [id, companyId],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  // Returns active webhooks subscribed to the given event, with decrypted secrets for HMAC signing.
+  async getActiveWebhooksForEvent(
+    companyId: string,
+    event: string,
+  ): Promise<Array<{ id: string; url: string; rawSecret: string }>> {
+    const { rows } = await this.pool.query<{ id: string; url: string; secret_hash: string }>(
+      `SELECT id, url, secret_hash FROM webhooks
+       WHERE company_id = $1 AND active = true AND $2 = ANY(events)`,
+      [companyId, event],
+    );
+    return rows.map(r => ({ id: r.id, url: r.url, rawSecret: decryptPrivateKey(r.secret_hash) }));
+  }
+
+  // Returns the webhook URL and decrypted secret for a delivery attempt.
+  async getWebhookForDelivery(
+    webhookId: string,
+  ): Promise<{ url: string; rawSecret: string } | null> {
+    const { rows } = await this.pool.query<{ url: string; secret_hash: string }>(
+      `SELECT url, secret_hash FROM webhooks WHERE id = $1 AND active = true`,
+      [webhookId],
+    );
+    if (!rows[0]) return null;
+    return { url: rows[0].url, rawSecret: decryptPrivateKey(rows[0].secret_hash) };
+  }
+
+  // ── Webhook deliveries ────────────────────────────────────────────────────────
+
+  async createDelivery(
+    webhookId: string,
+    event: string,
+    payload: Record<string, unknown>,
+  ): Promise<DeliveryRow> {
+    const id = randomUUID();
+    const createdAt = new Date().toISOString();
+
+    await this.pool.query(
+      `INSERT INTO webhook_deliveries (id, webhook_id, event, payload, status, attempts, created_at)
+       VALUES ($1, $2, $3, $4, 'pending', 0, $5)`,
+      [id, webhookId, event, payload, createdAt],
+    );
+
+    return { id, webhookId, event, payload, status: 'pending', attempts: 0, nextRetryAt: null, lastError: null, createdAt };
+  }
+
+  async markDeliveryDelivered(id: string, attempts: number): Promise<void> {
+    await this.pool.query(
+      `UPDATE webhook_deliveries SET status = 'delivered', attempts = $2, next_retry_at = NULL WHERE id = $1`,
+      [id, attempts],
+    );
+  }
+
+  async markDeliveryFailed(id: string, attempts: number, lastError: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE webhook_deliveries SET status = 'failed', attempts = $2, last_error = $3, next_retry_at = NULL WHERE id = $1`,
+      [id, attempts, lastError],
+    );
+  }
+
+  async scheduleDeliveryRetry(
+    id: string,
+    attempts: number,
+    nextRetryAt: string,
+    lastError: string | null,
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE webhook_deliveries SET attempts = $2, next_retry_at = $3, last_error = $4 WHERE id = $1`,
+      [id, attempts, nextRetryAt, lastError],
+    );
+  }
+
+  // Returns all pending deliveries whose next_retry_at is <= now (due for retry).
+  async getPendingRetries(now: string): Promise<Array<{
+    deliveryId: string;
+    webhookId: string;
+    event: string;
+    payload: Record<string, unknown>;
+    attempts: number;
+    url: string;
+    rawSecret: string;
+  }>> {
+    const { rows } = await this.pool.query<{
+      id: string; webhook_id: string; event: string; payload: Record<string, unknown>;
+      attempts: number; url: string; secret_hash: string;
+    }>(
+      `SELECT d.id, d.webhook_id, d.event, d.payload, d.attempts, w.url, w.secret_hash
+       FROM webhook_deliveries d
+       JOIN webhooks w ON d.webhook_id = w.id
+       WHERE d.status = 'pending'
+         AND d.next_retry_at IS NOT NULL
+         AND d.next_retry_at <= $1`,
+      [now],
+    );
+    return rows.map(r => ({
+      deliveryId: r.id,
+      webhookId: r.webhook_id,
+      event: r.event,
+      payload: r.payload,
+      attempts: r.attempts,
+      url: r.url,
+      rawSecret: decryptPrivateKey(r.secret_hash),
+    }));
   }
 }
