@@ -22,6 +22,8 @@ import { fireWebhookEvent, startWebhookScheduler } from '../webhooks/index.js';
 import type { IncomingMessage } from 'node:http';
 import type { TLSSocket, PeerCertificate } from 'node:tls';
 import { randomUUID, createPublicKey, createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { logger } from '../logger.js';
 import { captureException } from '../sentry.js';
 import { rateLimitMiddleware } from './rate-limit.js';
@@ -91,6 +93,15 @@ app.use('*', async (c, next) => {
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 
 app.use('*', rateLimitMiddleware());
+
+// ── Marketing site ────────────────────────────────────────────────────────────
+
+const MARKETING_HTML = resolve('/Users/pablo/counsel/public/index.html');
+
+app.get('/', async (c) => {
+  const html = await readFile(MARKETING_HTML, 'utf-8');
+  return c.html(html);
+});
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
 // Resolution order:
