@@ -106,6 +106,45 @@ body{
 .logo.on-terra .word{ color:var(--off-white); }
 
 /* ============================================================
+   NAV — fixed, follows the active section theme like the logo
+   ============================================================ */
+.nav{
+  position:fixed;
+  top:34px; right:7vw;
+  z-index:100;
+  display:flex;
+  align-items:center;
+  gap:1.7rem;
+}
+.nav-link{
+  font-family:'Geist Mono', monospace;
+  font-size:0.78rem;
+  letter-spacing:0.08em;
+  text-decoration:none;
+  color:var(--navy);
+  opacity:0.8;
+  transition:color .3s ease, opacity .3s ease;
+}
+.nav-link:hover{ color:var(--clay); opacity:1; }
+.nav.on-terra .nav-link{ color:var(--off-white); opacity:0.85; }
+.nav.on-terra .nav-link:hover{ color:var(--off-white); opacity:1; }
+.nav-cta{
+  font-family:'Geist Mono', monospace;
+  font-size:0.78rem;
+  letter-spacing:0.06em;
+  padding:0.62rem 1.15rem;
+  text-decoration:none;
+  background:var(--navy);
+  color:var(--off-white);
+  border:1px solid var(--navy);
+  transition:transform .2s ease, background .25s ease, color .25s ease, border-color .25s ease;
+}
+.nav-cta:hover{ transform:scale(1.03); background:#13233f; }
+/* on terracotta / navy sections a navy fill would vanish — switch to a ghost button */
+.nav.on-terra .nav-cta{ background:transparent; border-color:var(--off-white); color:var(--off-white); }
+.nav.on-terra .nav-cta:hover{ background:var(--off-white); color:var(--clay); }
+
+/* ============================================================
    HERO — sticky particle field
    ============================================================ */
 .hero{
@@ -173,6 +212,10 @@ body{
 .btn-ghost:hover{ border-color:var(--off-white); }
 .btn-light{ background:var(--off-white); color:var(--clay); }
 .btn-light-navy{ background:var(--off-white); color:var(--navy); }
+.btn-navy{ background:var(--navy); color:var(--off-white); }
+.btn-navy:hover{ background:#13233f; }
+.btn-outline-navy{ background:transparent; color:var(--navy); border-color:var(--navy); }
+.btn-outline-navy:hover{ background:var(--navy); color:var(--off-white); }
 
 /* scroll indicator */
 .scroll-ind{
@@ -290,47 +333,251 @@ body{
 }
 
 /* ============================================================
-   WHAT VANE DOES — warm gray, three columns
+   HOW IT WORKS — navy, full-width interactive animation
    ============================================================ */
-.does{ background:var(--warm-gray); color:var(--navy); }
-.does h2{
-  font-weight:700;
-  font-size:clamp(2.6rem,5.5vw,4.8rem);
-  line-height:0.98;
-  letter-spacing:-0.03em;
-  margin-bottom:4.5rem;
-  max-width:16ch;
+.how{ background:var(--navy); color:var(--off-white); align-items:center; text-align:center; }
+.how .sec-num{ color:var(--clay-light); }
+.how-eyebrow{ color:var(--clay-light); margin-bottom:3.4rem; }
+
+.htw-stage{
+  position:relative;
+  width:min(900px, 92vw);
+  height:300px;
+  margin:0 auto;
 }
-.does-grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:3rem;
+
+/* ---- the agent: a glowing terracotta circle that travels right ---- */
+.htw-agent{
+  position:absolute;
+  top:50%; left:30%;            /* left = base for reduced-motion; keyframes drive it otherwise */
+  width:72px; height:72px;      /* generous hit-area so the moving target is catchable */
+  margin:-36px 0 0 -36px;
+  z-index:6;
+  animation:htwAgent 4s linear infinite;
 }
-.does .col .idx{
+.htw-agent-core{
+  position:absolute;
+  top:50%; left:50%;
+  width:26px; height:26px;
+  margin:-13px 0 0 -13px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #e89066, var(--clay) 72%);
+  box-shadow:0 0 18px 3px rgba(216,106,63,0.6);
+  animation:htwGlow 1.8s ease-in-out infinite;
+}
+.htw-agent-label{
+  position:absolute;
+  top:calc(50% + 21px);
+  left:50%;
+  transform:translateX(-50%);
   font-family:'Geist Mono', monospace;
-  font-size:0.85rem;
-  letter-spacing:0.1em;
-  color:var(--clay);
+  font-size:0.55rem;
+  letter-spacing:0.18em;
+  color:rgba(245,240,232,0.7);
+  white-space:nowrap;
+  pointer-events:none;
 }
-.does .col h3{
-  margin-top:1.4rem;
+@keyframes htwGlow{
+  0%,100%{ box-shadow:0 0 16px 2px rgba(216,106,63,0.55); }
+  50%    { box-shadow:0 0 28px 6px rgba(216,106,63,0.9); }
+}
+@keyframes htwAgent{
+  0%   { left:8%;  opacity:0; }
+  6%   { left:8%;  opacity:1; }
+  30%  { left:52%; opacity:1; }   /* arrives, stopped by the barrier */
+  62%  { left:52%; opacity:1; }   /* waits: rejected, presents passport, approved, door opens */
+  82%  { left:90%; opacity:1; }   /* passes through the open server */
+  90%  { left:95%; opacity:0; }   /* exits and fades */
+  100% { left:8%;  opacity:0; }   /* reset off-screen for a seamless loop */
+}
+
+/* ---- the invisible barrier: only flickers into view when it blocks ---- */
+.htw-barrier{
+  position:absolute;
+  top:50%; left:60%;
+  width:2px; height:120px;
+  margin-top:-60px;
+  background:linear-gradient(to bottom, transparent, #e0442e, transparent);
+  box-shadow:0 0 12px rgba(224,68,46,0.7);
+  opacity:0;
+  z-index:4;
+  animation:htwBarrier 4s linear infinite;
+}
+@keyframes htwBarrier{
+  0%,24%{ opacity:0; }
+  30%   { opacity:0.95; }
+  50%   { opacity:0.95; }
+  58%   { opacity:0; }
+  100%  { opacity:0; }
+}
+
+/* ---- the reject / approve markers ---- */
+.htw-mark{
+  position:absolute;
+  top:50%; left:60%;
+  margin-top:-46px;
+  transform:translate(-50%,0);
+  font-family:'Geist Mono', monospace;
   font-weight:700;
-  font-size:1.5rem;
-  letter-spacing:-0.01em;
+  font-size:1.4rem;
+  z-index:7;
+  opacity:0;
+}
+.htw-reject{ color:#e0442e; animation:htwReject 4s linear infinite; }
+.htw-approve{ color:#33c06a; animation:htwApprove 4s linear infinite; }
+@keyframes htwReject{
+  0%,26%{ opacity:0; transform:translate(-50%,0) scale(.4); }
+  31%   { opacity:1; transform:translate(-50%,0) scale(1.15); }
+  40%   { opacity:1; transform:translate(-50%,0) scale(1); }
+  50%   { opacity:0; transform:translate(-50%,0) scale(1); }
+  100%  { opacity:0; transform:translate(-50%,0) scale(.4); }
+}
+@keyframes htwApprove{
+  0%,50%{ opacity:0; transform:translate(-50%,0) scale(.4); }
+  56%   { opacity:1; transform:translate(-50%,0) scale(1.2); }
+  64%   { opacity:1; transform:translate(-50%,0) scale(1); }
+  82%   { opacity:0; transform:translate(-50%,0) scale(1); }
+  100%  { opacity:0; transform:translate(-50%,0) scale(.4); }
+}
+
+/* ---- the passport that slides up from below ---- */
+.htw-passport{
+  position:absolute;
+  left:52%; bottom:12%;
+  transform:translate(-50%,40px);
+  background:var(--off-white);
   color:var(--navy);
+  font-family:'Geist Mono', monospace;
+  font-size:0.62rem;
+  letter-spacing:0.12em;
+  padding:0.5rem 0.85rem;
+  border-radius:3px;
+  box-shadow:0 12px 32px rgba(0,0,0,0.45);
+  white-space:nowrap;
+  opacity:0;
+  z-index:5;
+  animation:htwPass 4s linear infinite;
 }
-.does .col p{
-  margin-top:1rem;
-  font-size:1rem;
-  line-height:1.6;
-  color:var(--ink-body);
-  max-width:30ch;
+@keyframes htwPass{
+  0%,32%{ opacity:0; transform:translate(-50%,40px); }
+  44%   { opacity:1; transform:translate(-50%,0); }
+  62%   { opacity:1; transform:translate(-50%,0); }
+  72%   { opacity:0; transform:translate(-50%,-12px); }
+  100%  { opacity:0; transform:translate(-50%,40px); }
 }
-.does .col .bar{
-  width:42px; height:2px;
-  background:var(--clay);
-  margin-top:1.6rem;
+
+/* ---- the server / API: a rectangle that splits open ---- */
+.htw-server{
+  position:absolute;
+  top:50%; left:80%;
+  width:120px; height:130px;
+  margin:-65px 0 0 -60px;
+  z-index:3;
 }
+.htw-server-top,
+.htw-server-bottom{
+  position:absolute;
+  left:0; width:100%;
+  height:64px;
+  background:#0f2138;
+  border:1px solid rgba(245,240,232,0.18);
+}
+.htw-server-top{ top:0; border-bottom:none; animation:htwServerTop 4s linear infinite; }
+.htw-server-bottom{ bottom:0; border-top:none; animation:htwServerBottom 4s linear infinite; }
+.htw-server-label{
+  position:absolute;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  font-family:'Geist Mono', monospace;
+  font-size:0.62rem;
+  letter-spacing:0.2em;
+  color:rgba(245,240,232,0.85);
+  z-index:1;
+}
+@keyframes htwServerTop{
+  0%,56%{ transform:translateY(0); }
+  64%   { transform:translateY(-16px); }
+  82%   { transform:translateY(-16px); }
+  90%   { transform:translateY(0); }
+  100%  { transform:translateY(0); }
+}
+@keyframes htwServerBottom{
+  0%,56%{ transform:translateY(0); }
+  64%   { transform:translateY(16px); }
+  82%   { transform:translateY(16px); }
+  90%   { transform:translateY(0); }
+  100%  { transform:translateY(0); }
+}
+
+/* ---- hover tooltip on the agent (also pauses the loop) ---- */
+.htw-tip{
+  position:absolute;
+  bottom:calc(100% + 6px);
+  left:50%;
+  transform:translateX(-50%) translateY(6px);
+  width:208px;
+  background:var(--off-white);
+  color:var(--navy);
+  text-align:left;
+  padding:0.85rem 0.95rem;
+  border-radius:4px;
+  box-shadow:0 18px 44px rgba(0,0,0,0.5);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease, transform .25s ease;
+  z-index:20;
+}
+.htw-stage.paused .htw-tip{ opacity:1; transform:translateX(-50%) translateY(0); }
+.htw-tip-title{
+  font-family:'Geist Mono', monospace;
+  font-size:0.6rem;
+  letter-spacing:0.18em;
+  color:var(--clay);
+  margin-bottom:0.55rem;
+}
+.htw-tip-row{
+  display:flex;
+  justify-content:space-between;
+  gap:1rem;
+  font-family:'Geist Mono', monospace;
+  font-size:0.6rem;
+  padding:0.14rem 0;
+}
+.htw-tip-row span{ opacity:0.55; text-transform:uppercase; letter-spacing:0.08em; }
+.htw-tip-row b{ color:var(--clay); font-weight:600; }
+.htw-tip-ok{
+  margin-top:0.55rem;
+  font-family:'Geist Mono', monospace;
+  font-size:0.6rem;
+  color:#1f7a3d;
+  font-weight:600;
+}
+
+/* hovering the agent freezes the choreography so the target is catchable */
+.htw-stage.paused .htw-agent,
+.htw-stage.paused .htw-barrier,
+.htw-stage.paused .htw-reject,
+.htw-stage.paused .htw-approve,
+.htw-stage.paused .htw-passport,
+.htw-stage.paused .htw-server-top,
+.htw-stage.paused .htw-server-bottom{
+  animation-play-state:paused;
+}
+
+/* ---- the three captions beneath the animation ---- */
+.how-steps{
+  margin-top:3.4rem;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:0.9rem;
+  font-family:'Geist Mono', monospace;
+  font-size:0.72rem;
+  letter-spacing:0.14em;
+  color:rgba(245,240,232,0.75);
+}
+.how-steps .dot{ color:var(--clay-light); }
 
 /* ============================================================
    PASSPORT — dark, CSS card with 3D tilt
@@ -621,20 +868,186 @@ footer .built{
 }
 
 /* ============================================================
+   PRICING — off-white, three cards
+   ============================================================ */
+.pricing{ background:var(--warm-gray); color:var(--navy); }
+.pricing h2{
+  font-weight:800;
+  font-size:clamp(2.2rem,5vw,2.9rem);
+  letter-spacing:-0.03em;
+  color:var(--navy);
+  text-align:center;
+}
+.price-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:2rem;
+  width:100%;
+  max-width:1080px;
+  margin:4rem auto 0;
+  align-items:stretch;
+}
+.price-card{
+  background:var(--off-white);
+  border:1px solid rgba(10,22,40,0.1);
+  padding:2.6rem 2rem;
+  display:flex;
+  flex-direction:column;
+}
+.price-card.dev{ border-top:4px solid var(--clay); }
+.price-card.ent{ border-top:4px solid var(--navy); }
+.price-card.startup{
+  background:var(--clay);
+  color:var(--off-white);
+  transform:scale(1.05);
+  box-shadow:0 30px 60px rgba(181,69,27,0.28);
+  z-index:1;
+}
+.price-card .tier{
+  font-family:'Geist Mono', monospace;
+  font-size:0.72rem;
+  letter-spacing:0.18em;
+  color:var(--clay);
+}
+.price-card.startup .tier{ color:var(--off-white); opacity:0.85; }
+.price-card .price{
+  margin-top:1.4rem;
+  font-weight:800;
+  font-size:2.6rem;
+  letter-spacing:-0.02em;
+  line-height:1;
+  color:var(--navy);
+}
+.price-card.startup .price{ color:var(--off-white); }
+.price-card .price .per{
+  font-weight:400;
+  font-size:1rem;
+  letter-spacing:0;
+  opacity:0.6;
+}
+.price-card .features{
+  list-style:none;
+  margin:2rem 0 0;
+  padding:0;
+  flex:1 1 auto;
+}
+.price-card .features li{
+  position:relative;
+  padding:0.55rem 0 0.55rem 1.4rem;
+  font-size:0.92rem;
+  line-height:1.4;
+  color:var(--ink-body);
+  border-bottom:1px solid rgba(10,22,40,0.08);
+}
+.price-card .features li::before{
+  content:'';
+  position:absolute;
+  left:0; top:0.92rem;
+  width:7px; height:7px;
+  border-radius:50%;
+  background:var(--clay);
+}
+.price-card .features li .mono{ font-family:'Geist Mono', monospace; font-size:0.8rem; }
+.price-card.startup .features li{
+  color:rgba(245,240,232,0.92);
+  border-bottom-color:rgba(245,240,232,0.2);
+}
+.price-card.startup .features li::before{ background:var(--off-white); }
+.price-btn{ width:100%; text-align:center; margin-top:2rem; }
+
+/* ============================================================
+   SECURITY — terracotta, 2x2 grid
+   ============================================================ */
+.security{ background:var(--clay); color:var(--off-white); }
+.security h2{
+  font-weight:800;
+  font-size:clamp(2.2rem,5vw,2.9rem);
+  letter-spacing:-0.03em;
+  color:var(--off-white);
+  max-width:18ch;
+}
+.sec-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:3rem 4rem;
+  max-width:1000px;
+  margin-top:4rem;
+}
+.sec-item .lab{
+  font-family:'Geist Mono', monospace;
+  font-size:0.85rem;
+  letter-spacing:0.16em;
+  color:var(--off-white);
+}
+.sec-item .lab::after{
+  content:'';
+  display:block;
+  width:34px; height:2px;
+  background:rgba(245,240,232,0.5);
+  margin:0.9rem 0;
+}
+.sec-item p{
+  font-size:1.02rem;
+  line-height:1.6;
+  color:rgba(245,240,232,0.85);
+  max-width:40ch;
+}
+.sec-foot{
+  margin-top:3.5rem;
+  font-family:'Geist Mono', monospace;
+  font-size:0.72rem;
+  letter-spacing:0.06em;
+  color:rgba(245,240,232,0.7);
+}
+
+/* ============================================================
+   CONTACT — off-white, closing call
+   ============================================================ */
+.contact{ background:var(--warm-gray); color:var(--navy); text-align:center; align-items:center; }
+.contact h2{
+  font-weight:800;
+  font-size:clamp(2.4rem,6vw,4.5rem);
+  line-height:1.02;
+  letter-spacing:-0.03em;
+  color:var(--navy);
+  max-width:18ch;
+}
+.contact-actions{
+  margin-top:3rem;
+  display:flex;
+  gap:1rem;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+.contact-fine{
+  margin-top:2rem;
+  font-family:'Geist Mono', monospace;
+  font-size:0.78rem;
+  letter-spacing:0.08em;
+  color:var(--ink-body);
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width:900px){
   .stats-grid{ grid-template-columns:repeat(2,1fr); gap:3rem 2rem; }
   .problem-grid, .integ-grid, .euact-grid{ grid-template-columns:1fr; gap:3rem; }
-  .does-grid{ grid-template-columns:1fr; gap:3rem; }
   .timeline{ margin-left:0.5rem; }
+  .price-grid{ grid-template-columns:1fr; gap:2rem; max-width:460px; }
+  .price-card.startup{ transform:none; }
+  .sec-grid{ grid-template-columns:1fr; gap:2.5rem; }
   footer .inner{ grid-template-columns:1fr; text-align:center; gap:1.5rem; }
   footer .f-logo, footer .built, footer .links{ text-align:center; justify-content:center; }
+}
+@media (max-width:760px){
+  .nav-link{ display:none; }
 }
 @media (max-width:560px){
   .stats-grid{ grid-template-columns:1fr; }
   .section{ padding:11vh 7vw; }
   .hero .actions{ flex-direction:column; align-items:flex-start; }
+  .htw-stage{ height:260px; }
 }
 
 /* ============================================================
@@ -700,6 +1113,15 @@ body.has-custom-cursor button{ cursor:none !important; }
   </svg>
   <span class="word">VANE</span>
 </a>
+
+<!-- ===================== NAV ===================== -->
+<nav class="nav on-terra" aria-label="Primary">
+  <a class="nav-link" href="https://docs.vane.build">Docs</a>
+  <a class="nav-link" href="#pricing">Pricing</a>
+  <a class="nav-link" href="#security">Security</a>
+  <a class="nav-link" href="mailto:pablo@vane.build">Contact</a>
+  <a class="nav-cta" href="#start">Start building</a>
+</nav>
 
 <div id="smooth-wrapper">
 
@@ -767,29 +1189,47 @@ body.has-custom-cursor button{ cursor:none !important; }
   </div>
 </section>
 
-<!-- ===================== WHAT VANE DOES //02 ===================== -->
-<section class="section does" data-theme="paper" data-reveal>
+<!-- ===================== HOW IT WORKS //02 ===================== -->
+<section class="section how" data-theme="terra" data-reveal>
   <span class="sec-num">//02</span>
-  <h2 class="r">From unidentified process to verifiable institution, in three steps.</h2>
-  <div class="does-grid">
-    <div class="col r">
-      <div class="idx">01</div>
-      <h3>Register your agent.</h3>
-      <p>Every agent gets a SPIFFE workload identity. Cryptographically unique. Tied to your organization.</p>
-      <div class="bar"></div>
+  <div class="how-eyebrow eyebrow r">HOW IT WORKS</div>
+
+  <div class="htw-stage r">
+    <!-- the agent -->
+    <div class="htw-agent">
+      <div class="htw-agent-core"></div>
+      <span class="htw-agent-label">AGENT</span>
+      <div class="htw-tip" role="tooltip">
+        <div class="htw-tip-title">VANE PASSPORT</div>
+        <div class="htw-tip-row"><span>agent</span><b>billing-agent-001</b></div>
+        <div class="htw-tip-row"><span>org</span><b>acme</b></div>
+        <div class="htw-tip-row"><span>scopes</span><b>attest:write</b></div>
+        <div class="htw-tip-ok">✓ Ed25519 verified</div>
+      </div>
     </div>
-    <div class="col r">
-      <div class="idx">02</div>
-      <h3>Issue a passport.</h3>
-      <p>A signed CAP+JWT credential carrying identity, scopes, delegation chain, and expiry. Verifiable offline by anyone.</p>
-      <div class="bar"></div>
+
+    <!-- the barrier and its verdict markers -->
+    <div class="htw-barrier"></div>
+    <div class="htw-mark htw-reject" aria-hidden="true">✕</div>
+    <div class="htw-mark htw-approve" aria-hidden="true">✓</div>
+
+    <!-- the passport that slides up -->
+    <div class="htw-passport" aria-hidden="true">VANE PASSPORT&nbsp;✓</div>
+
+    <!-- the server / API that splits open -->
+    <div class="htw-server">
+      <div class="htw-server-top"></div>
+      <div class="htw-server-bottom"></div>
+      <span class="htw-server-label">API</span>
     </div>
-    <div class="col r">
-      <div class="idx">03</div>
-      <h3>Every action attested.</h3>
-      <p>Every real-world action appended to a tamper-proof Merkle tree. Auditable forever. Unforgeable.</p>
-      <div class="bar"></div>
-    </div>
+  </div>
+
+  <div class="how-steps r">
+    <span>REGISTER YOUR AGENT</span>
+    <span class="dot">·</span>
+    <span>ISSUE A PASSPORT</span>
+    <span class="dot">·</span>
+    <span>EVERY ACTION ATTESTED</span>
   </div>
 </section>
 
@@ -845,6 +1285,73 @@ body.has-custom-cursor button{ cursor:none !important; }
   </div>
 </section>
 
+<!-- ===================== PRICING ===================== -->
+<section class="section pricing" id="pricing" data-theme="paper" data-reveal>
+  <h2 class="r">Simple pricing.</h2>
+  <div class="price-grid">
+    <div class="price-card dev r">
+      <div class="tier">DEVELOPER</div>
+      <div class="price">Free<span class="per"> forever</span></div>
+      <ul class="features">
+        <li>10,000 attestations / month</li>
+        <li>5 agents</li>
+        <li>Community support</li>
+        <li><span class="mono">npm install @vane.build/sdk</span></li>
+      </ul>
+      <a class="btn price-btn btn-clay" href="https://docs.vane.build">Start free</a>
+    </div>
+    <div class="price-card startup r">
+      <div class="tier">STARTUP</div>
+      <div class="price">$99<span class="per"> / month</span></div>
+      <ul class="features">
+        <li>500,000 attestations / month</li>
+        <li>Unlimited agents</li>
+        <li>Webhook notifications</li>
+        <li>Email support</li>
+        <li>14-day free trial</li>
+      </ul>
+      <a class="btn price-btn btn-light" href="https://docs.vane.build">Start trial</a>
+    </div>
+    <div class="price-card ent r">
+      <div class="tier">ENTERPRISE</div>
+      <div class="price">Custom<span class="per"> pricing</span></div>
+      <ul class="features">
+        <li>Unlimited attestations</li>
+        <li>SLA guarantees</li>
+        <li>SOC 2 report</li>
+        <li>Dedicated support</li>
+        <li>Custom data retention</li>
+        <li>On-premise option</li>
+      </ul>
+      <a class="btn price-btn btn-navy" href="mailto:pablo@vane.build">Contact us</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SECURITY ===================== -->
+<section class="section security" id="security" data-theme="terra" data-reveal>
+  <h2 class="r">Built on proven cryptography.</h2>
+  <div class="sec-grid">
+    <div class="sec-item r">
+      <div class="lab">ED25519</div>
+      <p>Deterministic signing. No nonce reuse risk. The same algorithm securing SSH and modern TLS.</p>
+    </div>
+    <div class="sec-item r">
+      <div class="lab">MERKLE TREE</div>
+      <p>Every attestation record is part of an append-only tree. Tamper with one record and the entire chain breaks.</p>
+    </div>
+    <div class="sec-item r">
+      <div class="lab">AES-256-GCM</div>
+      <p>Every private key encrypted at rest. The master key never touches the database.</p>
+    </div>
+    <div class="sec-item r">
+      <div class="lab">OFFLINE VERIFICATION</div>
+      <p>Passports verify with only the CA public key. No network call to Vane required.</p>
+    </div>
+  </div>
+  <p class="sec-foot r">SOC 2 Type II audit in progress. Responsible disclosure: security@vane.build</p>
+</section>
+
 <!-- ===================== EU AI ACT //05 ===================== -->
 <section class="section euact" data-theme="paper" data-reveal>
   <span class="sec-num">//05</span>
@@ -884,6 +1391,16 @@ body.has-custom-cursor button{ cursor:none !important; }
     <div class="copied" id="copied-msg">copied ✓</div>
   </div>
   <p class="fine r">Free to start. No credit card. Docs at docs.vane.build</p>
+</section>
+
+<!-- ===================== CONTACT ===================== -->
+<section class="section contact" id="contact" data-theme="paper" data-reveal>
+  <h2 class="r">Ready to give your agents identity?</h2>
+  <div class="contact-actions r">
+    <a class="btn btn-clay" href="https://docs.vane.build">Start building</a>
+    <a class="btn btn-outline-navy" href="mailto:pablo@vane.build">Talk to us</a>
+  </div>
+  <p class="contact-fine r">Response within 24 hours.</p>
 </section>
 
 <!-- ===================== FOOTER ===================== -->
@@ -1162,7 +1679,7 @@ body.has-custom-cursor button{ cursor:none !important; }
 
     window.addEventListener('mousemove', e=>{ mx = e.clientX; my = e.clientY; }, { passive:true });
 
-    document.querySelectorAll('.btn, button').forEach(b=>{
+    document.querySelectorAll('.btn, button, .nav a').forEach(b=>{
       b.addEventListener('mouseenter', ()=> el.classList.add('big'),    { passive:true });
       b.addEventListener('mouseleave', ()=> el.classList.remove('big'), { passive:true });
     });
@@ -1257,19 +1774,46 @@ body.has-custom-cursor button{ cursor:none !important; }
     });
   })();
 
-  /* ── logo color follows active section ────────────────────────────────── */
+  /* ── logo + nav color follow active section ───────────────────────────── */
   (function(){
     const logo     = document.querySelector('.logo');
+    const nav      = document.querySelector('.nav');
     const sections = document.querySelectorAll('[data-theme]');
     if(!logo || !sections.length) return;
     const io = new IntersectionObserver(entries=>{
       entries.forEach(e=>{
         if(e.isIntersecting && e.intersectionRatio > 0.5){
-          logo.classList.toggle('on-terra', e.target.getAttribute('data-theme') === 'terra');
+          const terra = e.target.getAttribute('data-theme') === 'terra';
+          logo.classList.toggle('on-terra', terra);
+          if(nav) nav.classList.toggle('on-terra', terra);
         }
       });
     }, { threshold:[0.5] });
     sections.forEach(s=>io.observe(s));
+  })();
+
+  /* ── smooth anchor scrolling (rides the weighted-scroll lerp) ─────────── */
+  (function(){
+    document.querySelectorAll('a[href^="#"]').forEach(a=>{
+      a.addEventListener('click', e=>{
+        const id = a.getAttribute('href').slice(1);
+        if(!id) return;
+        const target = document.getElementById(id);
+        if(!target) return;
+        e.preventDefault();
+        window.scrollTo(0, target.offsetTop);   // rafLoop lerps the wrapper toward it
+      });
+    });
+  })();
+
+  /* ── how-it-works: pause the loop + reveal tooltip while hovering agent ── */
+  (function(){
+    const stage = document.querySelector('.htw-stage');
+    if(!stage) return;
+    const agent = stage.querySelector('.htw-agent');
+    if(!agent) return;
+    agent.addEventListener('mouseenter', ()=> stage.classList.add('paused'),    { passive:true });
+    agent.addEventListener('mouseleave', ()=> stage.classList.remove('paused'), { passive:true });
   })();
 
 })();
