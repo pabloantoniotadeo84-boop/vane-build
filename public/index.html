@@ -26,7 +26,7 @@
 }
 
 *{ margin:0; padding:0; box-sizing:border-box; }
-html{ scroll-behavior:smooth; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+html{ -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; scroll-behavior:auto; }
 body{
   font-family:'Geist', system-ui, sans-serif;
   background:var(--clay);
@@ -66,8 +66,8 @@ body{
 /* ---------- reveal on scroll ---------- */
 .r{
   opacity:0;
-  transform:translateY(24px);
-  transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1);
+  transform:translateY(40px);
+  transition:opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1);
   will-change:opacity, transform;
 }
 [data-reveal].in .r{ opacity:1; transform:none; }
@@ -109,8 +109,7 @@ body{
    HERO — sticky particle field
    ============================================================ */
 .hero{
-  position:sticky;
-  top:0;
+  position:relative;
   height:100vh;
   width:100%;
   background:var(--clay);
@@ -647,9 +646,46 @@ footer .built{
   .card{ transition:none !important; }
   html{ scroll-behavior:auto; }
 }
+
+/* ============================================================
+   SMOOTH SCROLL WRAPPER
+   ============================================================ */
+#smooth-wrapper{
+  position:fixed;
+  top:0; left:0;
+  width:100%;
+  will-change:transform;
+}
+
+/* ============================================================
+   CUSTOM CURSOR
+   ============================================================ */
+#vane-cursor{
+  position:fixed;
+  top:0; left:0;
+  width:8px; height:8px;
+  margin:-4px 0 0 -4px;
+  background:var(--clay);
+  border-radius:50%;
+  pointer-events:none;
+  z-index:9999;
+  will-change:transform;
+  display:none;
+  transition:width .25s ease, height .25s ease, margin .25s ease;
+}
+body.has-custom-cursor #vane-cursor{ display:block; }
+body.has-custom-cursor,
+body.has-custom-cursor a,
+body.has-custom-cursor button{ cursor:none !important; }
+#vane-cursor.big{
+  width:24px; height:24px;
+  margin:-12px 0 0 -12px;
+}
 </style>
 </head>
 <body>
+
+<div id="vane-cursor" aria-hidden="true"></div>
 
 <!-- ===================== LOGO ===================== -->
 <a class="logo on-terra" href="#top" aria-label="Vane home">
@@ -664,6 +700,8 @@ footer .built{
   </svg>
   <span class="word">VANE</span>
 </a>
+
+<div id="smooth-wrapper">
 
 <!-- ===================== HERO ===================== -->
 <section class="hero" id="top" data-theme="terra">
@@ -872,6 +910,7 @@ footer .built{
     <div class="built">Built in Puerto Rico.</div>
   </div>
 </footer>
+</div><!-- /#smooth-wrapper -->
 
 <!-- ===================== THREE.JS ===================== -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -880,7 +919,10 @@ footer .built{
   "use strict";
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ---------- passport timestamps ---------- */
+  /* ── shared lerped scroll position (written by smooth-scroll loop, read by THREE) ── */
+  let smoothY = 0;
+
+  /* ── passport timestamps ──────────────────────────────────────────────── */
   (function(){
     const now = new Date();
     const exp = new Date(now.getTime() + 60*60*1000);
@@ -891,7 +933,7 @@ footer .built{
     if(e) e.textContent = iso(exp);
   })();
 
-  /* ---------- THREE.js particle field ---------- */
+  /* ── THREE.js particle field ──────────────────────────────────────────── */
   (function(){
     const canvas = document.getElementById('particles');
     if(!canvas || typeof THREE === 'undefined') return;
@@ -899,12 +941,11 @@ footer .built{
     const renderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const scene = new THREE.Scene();
+    const threeScene = new THREE.Scene();
     const CAM_Z = 400;
     const camera = new THREE.PerspectiveCamera(70, 1, 1, 2000);
     camera.position.z = CAM_Z;
 
-    // soft round glowing particle texture
     const tex = (function(){
       const c = document.createElement('canvas');
       c.width = c.height = 64;
@@ -921,9 +962,6 @@ footer .built{
       return t;
     })();
 
-    // warm cream / sand tones: dust catching light over the clay court.
-    // (additive blending on a saturated terracotta bg reads as luminous pale motes;
-    //  terracotta particles would have been invisible on a terracotta background.)
     const PALETTE = [
       new THREE.Color('#f5f0e8'),
       new THREE.Color('#ede8e0'),
@@ -932,14 +970,14 @@ footer .built{
     ];
 
     const N = 2000;
-    let W = 600, H = 500;          // half-extents, recomputed on resize
+    let W = 600, H = 500;
     const DEPTH = 160;
 
     const positions = new Float32Array(N*3);
     const colors    = new Float32Array(N*3);
-    const base      = new Float32Array(N*3);   // drifting home position
-    const vel       = new Float32Array(N*2);   // per-particle drift
-    const off       = new Float32Array(N*2);   // repulsion offset
+    const base      = new Float32Array(N*3);
+    const vel       = new Float32Array(N*2);
+    const off       = new Float32Array(N*2);
 
     function computeExtents(){
       const aspect = canvas.clientWidth / canvas.clientHeight;
@@ -957,14 +995,9 @@ footer .built{
       const bz = (Math.random()*2-1)*DEPTH;
       base[i*3]=bx; base[i*3+1]=by; base[i*3+2]=bz;
       positions[i*3]=bx; positions[i*3+1]=by; positions[i*3+2]=bz;
-
-      // upward + gentle sideways drift, like clay dust rising
-      vel[i*2]   = (Math.random()*2-1)*0.18;   // x
-      vel[i*2+1] = 0.12 + Math.random()*0.30;  // y (up)
-
+      vel[i*2]   = (Math.random()*2-1)*0.18;
+      vel[i*2+1] = 0.12 + Math.random()*0.30;
       const col = PALETTE[(Math.random()*PALETTE.length)|0].clone();
-      // lower brightness range so the cream motes glow subtly on terracotta
-      // instead of blowing out to white; varied per-particle for depth.
       const bright = 0.16 + Math.random()*0.42;
       colors[i*3]   = col.r * bright;
       colors[i*3+1] = col.g * bright;
@@ -973,38 +1006,36 @@ footer .built{
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
-    geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+    geo.setAttribute('color',    new THREE.BufferAttribute(colors,3));
 
     const mat = new THREE.PointsMaterial({
-      size: 6,
-      map: tex,
-      vertexColors: true,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      sizeAttenuation: true
+      size:6, map:tex, vertexColors:true,
+      transparent:true, depthWrite:false,
+      blending:THREE.AdditiveBlending, sizeAttenuation:true
     });
 
     const points = new THREE.Points(geo, mat);
-    scene.add(points);
+    threeScene.add(points);
 
-    // mouse -> world position on z=0 plane
-    const mouseNDC = new THREE.Vector2(-2,-2);   // off-screen until moved
-    const ray = new THREE.Raycaster();
-    const plane = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
-    const mouseWorld = new THREE.Vector3(99999,99999,0);
-    let hasMouse = false;
+    const mouseNDC  = new THREE.Vector2(-2,-2);
+    const ray       = new THREE.Raycaster();
+    const rayPlane  = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
+    const mouseWorld= new THREE.Vector3(99999,99999,0);
+    let hasMouse    = false;
 
-    window.addEventListener('mousemove', (e)=>{
-      mouseNDC.x = (e.clientX / window.innerWidth)*2 - 1;
+    window.addEventListener('mousemove', e=>{
+      mouseNDC.x =  (e.clientX / window.innerWidth)*2  - 1;
       mouseNDC.y = -(e.clientY / window.innerHeight)*2 + 1;
       hasMouse = true;
     }, { passive:true });
     window.addEventListener('mouseleave', ()=>{ hasMouse = false; });
 
-    const R = 95;          // repulsion radius (world units)
-    const R2 = R*R;
-    const PUSH = 7;
+    const R = 95, R2 = R*R, PUSH = 7;
+
+    function worldPerPx(){
+      const planeH = 2 * Math.tan(35 * Math.PI/180) * CAM_Z;
+      return planeH / window.innerHeight;
+    }
 
     function resize(){
       const w = window.innerWidth, h = window.innerHeight;
@@ -1019,90 +1050,151 @@ footer .built{
     const posAttr = geo.attributes.position;
 
     function step(){
+      /* canvas parallax at 0.4x: camera drifts UP in world space so particles
+         appear to translate down 0.6× relative to content, netting 0.4× movement */
+      if(!reduceMotion){
+        camera.position.y = smoothY * 0.6 * worldPerPx();
+      }
+
       if(hasMouse){
         ray.setFromCamera(mouseNDC, camera);
-        ray.ray.intersectPlane(plane, mouseWorld);
+        ray.ray.intersectPlane(rayPlane, mouseWorld);
       } else {
         mouseWorld.set(99999,99999,0);
       }
 
       for(let i=0;i<N;i++){
         const ix=i*3, iy=i*3+1, iz=i*3+2, ox=i*2, oy=i*2+1;
-
-        // drift home position, wrap toroidally
         base[ix] += vel[ox];
         base[iy] += vel[oy];
         if(base[iy] >  H) base[iy] -= 2*H;
         if(base[ix] >  W) base[ix] -= 2*W;
         else if(base[ix] < -W) base[ix] += 2*W;
-
-        // ease repulsion offset back toward zero
-        off[ox] *= 0.90;
-        off[oy] *= 0.90;
-
-        // repulsion: part around the cursor
-        const cx = base[ix] + off[ox];
-        const cy = base[iy] + off[oy];
-        const dx = cx - mouseWorld.x;
-        const dy = cy - mouseWorld.y;
-        const d2 = dx*dx + dy*dy;
+        off[ox] *= 0.90; off[oy] *= 0.90;
+        const cx = base[ix]+off[ox], cy = base[iy]+off[oy];
+        const dx = cx-mouseWorld.x, dy = cy-mouseWorld.y;
+        const d2 = dx*dx+dy*dy;
         if(d2 < R2 && d2 > 0.5){
-          const d = Math.sqrt(d2);
-          const f = (1 - d/R) * PUSH;
-          off[ox] += (dx/d)*f;
-          off[oy] += (dy/d)*f;
+          const d = Math.sqrt(d2), f = (1-d/R)*PUSH;
+          off[ox] += (dx/d)*f; off[oy] += (dy/d)*f;
         }
-
-        positions[ix] = base[ix] + off[ox];
-        positions[iy] = base[iy] + off[oy];
+        positions[ix] = base[ix]+off[ox];
+        positions[iy] = base[iy]+off[oy];
         positions[iz] = base[iz];
       }
       posAttr.needsUpdate = true;
-      // whisper-slow rotation for parallax depth
       points.rotation.z += 0.0004;
     }
 
-    // pause rendering when the hero is scrolled out of view (perf)
-    let heroVisible = true;
-    const hero = document.querySelector('.hero');
-    if('IntersectionObserver' in window && hero){
-      new IntersectionObserver((entries)=>{
-        heroVisible = entries[0].isIntersecting;
-      }, { threshold:0.01 }).observe(hero);
-    }
-
     if(reduceMotion){
-      // single static frame, no drift, no mouse reaction
-      renderer.render(scene, camera);
+      renderer.render(threeScene, camera);
     } else {
       function loop(){
         requestAnimationFrame(loop);
-        if(!heroVisible) return;
+        if(smoothY >= window.innerHeight * 1.1) return; // pause when hero off-screen
         step();
-        renderer.render(scene, camera);
+        renderer.render(threeScene, camera);
       }
       loop();
     }
   })();
 
-  /* ---------- reveal on scroll ---------- */
+  /* ── smooth scroll + parallax ─────────────────────────────────────────── */
+  (function(){
+    const wrapper      = document.getElementById('smooth-wrapper');
+    const heroInner    = document.querySelector('.hero-inner');
+    const statNums     = document.querySelectorAll('.stat .num');
+    const statsSection = document.querySelector('.stats');
+    const ppScene      = document.querySelector('.pp-scene');
+    const ppSection    = document.querySelector('.passport');
+
+    /* Make body scrollable so window.scrollY works */
+    function setBodyHeight(){
+      document.body.style.height = wrapper.scrollHeight + 'px';
+    }
+    setBodyHeight();
+    window.addEventListener('resize', setBodyHeight);
+    if(typeof ResizeObserver !== 'undefined'){
+      new ResizeObserver(setBodyHeight).observe(wrapper);
+    }
+
+    if(reduceMotion) return;
+
+    function rafLoop(){
+      requestAnimationFrame(rafLoop);
+
+      /* lerp toward native scroll target */
+      smoothY += (window.scrollY - smoothY) * 0.08;
+
+      /* whole-page weighted scroll */
+      wrapper.style.transform = `translateY(${-smoothY}px)`;
+
+      /* hero headline at 0.85× — translateY pushes it down so it moves slower */
+      if(heroInner){
+        heroInner.style.transform = `translateY(${smoothY * 0.15}px)`;
+      }
+
+      /* stat numbers at 0.95× (relative to their section) */
+      if(statsSection && statNums.length){
+        const rel = smoothY - statsSection.offsetTop;
+        statNums.forEach(n => { n.style.transform = `translateY(${rel * 0.05}px)`; });
+      }
+
+      /* passport scene at 0.9× + up to 2° rotation */
+      if(ppScene && ppSection){
+        const rel = smoothY - ppSection.offsetTop;
+        const rot = Math.max(-2, Math.min(2, rel * 0.004));
+        ppScene.style.transform = `translateY(${rel * 0.1}px) rotate(${rot}deg)`;
+      }
+    }
+    rafLoop();
+  })();
+
+  /* ── custom cursor ────────────────────────────────────────────────────── */
+  (function(){
+    if(reduceMotion) return;
+    if(window.matchMedia('(hover: none)').matches) return;
+    const el = document.getElementById('vane-cursor');
+    if(!el) return;
+
+    document.body.classList.add('has-custom-cursor');
+    let cx = -200, cy = -200, mx = -200, my = -200;
+
+    window.addEventListener('mousemove', e=>{ mx = e.clientX; my = e.clientY; }, { passive:true });
+
+    document.querySelectorAll('.btn, button').forEach(b=>{
+      b.addEventListener('mouseenter', ()=> el.classList.add('big'),    { passive:true });
+      b.addEventListener('mouseleave', ()=> el.classList.remove('big'), { passive:true });
+    });
+
+    function loop(){
+      requestAnimationFrame(loop);
+      cx += (mx - cx) * 0.15;
+      cy += (my - cy) * 0.15;
+      el.style.transform = `translate(${cx}px, ${cy}px)`;
+    }
+    loop();
+  })();
+
+  /* ── reveal on scroll ─────────────────────────────────────────────────── */
   (function(){
     const groups = document.querySelectorAll('[data-reveal]');
     if(reduceMotion){ groups.forEach(g=>g.classList.add('in')); return; }
-    const io = new IntersectionObserver((entries)=>{
+    const io = new IntersectionObserver(entries=>{
       entries.forEach(e=>{
         if(e.isIntersecting){
-          const items = e.target.querySelectorAll('.r');
-          items.forEach((it,i)=>{ it.style.transitionDelay = (i*0.1)+'s'; });
+          e.target.querySelectorAll('.r').forEach((it,i)=>{
+            it.style.transitionDelay = (i * 0.12) + 's';
+          });
           e.target.classList.add('in');
           io.unobserve(e.target);
         }
       });
-    }, { threshold:0.18 });
+    }, { threshold: 0.18 });
     groups.forEach(g=>io.observe(g));
   })();
 
-  /* ---------- stat counters ---------- */
+  /* ── stat counters ────────────────────────────────────────────────────── */
   (function(){
     const counters = document.querySelectorAll('.count');
     function animate(el){
@@ -1110,56 +1202,51 @@ footer .built{
       const prefix = el.dataset.prefix || '';
       const suffix = el.dataset.suffix || '';
       if(reduceMotion){ el.textContent = prefix+target+suffix; return; }
-      const dur = 1600;
-      const start = performance.now();
+      const dur = 1600, start = performance.now();
       function tick(now){
         const p = Math.min((now-start)/dur, 1);
-        const eased = 1 - Math.pow(1-p, 3);   // easeOutCubic
-        const val = Math.round(target * eased);
+        const val = Math.round(target * (1 - Math.pow(1-p, 3)));
         el.textContent = prefix + val.toLocaleString('en-US') + suffix;
         if(p < 1) requestAnimationFrame(tick);
       }
       requestAnimationFrame(tick);
     }
-    const io = new IntersectionObserver((entries)=>{
+    const io = new IntersectionObserver(entries=>{
       entries.forEach(e=>{
         if(e.isIntersecting){ animate(e.target); io.unobserve(e.target); }
       });
-    }, { threshold:0.5 });
+    }, { threshold: 0.5 });
     counters.forEach(c=>io.observe(c));
   })();
 
-  /* ---------- passport 3D tilt ---------- */
+  /* ── passport 3D tilt (on .card, separate from .pp-scene parallax) ───── */
   (function(){
     const card = document.getElementById('passport-card');
     if(!card || reduceMotion) return;
     const MAX = 10;
-    const scene = card.closest('.passport');
+    const passSection = card.closest('.passport');
     function onMove(e){
-      const r = card.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-      const dx = (e.clientX - cx) / (r.width/2);
-      const dy = (e.clientY - cy) / (r.height/2);
+      const r  = card.getBoundingClientRect();
+      const dx = (e.clientX - (r.left + r.width/2))  / (r.width/2);
+      const dy = (e.clientY - (r.top  + r.height/2)) / (r.height/2);
       const ry = Math.max(-1,Math.min(1,dx)) * MAX;
       const rx = Math.max(-1,Math.min(1,dy)) * -MAX;
       card.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
     }
     function reset(){ card.style.transform = 'rotateX(0) rotateY(0)'; }
-    (scene||document).addEventListener('mousemove', onMove, { passive:true });
-    (scene||document).addEventListener('mouseleave', reset);
+    (passSection||document).addEventListener('mousemove', onMove, { passive:true });
+    (passSection||document).addEventListener('mouseleave', reset);
   })();
 
-  /* ---------- copy to clipboard ---------- */
+  /* ── copy to clipboard ────────────────────────────────────────────────── */
   (function(){
     const btn = document.getElementById('copy-btn');
     const msg = document.getElementById('copied-msg');
     if(!btn) return;
     btn.addEventListener('click', async ()=>{
       const text = 'npm install @vane.build/sdk';
-      try{
-        await navigator.clipboard.writeText(text);
-      }catch(_){
+      try{ await navigator.clipboard.writeText(text); }
+      catch(_){
         const ta = document.createElement('textarea');
         ta.value = text; document.body.appendChild(ta);
         ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
@@ -1170,16 +1257,15 @@ footer .built{
     });
   })();
 
-  /* ---------- logo color follows active section theme ---------- */
+  /* ── logo color follows active section ────────────────────────────────── */
   (function(){
-    const logo = document.querySelector('.logo');
+    const logo     = document.querySelector('.logo');
     const sections = document.querySelectorAll('[data-theme]');
     if(!logo || !sections.length) return;
-    const io = new IntersectionObserver((entries)=>{
+    const io = new IntersectionObserver(entries=>{
       entries.forEach(e=>{
         if(e.isIntersecting && e.intersectionRatio > 0.5){
-          const theme = e.target.getAttribute('data-theme');
-          logo.classList.toggle('on-terra', theme === 'terra');
+          logo.classList.toggle('on-terra', e.target.getAttribute('data-theme') === 'terra');
         }
       });
     }, { threshold:[0.5] });
