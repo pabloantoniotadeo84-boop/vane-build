@@ -23,7 +23,8 @@ import type { IncomingMessage } from 'node:http';
 import type { TLSSocket, PeerCertificate } from 'node:tls';
 import { randomUUID, createPublicKey, createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { logger } from '../logger.js';
 import { captureException } from '../sentry.js';
 import { rateLimitMiddleware } from './rate-limit.js';
@@ -96,7 +97,7 @@ app.use('*', rateLimitMiddleware());
 
 // ── Marketing site ────────────────────────────────────────────────────────────
 
-const MARKETING_HTML = resolve('/Users/pablo/counsel/public/index.html');
+const MARKETING_HTML = resolve(dirname(fileURLToPath(import.meta.url)), '../../public/index.html');
 
 app.get('/', async (c) => {
   const html = await readFile(MARKETING_HTML, 'utf-8');
