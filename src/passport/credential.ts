@@ -5,6 +5,11 @@ import type { VanePassportClaims } from './types.js';
 
 export const PASSPORT_AUDIENCE = 'vane:passport:v1';
 export const PASSPORT_TTL_DEFAULT = 3600; // 1 hour
+// Hard bounds enforced at issuance. Short TTLs are the primary revocation
+// defense — an expired passport is always rejected regardless of revocation
+// list availability, so keeping the cap low limits blast radius.
+export const PASSPORT_TTL_MIN = 300;      // 5 minutes
+export const PASSPORT_TTL_MAX = 3600;     // 1 hour
 
 function b64url(s: string): string {
   return Buffer.from(s, 'utf8').toString('base64url');
@@ -56,7 +61,13 @@ export function issuePassport(opts: IssuePassportOptions): string {
     );
   }
 
-  const ttl = opts.ttl ?? PASSPORT_TTL_DEFAULT;
+  const requestedTtl = opts.ttl ?? PASSPORT_TTL_DEFAULT;
+  if (requestedTtl < PASSPORT_TTL_MIN || requestedTtl > PASSPORT_TTL_MAX) {
+    throw new Error(
+      `Passport TTL ${requestedTtl}s is out of bounds [${PASSPORT_TTL_MIN}, ${PASSPORT_TTL_MAX}]`,
+    );
+  }
+  const ttl = requestedTtl;
   const now = Math.floor(Date.now() / 1000);
   const kid = deriveKeyId(opts.publicKeyPem);
 

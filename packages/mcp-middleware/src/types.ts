@@ -64,7 +64,8 @@ export type PassportErrorCode =
   | 'UNSUPPORTED_VERSION'
   | 'MALFORMED_CLAIMS'
   | 'CHAIN_INCOHERENT'
-  | 'SCOPE_DENIED';
+  | 'SCOPE_DENIED'
+  | 'PASSPORT_REVOKED';
 
 // ── Middleware options ────────────────────────────────────────────────────────
 
@@ -77,6 +78,21 @@ export interface VaneMiddlewareOptions {
   // If true (default), 401 responses include the error code and message.
   // Set to false to return generic 401s without leaking reason strings.
   exposeErrors?: boolean;
+
+  // Optional revocation list fetcher. If provided, this function is called on
+  // every request after signature verification succeeds. The returned array of
+  // JTIs is checked against the passport's jti claim.
+  //
+  // Trade-off: fetching this list requires a network call to the Vane server
+  // (GET /v1/passports/revoked), which breaks the "offline" property of
+  // passport verification. Short passport TTLs (≤ 1 hour, the enforced max)
+  // are therefore the *primary* defense against key or credential compromise —
+  // an expired passport is always rejected. This option adds defense-in-depth
+  // for scenarios where immediate revocation is required before the TTL lapses.
+  //
+  // Implementation guidance: cache the revocation list with a TTL matched to
+  // your risk tolerance (e.g., 60 s) rather than fetching it on every request.
+  fetchRevocationList?: () => Promise<string[]>;
 }
 
 export interface VerifyOptions {

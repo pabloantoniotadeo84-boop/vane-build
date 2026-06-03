@@ -15,7 +15,7 @@ import {
 } from '../crypto/index.js';
 import type { DelegationInfo, KeyPair } from '../crypto/index.js';
 import { Store } from '../db/store.js';
-import { issuePassport, verifyPassport, PASSPORT_TTL_DEFAULT, PASSPORT_AUDIENCE } from '../passport/index.js';
+import { issuePassport, verifyPassport, PASSPORT_TTL_DEFAULT, PASSPORT_TTL_MIN, PASSPORT_TTL_MAX, PASSPORT_AUDIENCE } from '../passport/index.js';
 import type { AttestationReceipt } from '../passport/index.js';
 import { broadcast } from './ws.js';
 import { fireWebhookEvent, startWebhookScheduler } from '../webhooks/index.js';
@@ -442,10 +442,18 @@ app.post('/v1/agents/:agentId/passport', async (c) => {
       : ['tool:*', 'attest:write'];
 
   const rawTtl = body['ttl'];
-  const ttl =
-    typeof rawTtl === 'number' && rawTtl > 0 && rawTtl <= 86400
-      ? rawTtl
-      : PASSPORT_TTL_DEFAULT;
+  let ttl = PASSPORT_TTL_DEFAULT;
+  if (rawTtl !== undefined) {
+    if (typeof rawTtl !== 'number' || !Number.isFinite(rawTtl) || !Number.isInteger(rawTtl)) {
+      return c.json({ error: 'ttl must be a positive integer (seconds)' }, 400);
+    }
+    if (rawTtl < PASSPORT_TTL_MIN || rawTtl > PASSPORT_TTL_MAX) {
+      return c.json({
+        error: `ttl must be between ${PASSPORT_TTL_MIN} (5 minutes) and ${PASSPORT_TTL_MAX} (1 hour) seconds`,
+      }, 400);
+    }
+    ttl = rawTtl;
+  }
 
   const orgSpiffeId = companySpiffeId(companyId);
   const delegationChain = [orgSpiffeId, agent.spiffeId];

@@ -8,8 +8,9 @@ import { deriveKeyId } from '../src/crypto/svid.js';
 import { agentSpiffeId, companySpiffeId } from '../src/crypto/spiffe.js';
 import { issueJwtSvid, verifyJwtSvid } from '../src/crypto/svid.js';
 import { exchangeToken, extractDelegationChain } from '../src/crypto/token-exchange.js';
-import { issuePassport, PASSPORT_AUDIENCE } from '../src/passport/credential.js';
+import { issuePassport, PASSPORT_AUDIENCE, PASSPORT_TTL_MIN, PASSPORT_TTL_MAX } from '../src/passport/credential.js';
 import { verifyPassport } from '../src/passport/verify.js';
+import { createVaneMiddleware } from '../packages/mcp-middleware/src/middleware.js';
 import type { AttestationRecord } from '../src/crypto/types.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -120,7 +121,7 @@ describe('Passport expiry', () => {
     const orgId = companySpiffeId('acme');
     const agentId = agentSpiffeId('acme', 'agent-1');
 
-    // Issue a passport with a 1-second TTL
+    // Issue a passport with the minimum allowed TTL
     const token = issuePassport({
       agentId: 'agent-1',
       agentSpiffeId: agentId,
@@ -128,13 +129,13 @@ describe('Passport expiry', () => {
       orgSpiffeId: orgId,
       scopes: ['tool:*'],
       delegationChain: [orgId, agentId],
-      ttl: 1,
+      ttl: PASSPORT_TTL_MIN,
       privateKeyPem: privateKey,
       publicKeyPem: publicKey,
     });
 
-    // Advance the clock by 10 seconds — the passport is now expired
-    const futureNow = Math.floor(Date.now() / 1000) + 10;
+    // Advance the clock past the TTL — the passport is now expired
+    const futureNow = Math.floor(Date.now() / 1000) + PASSPORT_TTL_MIN + 1;
     const result = verifyPassport(token, { caPublicKey: publicKey, now: futureNow });
 
     expect(result.valid).toBe(false);
@@ -358,5 +359,321 @@ describe('JWT-SVID issuance and exchange', () => {
     const chain = extractDelegationChain(claims);
     expect(chain[0]).toBe(companyId);  // subject at index 0
     expect(chain[1]).toBe(agentId);    // proximate actor at index 1
+  });
+});
+
+// ── Passport TTL enforcement ─────────────────────────────────────────────────
+
+describe('Passport TTL bounds', () => {
+  it('rejects TTL below the minimum (< 5 minutes)', () => {
+    const { publicKey, privateKey } = generateKeyPair();
+    const orgId = companySpiffeId('acme');
+    const agentId = agentSpiffeId('acme', 'agent-1');
+
+    expect(() =>
+      issuePassport({
+        agentId: 'agent-1',
+        agentSpiffeId: agentId,
+        org: 'acme',
+        orgSpiffeId: orgId,
+        scopes: ['tool:*'],
+        delegationChain: [orgId, agentId],
+        ttl: PASSPORT_TTL_MIN - 1, // 299 s — below floor
+        privateKeyPem: privateKey,
+        publicKeyPem: publicKey,
+      }),
+    ).toThrow(/out of bounds/);
+  });
+
+  it('rejects TTL above the maximum (> 1 hour)', () => {
+    const { publicKey, privateKey } = generateKeyPair();
+    const orgId = companySpiffeId('acme');
+    const agentId = agentSpiffeId('acme', 'agent-1');
+
+    expect(() =>
+      issuePassport({
+        agentId: 'agent-1',
+        agentSpiffeId: agentId,
+        org: 'acme',
+        orgSpiffeId: orgId,
+        scopes: ['tool:*'],
+        delegationChain: [orgId, agentId],
+        ttl: PASSPORT_TTL_MAX + 1, // 3601 s — above cap
+        privateKeyPem: privateKey,
+        publicKeyPem: publicKey,
+      }),
+    ).toThrow(/out of bounds/);
+  });
+
+  it('accepts TTL at the minimum boundary (5 minutes)', () => {
+    const { publicKey, privateKey } = generateKeyPair();
+    const orgId = companySpiffeId('acme');
+    const agentId = agentSpiffeId('acme', 'agent-1');
+
+    const token = issuePassport({
+      agentId: 'agent-1',
+      agentSpiffeId: agentId,
+      org: 'acme',
+      orgSpiffeId: orgId,
+      scopes: ['tool:*'],
+      delegationChain: [orgId, agentId],
+      ttl: PASSPORT_TTL_MIN,
+      privateKeyPem: privateKey,
+      publicKeyPem: publicKey,
+    });
+
+    const result = verifyPassport(token, { caPublicKey: publicKey });
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts TTL at the maximum boundary (1 hour)', () => {
+    const { publicKey, privateKey } = generateKeyPair();
+    const orgId = companySpiffeId('acme');
+    const agentId = agentSpiffeId('acme', 'agent-1');
+
+    const token = issuePassport({
+      agentId: 'agent-1',
+      agentSpiffeId: agentId,
+      org: 'acme',
+      orgSpiffeId: orgId,
+      scopes: ['tool:*'],
+      delegationChain: [orgId, agentId],
+      ttl: PASSPORT_TTL_MAX,
+      privateKeyPem: privateKey,
+      publicKeyPem: publicKey,
+    });
+
+    const result = verifyPassport(token, { caPublicKey: publicKey });
+    expect(result.valid).toBe(true);
+  });
+
+});
+
+// ── Revocation rejection ─────────────────────────────────────────────────────
+
+describe('Revocation rejection', () => {
+  function makePassport(kp: { publicKey: string; privateKey: string }) {
+    const orgId = companySpiffeId('acme');
+    const agentId = agentSpiffeId('acme', 'agent-revoke');
+    const token = issuePassport({
+      agentId: 'agent-revoke',
+      agentSpiffeId: agentId,
+      org: 'acme',
+      orgSpiffeId: orgId,
+      scopes: ['tool:*'],
+      delegationChain: [orgId, agentId],
+      privateKeyPem: kp.privateKey,
+      publicKeyPem: kp.publicKey,
+    });
+    // Decode JTI from the token without verifying (for test setup)
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as { jti: string };
+    return { token, jti: payload.jti };
+  }
+
+  it('rejects a passport whose JTI is in the revocation list', async () => {
+    const kp = generateKeyPair();
+    const { token, jti } = makePassport(kp);
+
+    const vane = createVaneMiddleware({
+      vanePublicKey: kp.publicKey,
+      fetchRevocationList: async () => [jti],
+    });
+
+    // Use the standalone verify helper which should accept the signature
+    // but we must also simulate the middleware flow for revocation.
+    // Test via fetchMiddleware directly.
+    const middleware = vane.fetchMiddleware();
+    const req = new Request('http://localhost/', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'tools/call', params: { name: 'search' } }),
+    });
+
+    let nextCalled = false;
+    const response = await middleware(req, async () => {
+      nextCalled = true;
+      return new Response('ok');
+    });
+
+    expect(nextCalled).toBe(false);
+    expect(response.status).toBe(401);
+    const body = await response.json() as { code?: string };
+    expect(body.code).toBe('PASSPORT_REVOKED');
+  });
+
+  it('accepts a passport whose JTI is NOT in the revocation list', async () => {
+    const kp = generateKeyPair();
+    const { token } = makePassport(kp);
+
+    const vane = createVaneMiddleware({
+      vanePublicKey: kp.publicKey,
+      fetchRevocationList: async () => ['some-other-jti'],
+    });
+
+    const middleware = vane.fetchMiddleware();
+    const req = new Request('http://localhost/', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'tools/call', params: { name: 'search' } }),
+    });
+
+    let nextCalled = false;
+    const response = await middleware(req, async () => {
+      nextCalled = true;
+      return new Response('ok');
+    });
+
+    expect(nextCalled).toBe(true);
+    expect(response.status).toBe(200);
+  });
+
+  it('skips revocation check when fetchRevocationList is not provided', async () => {
+    const kp = generateKeyPair();
+    const { token } = makePassport(kp);
+
+    const vane = createVaneMiddleware({ vanePublicKey: kp.publicKey }); // no fetchRevocationList
+    const middleware = vane.fetchMiddleware();
+    const req = new Request('http://localhost/', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'tools/call', params: { name: 'search' } }),
+    });
+
+    let nextCalled = false;
+    const response = await middleware(req, async () => {
+      nextCalled = true;
+      return new Response('ok');
+    });
+
+    expect(nextCalled).toBe(true);
+    expect(response.status).toBe(200);
+  });
+});
+
+// ── OCSP response signing ────────────────────────────────────────────────────
+
+describe('OCSP signed response', () => {
+  // The OCSP endpoint signs the status payload with the company key.
+  // Verify that a signed OCSP body can be independently re-verified by any
+  // holder of the CA public key using the same signPayload / verifyPayload
+  // primitive used by the server.
+  it('produces a verifiable signed status for a non-revoked JTI', () => {
+    const kp = generateKeyPair();
+    const jti = randomUUID();
+    const checkedAt = new Date().toISOString();
+    const responseData = { jti, status: 'valid', checkedAt };
+
+    const signature = signPayload(responseData, kp.privateKey);
+    const result = verifyPayload(responseData, signature, kp.publicKey);
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('produces a verifiable signed status for a revoked JTI', () => {
+    const kp = generateKeyPair();
+    const jti = randomUUID();
+    const checkedAt = new Date().toISOString();
+    const revokedAt = new Date().toISOString();
+    const responseData = { jti, status: 'revoked', checkedAt, revokedAt, reason: 'rotated' };
+
+    const signature = signPayload(responseData, kp.privateKey);
+    const result = verifyPayload(responseData, signature, kp.publicKey);
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects a tampered OCSP status payload', () => {
+    const kp = generateKeyPair();
+    const jti = randomUUID();
+    const checkedAt = new Date().toISOString();
+    const original = { jti, status: 'revoked', checkedAt };
+    const tampered = { jti, status: 'valid', checkedAt }; // attacker flips status
+
+    const signature = signPayload(original, kp.privateKey);
+    const result = verifyPayload(tampered, signature, kp.publicKey);
+
+    expect(result.valid).toBe(false);
+  });
+});
+
+// ── Revocation list retrieval (structure) ────────────────────────────────────
+
+describe('Revocation list format', () => {
+  // The fetchRevocationList option takes an async function that returns string[].
+  // Verify that the middleware correctly handles lists of various sizes and
+  // that the JTI lookup is an exact match (no prefix collisions).
+
+  it('correctly identifies a JTI in a multi-entry revocation list', async () => {
+    const kp = generateKeyPair();
+    const orgId = companySpiffeId('acme');
+    const agentId = agentSpiffeId('acme', 'agent-1');
+    const token = issuePassport({
+      agentId: 'agent-1',
+      agentSpiffeId: agentId,
+      org: 'acme',
+      orgSpiffeId: orgId,
+      scopes: ['tool:*'],
+      delegationChain: [orgId, agentId],
+      privateKeyPem: kp.privateKey,
+      publicKeyPem: kp.publicKey,
+    });
+    const jti = (JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as { jti: string }).jti;
+
+    const revocationList = [randomUUID(), randomUUID(), jti, randomUUID()];
+    const vane = createVaneMiddleware({
+      vanePublicKey: kp.publicKey,
+      fetchRevocationList: async () => revocationList,
+    });
+
+    const middleware = vane.fetchMiddleware();
+    const req = new Request('http://localhost/', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    const response = await middleware(req, async () => new Response('ok'));
+    expect(response.status).toBe(401);
+    const body = await response.json() as { code?: string };
+    expect(body.code).toBe('PASSPORT_REVOKED');
+  });
+
+  it('does not confuse a JTI prefix with a full match', async () => {
+    const kp = generateKeyPair();
+    const orgId = companySpiffeId('acme');
+    const agentId = agentSpiffeId('acme', 'agent-1');
+    const token = issuePassport({
+      agentId: 'agent-1',
+      agentSpiffeId: agentId,
+      org: 'acme',
+      orgSpiffeId: orgId,
+      scopes: ['tool:*'],
+      delegationChain: [orgId, agentId],
+      privateKeyPem: kp.privateKey,
+      publicKeyPem: kp.publicKey,
+    });
+    const jti = (JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as { jti: string }).jti;
+
+    // Revocation list contains a truncated JTI (prefix), NOT the full JTI.
+    const vane = createVaneMiddleware({
+      vanePublicKey: kp.publicKey,
+      fetchRevocationList: async () => [jti.slice(0, 8)],
+    });
+
+    const middleware = vane.fetchMiddleware();
+    const req = new Request('http://localhost/', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    let nextCalled = false;
+    const response = await middleware(req, async () => {
+      nextCalled = true;
+      return new Response('ok');
+    });
+
+    expect(nextCalled).toBe(true);
+    expect(response.status).toBe(200);
   });
 });

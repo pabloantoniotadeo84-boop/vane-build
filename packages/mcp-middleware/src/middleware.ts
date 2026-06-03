@@ -47,6 +47,21 @@ export function decodeReceipt(encoded: string): AttestationReceipt {
   return JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as AttestationReceipt;
 }
 
+// ── Revocation check ─────────────────────────────────────────────────────────
+
+// Returns a PASSPORT_REVOKED failure result if the JTI is in the list.
+async function checkRevocation(
+  jti: string,
+  fetcher: (() => Promise<string[]>) | undefined,
+): Promise<Extract<PassportVerificationResult, { valid: false }> | null> {
+  if (!fetcher) return null;
+  const revoked = await fetcher();
+  if (revoked.includes(jti)) {
+    return { valid: false, code: 'PASSPORT_REVOKED', error: 'Passport has been revoked' };
+  }
+  return null;
+}
+
 // ── Token extraction ──────────────────────────────────────────────────────────
 
 function extractBearer(authHeader: string | null | undefined): string | null {
@@ -80,7 +95,7 @@ function unauthorizedJson(
 // ── Middleware factory ────────────────────────────────────────────────────────
 
 export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
-  const { vanePublicKey, exposeErrors = true } = opts;
+  const { vanePublicKey, exposeErrors = true, fetchRevocationList } = opts;
 
   /**
    * Pure verification — call this when you already have the passport token
@@ -128,6 +143,14 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
         );
       }
 
+      const revocationFailure = await checkRevocation(result.claims.jti, fetchRevocationList);
+      if (revocationFailure) {
+        return new Response(
+          unauthorizedJson(revocationFailure, exposeErrors),
+          { status: 401, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+
       const receipt = buildReceipt(result.claims, result.scopeGranted, tool ?? '(not an MCP tool call)');
       const newReq = new Request(req, { body: rawBody });
       newReq.headers.set(RECEIPT_HEADER, encodeReceipt(receipt));
@@ -150,7 +173,7 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
    *   });
    */
   function expressMiddleware(): (req: unknown, res: unknown, next: (err?: unknown) => void) => void {
-    return (req, res, next) => {
+    return async (req, res, next) => {
       const r = req as Record<string, unknown>;
       const headers = r['headers'] as Record<string, string | undefined>;
       const token = extractBearer(headers['authorization']);
@@ -168,6 +191,17 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
         const response = res as { status: (n: number) => { json: (body: unknown) => void } };
         if (exposeErrors) {
           response.status(401).json({ error: 'Unauthorized', code: result.code, message: result.error });
+        } else {
+          response.status(401).json({ error: 'Unauthorized' });
+        }
+        return;
+      }
+
+      const revocationFailure = await checkRevocation(result.claims.jti, fetchRevocationList);
+      if (revocationFailure) {
+        const response = res as { status: (n: number) => { json: (body: unknown) => void } };
+        if (exposeErrors) {
+          response.status(401).json({ error: 'Unauthorized', code: revocationFailure.code, message: revocationFailure.error });
         } else {
           response.status(401).json({ error: 'Unauthorized' });
         }
@@ -212,6 +246,11 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
 
       if (!result.valid) {
         throw new McpAuthError(result.code, result.error);
+      }
+
+      const revocationFailure = await checkRevocation(result.claims.jti, fetchRevocationList);
+      if (revocationFailure) {
+        throw new McpAuthError(revocationFailure.code, revocationFailure.error);
       }
 
       const receipt = buildReceipt(result.claims, result.scopeGranted, tool);
