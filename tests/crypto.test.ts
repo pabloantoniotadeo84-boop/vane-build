@@ -596,6 +596,95 @@ describe('OCSP signed response', () => {
   });
 });
 
+// ── Key rotation ─────────────────────────────────────────────────────────────
+
+describe('Key rotation', () => {
+  it('new key signs correctly and old key cannot verify the new passport', () => {
+    const kp1 = generateKeyPair(); // key before rotation
+    const kp2 = generateKeyPair(); // key after rotation
+
+    const orgId = companySpiffeId('acme');
+    const agentId = agentSpiffeId('acme', 'agent-rotation');
+
+    const passport = issuePassport({
+      agentId: 'agent-rotation',
+      agentSpiffeId: agentId,
+      org: 'acme',
+      orgSpiffeId: orgId,
+      scopes: ['tool:*'],
+      delegationChain: [orgId, agentId],
+      privateKeyPem: kp2.privateKey,
+      publicKeyPem: kp2.publicKey,
+    });
+
+    const newKeyResult = verifyPassport(passport, { caPublicKey: kp2.publicKey });
+    expect(newKeyResult.valid).toBe(true);
+
+    const oldKeyResult = verifyPassport(passport, { caPublicKey: kp1.publicKey });
+    expect(oldKeyResult.valid).toBe(false);
+    if (!oldKeyResult.valid) expect(oldKeyResult.code).toBe('SIGNATURE_INVALID');
+  });
+
+  it('old key still verifies passport during grace period', () => {
+    const kp1 = generateKeyPair(); // original key (retired)
+    const kp2 = generateKeyPair(); // new key after rotation
+
+    const orgId = companySpiffeId('acme');
+    const agentId = agentSpiffeId('acme', 'agent-grace');
+
+    // Passport signed with the old key before rotation
+    const passport = issuePassport({
+      agentId: 'agent-grace',
+      agentSpiffeId: agentId,
+      org: 'acme',
+      orgSpiffeId: orgId,
+      scopes: ['tool:*'],
+      delegationChain: [orgId, agentId],
+      privateKeyPem: kp1.privateKey,
+      publicKeyPem: kp1.publicKey,
+    });
+
+    // After rotation the current key is kp2 and kp1 is within the grace period.
+    // Simulate the server's multi-key fallback: try current key first, then retired.
+    const candidateKeys = [kp2.publicKey, kp1.publicKey];
+    let result = verifyPassport(passport, { caPublicKey: candidateKeys[0] });
+
+    if (!result.valid && result.code === 'SIGNATURE_INVALID') {
+      for (const key of candidateKeys.slice(1)) {
+        const r = verifyPassport(passport, { caPublicKey: key });
+        if (r.valid || r.code !== 'SIGNATURE_INVALID') { result = r; break; }
+      }
+    }
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('old key is rejected after grace period expires (key no longer in candidate set)', () => {
+    const kp1 = generateKeyPair(); // original key
+    const kp2 = generateKeyPair(); // key after rotation
+
+    const orgId = companySpiffeId('acme');
+    const agentId = agentSpiffeId('acme', 'agent-expired-grace');
+
+    const passport = issuePassport({
+      agentId: 'agent-expired-grace',
+      agentSpiffeId: agentId,
+      org: 'acme',
+      orgSpiffeId: orgId,
+      scopes: ['tool:*'],
+      delegationChain: [orgId, agentId],
+      ttl: PASSPORT_TTL_MAX,
+      privateKeyPem: kp1.privateKey,
+      publicKeyPem: kp1.publicKey,
+    });
+
+    // After grace period: only the new key is in the candidate set (kp1 is gone).
+    const result = verifyPassport(passport, { caPublicKey: kp2.publicKey });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('SIGNATURE_INVALID');
+  });
+});
+
 // ── Revocation list retrieval (structure) ────────────────────────────────────
 
 describe('Revocation list format', () => {

@@ -109,6 +109,18 @@ export class Store {
       )
     `);
     await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS keys_history (
+        id          TEXT PRIMARY KEY,
+        company_id  TEXT NOT NULL REFERENCES companies(company_id),
+        public_key  TEXT NOT NULL,
+        private_key TEXT NOT NULL,
+        retired_at  TEXT NOT NULL
+      )
+    `);
+    await this.pool.query(`
+      CREATE INDEX IF NOT EXISTS keys_history_company_retired_idx ON keys_history (company_id, retired_at)
+    `);
+    await this.pool.query(`
       CREATE TABLE IF NOT EXISTS revoked_passports (
         jti        TEXT NOT NULL,
         company_id TEXT NOT NULL REFERENCES companies(company_id),
@@ -251,6 +263,35 @@ export class Store {
        ON CONFLICT (company_id) DO UPDATE SET public_key = EXCLUDED.public_key, private_key = EXCLUDED.private_key`,
       [companyId, keys.publicKey, encryptPrivateKey(keys.privateKey)],
     );
+  }
+
+  // Copies the current active key into keys_history before rotation.
+  async retireCurrentKey(companyId: string): Promise<void> {
+    const { rows } = await this.pool.query<{ public_key: string; private_key: string }>(
+      `SELECT public_key, private_key FROM keys WHERE company_id = $1`,
+      [companyId],
+    );
+    if (!rows[0]) return;
+    const id = randomUUID();
+    const retiredAt = new Date().toISOString();
+    await this.pool.query(
+      `INSERT INTO keys_history (id, company_id, public_key, private_key, retired_at) VALUES ($1, $2, $3, $4, $5)`,
+      [id, companyId, rows[0].public_key, rows[0].private_key, retiredAt],
+    );
+  }
+
+  // Returns retired keys with retired_at >= the supplied ISO cutoff timestamp.
+  async getRetiredKeys(
+    companyId: string,
+    since: string,
+  ): Promise<Array<{ id: string; publicKey: string; retiredAt: string }>> {
+    const { rows } = await this.pool.query<{ id: string; public_key: string; retired_at: string }>(
+      `SELECT id, public_key, retired_at FROM keys_history
+       WHERE company_id = $1 AND retired_at >= $2
+       ORDER BY retired_at DESC`,
+      [companyId, since],
+    );
+    return rows.map(r => ({ id: r.id, publicKey: r.public_key, retiredAt: r.retired_at }));
   }
 
   // ── API Keys ─────────────────────────────────────────────────────────────────

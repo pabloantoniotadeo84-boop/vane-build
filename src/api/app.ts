@@ -16,7 +16,7 @@ import {
 import type { DelegationInfo, KeyPair } from '../crypto/index.js';
 import { Store } from '../db/store.js';
 import { issuePassport, verifyPassport, PASSPORT_TTL_DEFAULT, PASSPORT_TTL_MIN, PASSPORT_TTL_MAX, PASSPORT_AUDIENCE } from '../passport/index.js';
-import type { AttestationReceipt } from '../passport/index.js';
+import type { AttestationReceipt, VerifyPassportOptions, PassportVerificationResult } from '../passport/index.js';
 import { broadcast } from './ws.js';
 import { fireWebhookEvent, startWebhookScheduler } from '../webhooks/index.js';
 import type { IncomingMessage } from 'node:http';
@@ -67,6 +67,36 @@ logger.info({ count: tenants.size }, 'Tenants ready');
 startWebhookScheduler(store);
 logger.info('Webhook retry scheduler started');
 
+// ── Key-rotation grace period ─────────────────────────────────────────────────
+// Passports signed with a retired key remain verifiable for this many hours.
+
+const GRACE_PERIOD_HOURS = Number(process.env.VANE_KEY_ROTATION_GRACE_PERIOD_HOURS ?? 24);
+
+// Returns the current key followed by all retired keys within the grace window.
+async function getCandidatePublicKeys(companyId: string): Promise<string[]> {
+  const tenant = tenants.get(companyId)!;
+  const cutoff = new Date(Date.now() - GRACE_PERIOD_HOURS * 3600 * 1000).toISOString();
+  const retired = await store.getRetiredKeys(companyId, cutoff);
+  return [tenant.keys.publicKey, ...retired.map(r => r.publicKey)];
+}
+
+// Tries each candidate key in order. On SIGNATURE_INVALID continues to the
+// next key; on any other failure returns immediately (e.g. TOKEN_EXPIRED).
+function verifyPassportMultiKey(
+  token: string,
+  publicKeys: string[],
+  opts: Omit<VerifyPassportOptions, 'caPublicKey'> = {},
+): PassportVerificationResult {
+  let sigFailure: PassportVerificationResult | null = null;
+  for (const key of publicKeys) {
+    const result = verifyPassport(token, { ...opts, caPublicKey: key });
+    if (result.valid) return result;
+    if (result.code === 'SIGNATURE_INVALID') { sigFailure = result; continue; }
+    return result;
+  }
+  return sigFailure ?? { valid: false, error: 'No public keys available', code: 'SIGNATURE_INVALID' };
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 type Env = { Variables: { companyId: string; requestId: string } };
@@ -114,6 +144,7 @@ app.use('/v1/*', async (c, next) => {
   const isPublic =
     (c.req.method === 'GET'  && c.req.path === '/v1/health') ||
     (c.req.method === 'GET'  && c.req.path === '/v1/ca/public-key') ||
+    (c.req.method === 'GET'  && c.req.path === '/v1/ca/public-keys') ||
     (c.req.method === 'GET'  && c.req.path === '/v1/ca/well-known') ||
     (c.req.method === 'POST' && c.req.path === '/v1/companies') ||
     (c.req.method === 'POST' && c.req.path === '/v1/setup') ||
@@ -495,7 +526,8 @@ app.post('/v1/agents/:agentId/passport/rotate', async (c) => {
     return c.json({ error: 'Missing Vane-Passport header' }, 400);
   }
 
-  const verification = verifyPassport(currentPassport, { caPublicKey: tenant.keys.publicKey });
+  const candidateKeysForRotate = await getCandidatePublicKeys(companyId);
+  const verification = verifyPassportMultiKey(currentPassport, candidateKeysForRotate);
   if (!verification.valid) {
     return c.json({ error: verification.error, code: verification.code }, 401);
   }
@@ -563,8 +595,8 @@ app.post('/v1/passport/verify', async (c) => {
     return c.json({ error: 'Missing or invalid field: passport is required' }, 400);
   }
 
-  const result = verifyPassport(passport, {
-    caPublicKey: tenant.keys.publicKey,
+  const candidateKeys = await getCandidatePublicKeys(companyId);
+  const result = verifyPassportMultiKey(passport, candidateKeys, {
     tool: typeof tool === 'string' ? tool : undefined,
   });
 
@@ -837,6 +869,50 @@ app.get('/v1/proof/:index', (c) => {
   }
 });
 
+// ── Key rotation ──────────────────────────────────────────────────────────────
+
+/**
+ * POST /v1/companies/rotate-keys
+ *
+ * Generates a new Ed25519 keypair for the authenticated company.
+ * The old key is moved to keys_history and remains valid for verifying
+ * passports it signed during the VANE_KEY_ROTATION_GRACE_PERIOD_HOURS window
+ * (default 24 h). New passports are immediately signed with the new key.
+ */
+app.post('/v1/companies/rotate-keys', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+  const oldKeys = tenant.keys;
+
+  await store.retireCurrentKey(companyId);
+
+  const newKeys = generateKeyPair();
+  await store.saveKeys(companyId, newKeys);
+  tenant.keys = newKeys;
+
+  const rotatedAt = new Date().toISOString();
+  const newKid = deriveKeyId(newKeys.publicKey);
+  const oldKid = deriveKeyId(oldKeys.publicKey);
+
+  return c.json({
+    companyId,
+    rotatedAt,
+    gracePeriodHours: GRACE_PERIOD_HOURS,
+    newKey: {
+      kid: newKid,
+      pem: newKeys.publicKey,
+      fingerprint: pemFingerprint(newKeys.publicKey),
+      jwk: pemToJwk(newKeys.publicKey, newKid),
+    },
+    retiredKey: {
+      kid: oldKid,
+      pem: oldKeys.publicKey,
+      fingerprint: pemFingerprint(oldKeys.publicKey),
+      verifiableUntil: new Date(Date.now() + GRACE_PERIOD_HOURS * 3600 * 1000).toISOString(),
+    },
+  });
+});
+
 // ── CA public-key & discovery ─────────────────────────────────────────────────
 
 // Convert an Ed25519 SPKI PEM to a JWK object with Vane-standard fields.
@@ -890,6 +966,65 @@ app.get('/v1/ca/public-key', async (c) => {
     // Convenience JWKS-compatible wrapper so this URL can be used directly
     // as a jwks_uri — verifiers only need to look at keys[0].
     keys: [jwk],
+  });
+});
+
+/**
+ * GET /v1/ca/public-keys?companyId=<id>
+ *
+ * Returns all public keys for the company: the active key and any retired keys
+ * still within the grace period. External verifiers should use this endpoint
+ * (instead of /v1/ca/public-key) so they can verify passports signed with a
+ * recently rotated-out key.
+ *
+ * No authentication required.
+ */
+app.get('/v1/ca/public-keys', async (c) => {
+  const companyId = c.req.query('companyId');
+  if (!companyId) {
+    return c.json({ error: 'Missing required query parameter: companyId' }, 400);
+  }
+
+  const company = await store.getCompany(companyId);
+  if (!company) return c.json({ error: `Company not found: ${companyId}` }, 404);
+
+  if (!tenants.has(companyId)) await initTenant(companyId);
+  const tenant = tenants.get(companyId)!;
+
+  const cutoff = new Date(Date.now() - GRACE_PERIOD_HOURS * 3600 * 1000).toISOString();
+  const retiredKeyRecords = await store.getRetiredKeys(companyId, cutoff);
+
+  const activeKid = deriveKeyId(tenant.keys.publicKey);
+  const activeEntry = {
+    kid: activeKid,
+    pem: tenant.keys.publicKey,
+    jwk: pemToJwk(tenant.keys.publicKey, activeKid),
+    fingerprint: pemFingerprint(tenant.keys.publicKey),
+    status: 'active',
+  };
+
+  const retiredEntries = retiredKeyRecords.map(r => {
+    const kid = deriveKeyId(r.publicKey);
+    return {
+      kid,
+      pem: r.publicKey,
+      jwk: pemToJwk(r.publicKey, kid),
+      fingerprint: pemFingerprint(r.publicKey),
+      status: 'retired',
+      retiredAt: r.retiredAt,
+      verifiableUntil: new Date(new Date(r.retiredAt).getTime() + GRACE_PERIOD_HOURS * 3600 * 1000).toISOString(),
+    };
+  });
+
+  const allKeys = [activeEntry, ...retiredEntries];
+
+  c.header('Cache-Control', 'public, max-age=300');
+  return c.json({
+    companyId,
+    spiffeId: company.spiffeId,
+    gracePeriodHours: GRACE_PERIOD_HOURS,
+    // JWKS-compatible: all keys a verifier needs to check any in-window passport.
+    keys: allKeys,
   });
 });
 
