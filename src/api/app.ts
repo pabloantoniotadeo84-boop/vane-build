@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import { generateKeyPair, AttestationChain, signPayload } from '../crypto/index.js';
+import { generateKeyPair, AttestationChain, signPayload, verifyPayload } from '../crypto/index.js';
 import {
   agentSpiffeId,
   companySpiffeId,
@@ -151,7 +151,9 @@ app.use('/v1/*', async (c, next) => {
     (c.req.method === 'POST' && c.req.path === '/v1/companies') ||
     (c.req.method === 'POST' && c.req.path === '/v1/setup') ||
     (c.req.method === 'POST' && c.req.path === '/v1/recover-key') ||
-    (c.req.method === 'POST' && c.req.path === '/v1/oauth/token');
+    (c.req.method === 'POST' && c.req.path === '/v1/oauth/token') ||
+    // Timeline HTML view handles its own auth (accepts ?token= query param for browser access)
+    (c.req.method === 'GET'  && /^\/v1\/agents\/[^/]+\/timeline\/view$/.test(c.req.path));
   if (isPublic) return next();
 
   // 1. mTLS: extract CN from a verified client certificate.
@@ -454,6 +456,94 @@ app.get('/v1/agents/:agentId/svid', async (c) => {
   if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
   const svid = issueJwtSvid(agent.spiffeId, tenant.keys.privateKey, tenant.keys.publicKey);
   return c.json({ agentId, spiffeId: agent.spiffeId, svid });
+});
+
+// ── Agent timeline ────────────────────────────────────────────────────────────
+
+app.get('/v1/agents/:agentId/timeline', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+  const agentId = c.req.param('agentId');
+
+  const agent = await store.getAgent(agentId, companyId);
+  if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
+
+  const allRecords = tenant.chain.getRecords();
+  const timeline = allRecords
+    .filter(r => (r.payload as Record<string, unknown>)?.agentId === agentId)
+    .map(r => {
+      const p = r.payload as Record<string, unknown>;
+      const verified = verifyPayload(r.hash, r.signature, tenant.keys.publicKey).valid;
+      const prev = r.index > 0 ? allRecords[r.index - 1] : null;
+      return {
+        index: r.index,
+        timestamp: r.timestamp,
+        actionType: timelineHumanizeAction(String(p.actionType ?? '')),
+        payload: r.payload,
+        hash: r.hash,
+        verified,
+        link: prev ? { chainIndex: prev.index, hash: prev.hash } : null,
+      };
+    });
+
+  return c.json({
+    agentId,
+    companyId,
+    spiffeId: agent.spiffeId,
+    totalRecords: timeline.length,
+    timeline,
+  });
+});
+
+app.get('/v1/agents/:agentId/timeline/view', async (c) => {
+  const agentId = c.req.param('agentId');
+
+  // Accept Bearer header OR ?token= query param for browser-friendly access.
+  let companyId: string | undefined;
+  const bearerAuth = c.req.header('Authorization');
+  const queryToken = c.req.query('token');
+  const rawToken = bearerAuth?.startsWith('Bearer ') ? bearerAuth.slice(7) : queryToken;
+
+  if (rawToken) {
+    const result = (await store.validateApiKey(rawToken)) ?? (await store.validateOAuthToken(rawToken));
+    if (result) companyId = result.companyId;
+  }
+
+  if (!companyId) {
+    return c.html(timelineLoginPage(agentId), rawToken ? 401 : 200);
+  }
+
+  if (!tenants.has(companyId)) await initTenant(companyId);
+  const tenant = tenants.get(companyId)!;
+
+  const agent = await store.getAgent(agentId, companyId);
+  if (!agent) {
+    return c.html(
+      `<html><body style="background:#0a1628;color:#f0ede8;font-family:sans-serif;padding:2rem"><h2>Agent not found: ${timelineEscHtml(agentId)}</h2></body></html>`,
+      404,
+    );
+  }
+
+  const allRecords = tenant.chain.getRecords();
+  const entries = allRecords
+    .filter(r => (r.payload as Record<string, unknown>)?.agentId === agentId)
+    .map(r => {
+      const p = r.payload as Record<string, unknown>;
+      const verified = verifyPayload(r.hash, r.signature, tenant.keys.publicKey).valid;
+      const prev = r.index > 0 ? allRecords[r.index - 1] : null;
+      return {
+        index: r.index,
+        timestamp: r.timestamp,
+        actionType: timelineHumanizeAction(String(p.actionType ?? '')),
+        actionPayload: p.payload,
+        hash: r.hash,
+        verified,
+        link: prev ? { chainIndex: prev.index, hash: prev.hash } : null,
+        hasDelegation: !!r.delegation,
+      };
+    });
+
+  return c.html(timelineDashboard({ agentId, spiffeId: agent.spiffeId, companyId, entries }));
 });
 
 // ── Agent passport ────────────────────────────────────────────────────────────
@@ -1282,6 +1372,366 @@ app.post('/v1/webhooks/:id/test', async (c) => {
     ...(result.error !== undefined && { error: result.error }),
   });
 });
+
+// ── Timeline view HTML helpers ────────────────────────────────────────────────
+
+function timelineHumanizeAction(actionType: string): string {
+  return (
+    actionType
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/[-_]+/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .trim() || actionType
+  );
+}
+
+function timelineEscHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function timelineSafeJson(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
+}
+
+function timelineLoginPage(agentId: string): string {
+  const ea = timelineEscHtml(agentId);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Authenticate · Vane Timeline</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a1628;color:#f0ede8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased}
+.wrap{width:100%;max-width:420px;padding:2rem}
+.logo{font-size:.8rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#b5451b;margin-bottom:2.5rem}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:.5rem;letter-spacing:-.02em}
+.agent{font-family:'SF Mono','Fira Code',monospace;font-size:.82rem;color:#6b7fa3;margin-bottom:2rem;word-break:break-all}
+p{font-size:.88rem;color:#6b7fa3;margin-bottom:1rem}
+.card{background:#0e1e38;border:1px solid #1e3a5f;border-radius:.75rem;padding:1.5rem}
+input{width:100%;background:#0a1628;border:1px solid #1e3a5f;border-radius:.5rem;padding:.65rem 1rem;color:#f0ede8;font-size:.88rem;margin-bottom:.75rem;outline:none;transition:border-color .2s;font-family:inherit}
+input:focus{border-color:#b5451b}
+input::placeholder{color:#3d5a7a}
+button{width:100%;background:#b5451b;border:none;border-radius:.5rem;padding:.7rem 1rem;color:#f0ede8;font-size:.88rem;font-weight:600;cursor:pointer;transition:background .2s;font-family:inherit}
+button:hover{background:#d4563f}
+.divider{text-align:center;color:#3d5a7a;font-size:.75rem;margin:1.25rem 0}
+.cmd{background:#060e1a;border:1px solid #1e3a5f;border-radius:.5rem;padding:.9rem 1rem;font-family:'SF Mono','Fira Code',monospace;font-size:.72rem;color:#6b7fa3;white-space:pre;overflow-x:auto}
+.cmd em{color:#b5451b;font-style:normal}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">Vane</div>
+  <h1>Agent Timeline</h1>
+  <div class="agent">${ea}</div>
+  <div class="card">
+    <p>Enter your API key to view this agent's action history.</p>
+    <form onsubmit="go(event)">
+      <input type="password" id="k" placeholder="vane_…" autocomplete="off" spellcheck="false">
+      <button type="submit">View Timeline →</button>
+    </form>
+    <div class="divider">or use the API directly</div>
+    <div class="cmd">curl \\
+  -H "<em>Authorization: Bearer &lt;key&gt;</em>" \\
+  /v1/agents/${ea}/timeline</div>
+  </div>
+</div>
+<script>function go(e){e.preventDefault();var k=document.getElementById('k').value.trim();if(k)window.location.search='?token='+encodeURIComponent(k);}</script>
+</body>
+</html>`;
+}
+
+interface TimelineDashboardEntry {
+  index: number;
+  timestamp: string;
+  actionType: string;
+  actionPayload: unknown;
+  hash: string;
+  verified: boolean;
+  link: { chainIndex: number; hash: string } | null;
+  hasDelegation: boolean;
+}
+
+function timelineDashboard(opts: {
+  agentId: string;
+  spiffeId: string;
+  companyId: string;
+  entries: TimelineDashboardEntry[];
+}): string {
+  const { agentId, spiffeId, companyId, entries } = opts;
+  const verifiedCount = entries.filter(e => e.verified).length;
+  const data = timelineSafeJson({ agentId, spiffeId, companyId, entries, verifiedCount });
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${timelineEscHtml(agentId)} · Timeline · Vane</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0a1628;--card:#0e1e38;--card-hover:#122444;--border:#1e3a5f;--border-hover:#2a4f7a;
+  --off-white:#f0ede8;--muted:#5a7a9e;--dim:#3d5a7a;
+  --terra:#b5451b;--terra-light:#d4563f;
+  --green:#22c55e;--red:#ef4444;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:'SF Mono','Fira Code','Consolas',monospace;
+}
+body{background:var(--navy);color:var(--off-white);font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* Header */
+header{position:sticky;top:0;z-index:100;height:3.25rem;border-bottom:1px solid var(--border);
+  background:rgba(10,22,40,.92);backdrop-filter:blur(12px);
+  display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem}
+.brand{display:flex;align-items:center;gap:.4rem;font-weight:700;font-size:.82rem;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--terra)}
+.live{display:flex;align-items:center;gap:.45rem;font-size:.75rem;color:var(--dim)}
+.live-dot{width:6px;height:6px;background:var(--terra);border-radius:50%;
+  animation:pulse 2s ease infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.75)}}
+.hdr-stat{font-size:.8rem;color:var(--muted)}
+.hdr-stat .ok{color:var(--green);font-weight:600}
+.hdr-stat .bad{color:var(--red);font-weight:600}
+
+/* Hero */
+.hero{max-width:800px;margin:0 auto;padding:2.5rem 1.5rem 1.75rem}
+.hero-agent{font-size:1.75rem;font-weight:700;letter-spacing:-.025em;margin-bottom:.4rem}
+.hero-spiffe{font-family:var(--mono);font-size:.72rem;color:var(--dim);word-break:break-all;margin-bottom:.75rem}
+.hero-meta{font-size:.82rem;color:var(--muted)}
+.hero-meta strong{color:var(--off-white)}
+
+/* Timeline */
+.tl-wrap{max-width:800px;margin:0 auto;padding:.5rem 1.5rem 5rem}
+.tl{position:relative;padding-left:2.25rem}
+.tl::before{content:'';position:absolute;left:.45rem;top:.5rem;bottom:.5rem;width:2px;
+  background:linear-gradient(to bottom,var(--terra) 0%,var(--border) 100%);
+  transform-origin:top;animation:drawLine .7s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes drawLine{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+
+.entry{position:relative;margin-bottom:1.25rem;opacity:0;
+  animation:slideIn .38s ease forwards;animation-delay:calc(var(--i)*75ms + 150ms)}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+.entry-new{animation:newRecord .6s ease}
+@keyframes newRecord{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 2px var(--terra)}}
+
+.dot{position:absolute;left:-1.85rem;top:1.1rem;width:10px;height:10px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 8px rgba(34,197,94,.35);border:2px solid var(--navy)}
+.dot.fail{background:var(--red);box-shadow:0 0 8px rgba(239,68,68,.35)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:.75rem;
+  padding:1.1rem 1.25rem;transition:border-color .2s}
+.card:hover{border-color:var(--border-hover)}
+
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;margin-bottom:.5rem}
+.action{font-size:.95rem;font-weight:600;color:var(--off-white);flex:1;line-height:1.3}
+
+.badge{display:inline-flex;align-items:center;gap:.25rem;padding:.18rem .6rem;
+  border-radius:999px;font-size:.68rem;font-weight:700;letter-spacing:.04em;white-space:nowrap;flex-shrink:0}
+.badge-ok{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.22)}
+.badge-fail{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.22)}
+
+.card-meta{display:flex;flex-wrap:wrap;gap:.6rem;font-size:.75rem;color:var(--muted);margin-bottom:.75rem}
+.ts-abs{opacity:.7}
+.chain-idx{font-family:var(--mono);opacity:.6}
+.deleg-tag{color:var(--terra);opacity:.8}
+
+/* Payload accordion */
+.pay-btn{display:flex;align-items:center;gap:.35rem;font-size:.74rem;color:var(--dim);
+  cursor:pointer;background:none;border:none;font-family:var(--sans);padding:.15rem 0;
+  transition:color .15s;text-align:left}
+.pay-btn:hover{color:var(--muted)}
+.pay-caret{font-size:.55rem;transition:transform .2s;display:inline-block}
+.pay-btn.open .pay-caret{transform:rotate(90deg)}
+.pay-body{display:none;margin-top:.5rem;background:rgba(0,0,0,.22);border:1px solid var(--border);
+  border-radius:.45rem;padding:.65rem .85rem;font-family:var(--mono);font-size:.7rem;
+  color:var(--off-white);white-space:pre;overflow-x:auto;max-height:280px;overflow-y:auto;
+  line-height:1.5}
+.pay-body.open{display:block}
+
+/* Crypto rows */
+.crypto{display:flex;align-items:center;gap:.5rem;font-size:.69rem;margin-top:.45rem}
+.cl{font-family:var(--mono);color:var(--dim);min-width:36px;flex-shrink:0;opacity:.7}
+.cv{font-family:var(--mono);color:var(--dim);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;flex:1;letter-spacing:.03em}
+.cv-genesis{color:var(--terra);font-family:var(--sans);font-style:italic;font-size:.69rem}
+
+/* Empty state */
+.empty{max-width:800px;margin:4rem auto;padding:3rem 1.5rem;text-align:center}
+.empty-title{font-size:1.1rem;color:var(--muted);margin-bottom:1.25rem}
+.empty-cmd{display:inline-block;background:var(--card);border:1px solid var(--border);
+  border-radius:.6rem;padding:.85rem 1.1rem;font-family:var(--mono);font-size:.72rem;
+  color:var(--off-white);text-align:left;line-height:1.6}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Vane</div>
+  <div class="live" id="live-ind" style="display:none">
+    <span class="live-dot"></span><span>live</span>
+  </div>
+  <div class="hdr-stat" id="hdr-stat"></div>
+</header>
+
+<div class="hero">
+  <div class="hero-agent" id="h-agent"></div>
+  <div class="hero-spiffe" id="h-spiffe"></div>
+  <div class="hero-meta" id="h-meta"></div>
+</div>
+
+<div class="tl-wrap">
+  <div class="tl" id="tl"></div>
+  <div class="empty" id="empty" style="display:none">
+    <div class="empty-title">No attestations recorded yet.</div>
+    <div class="empty-cmd">curl -X POST http://localhost:3000/v1/attest \\<br>  -H "Authorization: Bearer &lt;key&gt;" \\<br>  -H "Content-Type: application/json" \\<br>  -d '{"agentId":"${timelineEscHtml(agentId)}","actionType":"my-action","payload":{}}'</div>
+  </div>
+</div>
+
+<script>
+var D = ${data};
+
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function rel(iso){
+  var d=(Date.now()-new Date(iso))/1000;
+  if(d<5)return 'just now';
+  if(d<60)return Math.round(d)+'s ago';
+  if(d<3600)return Math.round(d/60)+'m ago';
+  if(d<86400)return Math.round(d/3600)+'h ago';
+  if(d<604800)return Math.round(d/86400)+'d ago';
+  return new Date(iso).toLocaleDateString();
+}
+
+function fmtAbs(iso){
+  var d=new Date(iso);
+  var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var pad=function(n){return n<10?'0'+n:n};
+  return mo[d.getUTCMonth()]+' '+d.getUTCDate()+', '+d.getUTCFullYear()+
+    ' '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds())+' UTC';
+}
+
+function card(e,i){
+  var badgeCls=e.verified?'badge-ok':'badge-fail';
+  var badgeTxt=e.verified?'&#10003; verified':'&#10007; failed';
+  var dotCls=e.verified?'dot':'dot fail';
+  var payStr=JSON.stringify(e.actionPayload,null,2);
+  var linkHtml=e.link===null
+    ?'<span class="cv-genesis">&#8854; genesis &mdash; first record in chain</span>'
+    :'<span class="cv" title="'+esc(e.link.hash)+'">&#8592; #'+e.link.chainIndex+' &middot; '+esc(e.link.hash.slice(0,16))+'&hellip;</span>';
+  var delegTag=e.hasDelegation?'<span class="deleg-tag">delegated</span>':'';
+  return '<div class="entry" style="--i:'+i+'" id="e'+e.index+'">'+
+    '<div class="'+dotCls+'"></div>'+
+    '<div class="card">'+
+      '<div class="card-top">'+
+        '<span class="action">'+esc(e.actionType)+'</span>'+
+        '<span class="badge '+badgeCls+'">'+badgeTxt+'</span>'+
+      '</div>'+
+      '<div class="card-meta">'+
+        '<span class="ts-rel" data-iso="'+esc(e.timestamp)+'">'+rel(e.timestamp)+'</span>'+
+        '<span class="ts-abs">'+fmtAbs(e.timestamp)+'</span>'+
+        '<span class="chain-idx">#'+e.index+'</span>'+
+        delegTag+
+      '</div>'+
+      '<div>'+
+        '<button class="pay-btn" onclick="tog(this)">'+
+          '<span class="pay-caret">&#9654;</span> action data'+
+        '</button>'+
+        '<div class="pay-body">'+esc(payStr)+'</div>'+
+      '</div>'+
+      '<div class="crypto"><span class="cl">hash</span>'+
+        '<span class="cv" title="'+esc(e.hash)+'">'+esc(e.hash.slice(0,20))+'&hellip;'+esc(e.hash.slice(-8))+'</span>'+
+      '</div>'+
+      '<div class="crypto"><span class="cl">link</span>'+linkHtml+'</div>'+
+    '</div>'+
+  '</div>';
+}
+
+function tog(btn){
+  btn.classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open');
+}
+
+function render(entries){
+  var tl=document.getElementById('tl');
+  var em=document.getElementById('empty');
+  if(!entries.length){tl.style.display='none';em.style.display='block';return;}
+  tl.style.display='';em.style.display='none';
+  tl.innerHTML=entries.map(function(e,i){return card(e,i);}).join('');
+}
+
+function updateHeader(entries){
+  var v=entries.filter(function(e){return e.verified;}).length;
+  var t=entries.length;
+  var el=document.getElementById('hdr-stat');
+  if(t===0){el.innerHTML='no actions yet';return;}
+  var cls=v===t?'ok':'bad';
+  el.innerHTML='<span class="'+cls+'">'+v+'/'+t+'</span> verified';
+}
+
+function updateHero(entries){
+  document.getElementById('h-agent').textContent=D.agentId;
+  document.getElementById('h-spiffe').textContent=D.spiffeId;
+  var t=entries.length;
+  if(t===0){
+    document.getElementById('h-meta').textContent='No actions recorded yet.';
+  } else {
+    var last=new Date(entries[entries.length-1].timestamp);
+    document.getElementById('h-meta').innerHTML=
+      '<strong>'+t+'</strong> action'+(t===1?'':'s')+' recorded &mdash; last seen '+rel(entries[entries.length-1].timestamp);
+  }
+}
+
+// Tick relative timestamps every 30s
+function tickRel(){
+  document.querySelectorAll('[data-iso]').forEach(function(el){
+    el.textContent=rel(el.getAttribute('data-iso'));
+  });
+}
+setInterval(tickRel,30000);
+
+// Live refresh when token is in URL
+var _token=(new URLSearchParams(window.location.search)).get('token');
+var _count=D.entries.length;
+
+if(_token){
+  document.getElementById('live-ind').style.display='flex';
+  setInterval(function(){
+    fetch('/v1/agents/'+encodeURIComponent(D.agentId)+'/timeline',
+      {headers:{Authorization:'Bearer '+_token}})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data||data.totalRecords===_count)return;
+        _count=data.totalRecords;
+        var entries=data.timeline;
+        render(entries);
+        updateHeader(entries);
+        updateHero(entries);
+        // Flash new entries
+        var newIdx=document.querySelectorAll('.entry');
+        if(newIdx.length){newIdx[newIdx.length-1].classList.add('entry-new');}
+      })
+      .catch(function(){});
+  }, 8000);
+}
+
+// Initial paint
+render(D.entries);
+updateHeader(D.entries);
+updateHero(D.entries);
+</script>
+</body>
+</html>`;
+}
 
 // ── Unhandled error handler ───────────────────────────────────────────────────
 
