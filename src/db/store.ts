@@ -7,7 +7,7 @@ import { logger } from '../logger.js';
 // ── Envelope encryption ───────────────────────────────────────────────────────
 
 function deriveMasterKey(): Buffer | null {
-  const env = process.env.COUNSEL_MASTER_KEY;
+  const env = process.env.VANE_MASTER_KEY;
   if (!env) return null;
   return createHash('sha256').update(env, 'utf8').digest();
 }
@@ -15,7 +15,7 @@ function deriveMasterKey(): Buffer | null {
 const MASTER_KEY: Buffer | null = deriveMasterKey();
 
 if (!MASTER_KEY) {
-  logger.warn('COUNSEL_MASTER_KEY is not set — private keys are stored in plaintext in the database');
+  logger.warn('VANE_MASTER_KEY is not set — private keys are stored in plaintext in the database');
 }
 
 // Stored format: "enc:v1:<iv_hex>:<tag_hex>:<ciphertext_hex>"
@@ -31,12 +31,12 @@ function encryptPrivateKey(pem: string): string {
 function decryptPrivateKey(stored: string): string {
   if (!stored.startsWith('enc:v1:')) {
     if (MASTER_KEY) {
-      console.warn('[COUNSEL] WARNING: Plaintext private key found in database. Re-save keys to encrypt.');
+      console.warn('[VANE] WARNING: Plaintext private key found in database. Re-save keys to encrypt.');
     }
     return stored;
   }
   if (!MASTER_KEY) {
-    throw new Error('Encrypted private key found in database but COUNSEL_MASTER_KEY is not set');
+    throw new Error('Encrypted private key found in database but VANE_MASTER_KEY is not set');
   }
   const parts = stored.split(':');
   if (parts.length < 5) throw new Error('Malformed encrypted key record');
@@ -256,7 +256,7 @@ export class Store {
   // ── API Keys ─────────────────────────────────────────────────────────────────
 
   async createApiKey(companyId: string, label?: string): Promise<string> {
-    const key = 'counsel_' + randomBytes(32).toString('hex');
+    const key = 'vane_' + randomBytes(32).toString('hex');
     await this.pool.query(
       `INSERT INTO api_keys (key, company_id, label, created_at) VALUES ($1, $2, $3, $4)`,
       [key, companyId, label ?? null, new Date().toISOString()],

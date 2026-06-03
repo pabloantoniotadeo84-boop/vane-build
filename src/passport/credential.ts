@@ -1,9 +1,9 @@
 import { sign as cryptoSign, createPrivateKey, randomUUID } from 'node:crypto';
 import { deriveKeyId } from '../crypto/svid.js';
 import { validateSpiffeId, TRUST_DOMAIN } from '../crypto/spiffe.js';
-import type { CounselPassportClaims } from './types.js';
+import type { VanePassportClaims } from './types.js';
 
-export const PASSPORT_AUDIENCE = 'counsel:passport:v1';
+export const PASSPORT_AUDIENCE = 'vane:passport:v1';
 export const PASSPORT_TTL_DEFAULT = 3600; // 1 hour
 
 function b64url(s: string): string {
@@ -24,15 +24,15 @@ export interface IssuePassportOptions {
 }
 
 /**
- * Issues a Counsel Agent Passport (CAP+JWT).
+ * Issues a Vane Agent Passport (CAP+JWT).
  *
  * The resulting token is a standard EdDSA JWT verifiable by any party that
- * holds the CA public key — no network call to Counsel is required.
+ * holds the CA public key — no network call to Vane is required.
  *
  * Security invariants:
  *   - alg is hard-coded to EdDSA; no algorithm confusion is possible
  *   - typ is "CAP+JWT" — distinct from SVID tokens (typ "JWT")
- *   - aud is "counsel:passport:v1" — prevents replay across token types
+ *   - aud is "vane:passport:v1" — prevents replay across token types
  *   - nbf equals iat — no pre-dating
  *   - delegationChain tail MUST equal agentSpiffeId before signing
  */
@@ -62,7 +62,7 @@ export function issuePassport(opts: IssuePassportOptions): string {
 
   const header = b64url(JSON.stringify({ alg: 'EdDSA', typ: 'CAP+JWT', kid }));
 
-  const claims: CounselPassportClaims = {
+  const claims: VanePassportClaims = {
     iss: `spiffe://${TRUST_DOMAIN}/ca`,
     sub: opts.agentSpiffeId,
     aud: [PASSPORT_AUDIENCE],
@@ -70,7 +70,7 @@ export function issuePassport(opts: IssuePassportOptions): string {
     iat: now,
     exp: now + ttl,
     nbf: now,
-    counsel: {
+    vane: {
       v: 1,
       agentId: opts.agentId,
       org: opts.org,

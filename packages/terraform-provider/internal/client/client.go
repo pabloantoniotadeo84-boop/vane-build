@@ -1,4 +1,4 @@
-// Package client provides a minimal HTTP client for the Counsel API.
+// Package client provides a minimal HTTP client for the Vane API.
 package client
 
 import (
@@ -16,7 +16,7 @@ type Config struct {
 	APIKey string
 }
 
-// Client wraps the Counsel HTTP API.
+// Client wraps the Vane HTTP API.
 type Client struct {
 	url    string
 	apiKey string

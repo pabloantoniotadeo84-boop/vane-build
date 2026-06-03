@@ -1,4 +1,4 @@
-module github.com/counsel/terraform-provider-counsel
+module github.com/vane-build/terraform-provider-vane
 
 go 1.21
 

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/counsel/terraform-provider-counsel/internal/provider"
+	"github.com/vane-build/terraform-provider-vane/internal/provider"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 

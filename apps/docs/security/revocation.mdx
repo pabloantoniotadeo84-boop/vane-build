@@ -105,7 +105,7 @@ If you need immediate revocation, call `POST /v1/passport/verify` — it always 
 ```typescript
 import { createVaneMiddleware, decodeReceipt } from '@vane.build/mcp-middleware';
 
-const vane = createVaneMiddleware({ counselPublicKey: process.env.COUNSEL_CA_KEY! });
+const vane = createVaneMiddleware({ vanePublicKey: process.env.VANE_CA_KEY! });
 const ocspCache = new Map<string, { status: string; expiresAt: number }>();
 
 async function checkOcsp(jti: string): Promise<boolean> {
@@ -116,7 +116,7 @@ async function checkOcsp(jti: string): Promise<boolean> {
 
   const response = await fetch(
     `https://vane.build/v1/ocsp/${jti}`,
-    { headers: { Authorization: `Bearer ${process.env.COUNSEL_API_KEY}` } },
+    { headers: { Authorization: `Bearer ${process.env.VANE_API_KEY}` } },
   ).then(r => r.json());
 
   ocspCache.set(jti, {
@@ -130,7 +130,7 @@ async function checkOcsp(jti: string): Promise<boolean> {
 // In your MCP handler:
 server.setRequestHandler(
   CallToolRequestSchema,
-  counsel.mcpHandler(async (request, receipt) => {
+  vane.mcpHandler(async (request, receipt) => {
     const isValid = await checkOcsp(receipt.passportId);
     if (!isValid) {
       throw new Error('Passport has been revoked');

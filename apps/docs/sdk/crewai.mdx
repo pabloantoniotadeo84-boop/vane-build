@@ -16,11 +16,11 @@ Requires Python 3.9+.
 ## Three-line setup
 
 ```python
-from counsel_crewai import VaneObserver
+from vane_crewai import VaneObserver
 
 observer = VaneObserver(
     base_url="https://vane.build",
-    api_key="counsel_a1b2c3d4...",
+    api_key="vane_a1b2c3d4...",
     agent_id="contract-reviewer",
 )
 crew = observer.wrap(crew)
@@ -73,12 +73,12 @@ All HTTP calls happen in **daemon threads**. If the Vane server is unavailable, 
 ```python
 from crewai import Agent, Task, Crew
 from crewai_tools import SerperDevTool
-from counsel_crewai import VaneObserver
+from vane_crewai import VaneObserver
 
 # Set up the observer
 observer = VaneObserver(
     base_url="https://vane.build",
-    api_key="counsel_a1b2c3d4...",
+    api_key="vane_a1b2c3d4...",
     agent_id="legal-researcher",
     company_id="acme",
 )
@@ -123,6 +123,6 @@ crew = Crew(
     step_callback=my_existing_step_callback,
 )
 
-# Both my_existing_step_callback AND counsel attestation will run
+# Both my_existing_step_callback AND vane attestation will run
 crew = observer.wrap(crew)
 ```

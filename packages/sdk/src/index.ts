@@ -30,18 +30,18 @@ export interface InclusionProof {
   root: string;
 }
 
-export interface CounselClientOptions {
+export interface VaneClientOptions {
   baseUrl: string;
   apiKey: string;
 }
 
-export class CounselClient {
+export class VaneClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
 
-  constructor(options: CounselClientOptions);
+  constructor(options: VaneClientOptions);
   constructor(baseUrl: string, apiKey: string);
-  constructor(baseUrlOrOptions: string | CounselClientOptions, apiKey?: string) {
+  constructor(baseUrlOrOptions: string | VaneClientOptions, apiKey?: string) {
     if (typeof baseUrlOrOptions === 'object') {
       this.baseUrl = baseUrlOrOptions.baseUrl.replace(/\/$/, '');
       this.apiKey = baseUrlOrOptions.apiKey;
@@ -75,7 +75,7 @@ export class CounselClient {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`Counsel attest failed (${res.status}): ${body}`);
+      throw new Error(`Vane attest failed (${res.status}): ${body}`);
     }
 
     return res.json() as Promise<AttestationRecord>;
@@ -88,7 +88,7 @@ export class CounselClient {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`Counsel getProof failed (${res.status}): ${body}`);
+      throw new Error(`Vane getProof failed (${res.status}): ${body}`);
     }
 
     return res.json() as Promise<InclusionProof>;

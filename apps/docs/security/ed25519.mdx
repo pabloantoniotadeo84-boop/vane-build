@@ -28,7 +28,7 @@ const { privateKey, publicKey } = generateKeyPairSync('ed25519', {
 });
 ```
 
-Private keys are stored in PKCS8 PEM format. Public keys are stored in SPKI PEM format. When `COUNSEL_MASTER_KEY` is set, private keys are encrypted with AES-256-GCM before storage. See [Envelope Encryption](/security/envelope-encryption).
+Private keys are stored in PKCS8 PEM format. Public keys are stored in SPKI PEM format. When `VANE_MASTER_KEY` is set, private keys are encrypted with AES-256-GCM before storage. See [Envelope Encryption](/security/envelope-encryption).
 
 ## Key ID derivation
 

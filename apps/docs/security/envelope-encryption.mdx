@@ -1,23 +1,23 @@
 ---
 title: "Envelope Encryption"
-description: "How COUNSEL_MASTER_KEY protects private keys at rest with AES-256-GCM."
+description: "How VANE_MASTER_KEY protects private keys at rest with AES-256-GCM."
 ---
 
 ## The problem
 
 Each company's Ed25519 private key is stored in a PostgreSQL database. Without envelope encryption, the private key is stored in plaintext — anyone with database read access can extract it and forge signatures.
 
-With `COUNSEL_MASTER_KEY` set, private keys are encrypted with AES-256-GCM before storage. The master key never touches the database.
+With `VANE_MASTER_KEY` set, private keys are encrypted with AES-256-GCM before storage. The master key never touches the database.
 
 ## How it works
 
 At server startup, the master key is derived:
 
 ```
-MASTER_KEY = SHA-256(COUNSEL_MASTER_KEY as UTF-8)
+MASTER_KEY = SHA-256(VANE_MASTER_KEY as UTF-8)
 ```
 
-This produces a 256-bit key from an arbitrary-length passphrase. SHA-256 is used here purely for key stretching from string to bytes — it is not a key derivation function (KDF). For production deployments, use a 64-character random hex string as `COUNSEL_MASTER_KEY` so the entropy is already adequate.
+This produces a 256-bit key from an arbitrary-length passphrase. SHA-256 is used here purely for key stretching from string to bytes — it is not a key derivation function (KDF). For production deployments, use a 64-character random hex string as `VANE_MASTER_KEY` so the entropy is already adequate.
 
 When a new company is registered and its key pair is generated, the private key is encrypted:
 
@@ -47,7 +47,7 @@ AES-GCM provides both confidentiality and authenticity — if the master key is 
 
 - An attacker who compromises the Vane server process at runtime (the plaintext key is in memory while the server runs).
 - Loss of the master key — you cannot decrypt existing private keys without it. Back it up.
-- Key rotation — changing `COUNSEL_MASTER_KEY` does not automatically re-encrypt existing keys. You would need to manually decrypt and re-encrypt each company's key.
+- Key rotation — changing `VANE_MASTER_KEY` does not automatically re-encrypt existing keys. You would need to manually decrypt and re-encrypt each company's key.
 
 ## Backward compatibility
 
@@ -57,10 +57,10 @@ If a private key in the database is plaintext (i.e., it does not start with `enc
 WARNING: Plaintext private key found in database. Re-save keys to encrypt.
 ```
 
-If a private key is encrypted but `COUNSEL_MASTER_KEY` is not set:
+If a private key is encrypted but `VANE_MASTER_KEY` is not set:
 
 ```
-Error: Encrypted private key found in database but COUNSEL_MASTER_KEY is not set
+Error: Encrypted private key found in database but VANE_MASTER_KEY is not set
 ```
 
 The server will fail to load that tenant. Set the master key before starting.
@@ -74,4 +74,4 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 openssl rand -hex 32
 ```
 
-Store this value in your secret manager (Railway secret, AWS Secrets Manager, HashiCorp Vault) and inject it as `COUNSEL_MASTER_KEY` at runtime. Never commit it to version control.
+Store this value in your secret manager (Railway secret, AWS Secrets Manager, HashiCorp Vault) and inject it as `VANE_MASTER_KEY` at runtime. Never commit it to version control.

@@ -198,12 +198,12 @@ curl -s -X POST http://localhost:3000/v1/passport/verify \
   "claims": {
     "iss": "spiffe://vane.local/ca",
     "sub": "spiffe://vane.local/company/acme/agent/researcher-1",
-    "aud": ["counsel:passport:v1"],
+    "aud": ["vane:passport:v1"],
     "jti": "550e8400-e29b-41d4-a716-446655440000",
     "iat": 1751325600,
     "exp": 1751329200,
     "nbf": 1751325600,
-    "counsel": {
+    `"vane":` {
       "v": 1,
       "agentId": "researcher-1",
       "org": "acme",

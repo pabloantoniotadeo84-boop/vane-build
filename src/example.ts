@@ -10,7 +10,7 @@ console.log(keys.publicKey.trim());
 // ── 2. Sign a payload ────────────────────────────────────────────────────────
 
 const action = {
-  agentId: 'counsel-agent-001',
+  agentId: 'vane-agent-001',
   action: 'database.write',
   table: 'transfers',
   rowCount: 1,
@@ -34,9 +34,9 @@ console.log('tampered  :', tampered);
 
 const chain = new AttestationChain();
 
-chain.append({ agentId: 'counsel-agent-001', action: 'fs.read',  path: '/config/app.yaml' }, keys.privateKey);
-chain.append({ agentId: 'counsel-agent-001', action: 'db.query', table: 'users', predicate: 'id=42' }, keys.privateKey);
-chain.append({ agentId: 'counsel-agent-002', action: 'http.post', url: 'https://payments.internal/transfer', amount: 100 }, keys.privateKey);
+chain.append({ agentId: 'vane-agent-001', action: 'fs.read',  path: '/config/app.yaml' }, keys.privateKey);
+chain.append({ agentId: 'vane-agent-001', action: 'db.query', table: 'users', predicate: 'id=42' }, keys.privateKey);
+chain.append({ agentId: 'vane-agent-002', action: 'http.post', url: 'https://payments.internal/transfer', amount: 100 }, keys.privateKey);
 
 console.log('\n── Chain records ───────────────────────────────────');
 for (const rec of chain.getRecords()) {

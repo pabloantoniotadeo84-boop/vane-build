@@ -1,4 +1,4 @@
-// Offline Counsel Agent Passport (CAP+JWT) verification.
+// Offline Vane Agent Passport (CAP+JWT) verification.
 //
 // This file has zero external dependencies. It uses only node:crypto, which
 // ships with every Node.js >= 12 installation. Copy this file to implement
@@ -13,11 +13,11 @@
 //   4.  SIGNATURE    — Ed25519 signature over "header.payload" (ASCII, not decoded)
 //   5.  EXPIRY       — exp must be > now (Unix seconds)
 //   6.  NOT-BEFORE   — nbf must be <= now if present
-//   7.  AUDIENCE     — aud must contain "counsel:passport:v1"
+//   7.  AUDIENCE     — aud must contain "vane:passport:v1"
 //   8.  ISSUER       — iss must match SPIFFE URI pattern
 //   9.  SUBJECT      — sub must match SPIFFE URI pattern
-//   10. CLAIMS       — "counsel" object must be present
-//   11. VERSION      — counsel.v must be 1 (only supported version)
+//   10. CLAIMS       — "vane" object must be present
+//   11. VERSION      — vane.v must be 1 (only supported version)
 //   12. CHAIN        — delegationChain.at(-1) must equal sub
 //   13. SCOPE        — if tool provided, scopes must cover "tool:<tool>"
 //
@@ -28,13 +28,13 @@
 
 import { verify as cryptoVerify, createPublicKey } from 'node:crypto';
 import type {
-  CounselPassportClaims,
+  VanePassportClaims,
   PassportErrorCode,
   PassportVerificationResult,
   VerifyOptions,
 } from './types.js';
 
-const PASSPORT_AUDIENCE = 'counsel:passport:v1';
+const PASSPORT_AUDIENCE = 'vane:passport:v1';
 const SUPPORTED_VERSIONS = new Set([1]);
 const SPIFFE_RE = /^spiffe:\/\/[^/]+\/.+$/;
 
@@ -47,10 +47,10 @@ function fail(code: PassportErrorCode, error: string): PassportVerificationResul
 }
 
 /**
- * Verifies a Counsel Agent Passport.
+ * Verifies a Vane Agent Passport.
  *
  * @param token     — the raw CAP+JWT string from the Authorization Bearer header
- * @param caPublicKey — Ed25519 SPKI PEM of the Counsel CA root key
+ * @param caPublicKey — Ed25519 SPKI PEM of the Vane CA root key
  * @param opts      — optional tool name for scope checking
  */
 export function verifyPassport(
@@ -132,12 +132,12 @@ export function verifyPassport(
     return fail('INVALID_SUBJECT', `sub is not a valid SPIFFE ID: ${String(sub)}`);
   }
 
-  // Step 10 — counsel claims
-  const counsel = rawClaims['counsel'];
-  if (counsel === null || typeof counsel !== 'object' || Array.isArray(counsel)) {
-    return fail('MALFORMED_CLAIMS', 'Missing or malformed "counsel" claim object');
+  // Step 10 — vane claims
+  const vane = rawClaims['vane'];
+  if (vane === null || typeof vane !== 'object' || Array.isArray(vane)) {
+    return fail('MALFORMED_CLAIMS', 'Missing or malformed "vane" claim object');
   }
-  const c = counsel as Record<string, unknown>;
+  const c = vane as Record<string, unknown>;
 
   // Step 11 — version
   if (!SUPPORTED_VERSIONS.has(c['v'] as number)) {
@@ -145,12 +145,12 @@ export function verifyPassport(
   }
 
   if (!Array.isArray(c['scopes']) || (c['scopes'] as unknown[]).length === 0) {
-    return fail('MALFORMED_CLAIMS', '"counsel.scopes" must be a non-empty array');
+    return fail('MALFORMED_CLAIMS', '"vane.scopes" must be a non-empty array');
   }
   const scopes = c['scopes'] as string[];
 
   if (!Array.isArray(c['delegationChain']) || (c['delegationChain'] as unknown[]).length === 0) {
-    return fail('MALFORMED_CLAIMS', '"counsel.delegationChain" must be a non-empty array');
+    return fail('MALFORMED_CLAIMS', '"vane.delegationChain" must be a non-empty array');
   }
   const chain = c['delegationChain'] as string[];
 
@@ -176,7 +176,7 @@ export function verifyPassport(
     scopeGranted = scopes[0];
   }
 
-  return { valid: true, claims: rawClaims as unknown as CounselPassportClaims, scopeGranted };
+  return { valid: true, claims: rawClaims as unknown as VanePassportClaims, scopeGranted };
 }
 
 /**

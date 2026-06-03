@@ -23,7 +23,7 @@ Creates a new company tenant. Generates an Ed25519 key pair, an empty attestatio
 | `companyId` | `string` | The company identifier. |
 | `spiffeId` | `string` | SPIFFE ID: `spiffe://{trustDomain}/company/{companyId}` |
 | `registeredAt` | `string` | ISO 8601 timestamp. |
-| `apiKey` | `string` | Bootstrap API key (prefix: `counsel_`). Shown once — save immediately. |
+| `apiKey` | `string` | Bootstrap API key (prefix: `vane_`). Shown once — save immediately. |
 
 ### Error responses
 
@@ -45,7 +45,7 @@ curl -s -X POST http://localhost:3000/v1/companies \
   "companyId": "acme",
   "spiffeId": "spiffe://vane.local/company/acme",
   "registeredAt": "2026-01-01T00:00:00.000Z",
-  "apiKey": "counsel_a1b2c3d4e5f67890..."
+  "apiKey": "vane_a1b2c3d4e5f67890..."
 }
 ```
 
@@ -121,7 +121,7 @@ curl -s -X POST http://localhost:3000/v1/recover-key \
 
 ```json
 {
-  "key": "counsel_a1b2c3d4...",
+  "key": "vane_a1b2c3d4...",
   "label": "bootstrap",
   "createdAt": "2026-01-01T00:00:00.000Z"
 }

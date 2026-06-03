@@ -10,7 +10,7 @@ import { validateSpiffeId } from './spiffe.js';
 import type { JwtSvidClaims } from './types.js';
 
 const DEFAULT_TTL = 3600;
-export const SVID_AUDIENCE = 'counsel';
+export const SVID_AUDIENCE = 'vane';
 
 function b64url(data: string | Buffer): string {
   return (typeof data === 'string' ? Buffer.from(data, 'utf8') : data).toString('base64url');
@@ -86,7 +86,7 @@ export function verifyJwtSvid(
 
   if (claims.exp < now) throw new Error('JWT-SVID has expired');
   if (!Array.isArray(claims.aud) || !claims.aud.includes(requiredAudience)) {
-    throw new Error(`JWT-SVID audience mismatch: required "${requiredAudience}"`);
+    throw new Error(`JWT-SVID audience mismatch: expected "${requiredAudience}"`);
   }
   if (!validateSpiffeId(claims.sub)) {
     throw new Error(`JWT-SVID sub is not a valid SPIFFE ID: ${claims.sub}`);

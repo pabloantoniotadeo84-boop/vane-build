@@ -19,7 +19,7 @@ import { run } from '@openai/agents';
 
 const hooks = createVaneHooks({
   baseUrl: process.env.COUNSEL_URL!,
-  apiKey: process.env.COUNSEL_API_KEY!,
+  apiKey: process.env.VANE_API_KEY!,
   agentId: 'researcher-1',
 });
 
@@ -78,7 +78,7 @@ import { z } from 'zod';
 
 const hooks = createVaneHooks({
   baseUrl: process.env.COUNSEL_URL!,
-  apiKey: process.env.COUNSEL_API_KEY!,
+  apiKey: process.env.VANE_API_KEY!,
   agentId: 'contract-reviewer',
   companyId: 'acme',
 });

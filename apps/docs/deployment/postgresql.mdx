@@ -18,7 +18,7 @@ postgresql://[user]:[password]@[host]:[port]/[database]?sslmode=require
 Set `DATABASE_URL` in your environment:
 
 ```bash
-DATABASE_URL=postgresql://counsel_user:secret@localhost:5432/counsel
+DATABASE_URL=postgresql://vane_user:secret@localhost:5432/vane
 ```
 
 For Railway, Supabase, Neon, or other managed PostgreSQL providers, use the connection string they provide directly.
@@ -44,7 +44,7 @@ CREATE TABLE companies (
 CREATE TABLE keys (
   company_id  TEXT PRIMARY KEY REFERENCES companies(company_id),
   public_key  TEXT NOT NULL,
-  private_key TEXT NOT NULL  -- AES-256-GCM encrypted if COUNSEL_MASTER_KEY is set
+  private_key TEXT NOT NULL  -- AES-256-GCM encrypted if VANE_MASTER_KEY is set
 );
 ```
 
@@ -151,18 +151,18 @@ For production, create a dedicated PostgreSQL user with minimal privileges:
 
 ```sql
 -- Create the database
-CREATE DATABASE counsel;
+CREATE DATABASE vane;
 
 -- Create the user
-CREATE USER counsel_user WITH PASSWORD 'a-very-strong-password';
+CREATE USER vane_user WITH PASSWORD 'a-very-strong-password';
 
 -- Grant only what's needed (no superuser, no createdb)
-GRANT CONNECT ON DATABASE counsel TO counsel_user;
-\c counsel
-GRANT USAGE ON SCHEMA public TO counsel_user;
-GRANT CREATE ON SCHEMA public TO counsel_user;
-GRANT SELECT, INSERT, DELETE ON ALL TABLES IN SCHEMA public TO counsel_user;
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO counsel_user;
+GRANT CONNECT ON DATABASE vane TO vane_user;
+\c vane
+GRANT USAGE ON SCHEMA public TO vane_user;
+GRANT CREATE ON SCHEMA public TO vane_user;
+GRANT SELECT, INSERT, DELETE ON ALL TABLES IN SCHEMA public TO vane_user;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO vane_user;
 ```
 
 Vane does not need `UPDATE` or `DROP` on the `records` table. Restricting these at the PostgreSQL level adds defense-in-depth.
@@ -172,7 +172,7 @@ Vane does not need `UPDATE` or `DROP` on the `records` table. Restricting these 
 For managed PostgreSQL providers, require SSL:
 
 ```bash
-DATABASE_URL="postgresql://counsel_user:secret@db.example.com:5432/counsel?sslmode=require"
+DATABASE_URL="postgresql://vane_user:secret@db.example.com:5432/vane?sslmode=require"
 ```
 
 The `pg` package respects the `sslmode` query parameter.

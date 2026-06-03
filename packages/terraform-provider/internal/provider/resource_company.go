@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/counsel/terraform-provider-counsel/internal/client"
+	"github.com/vane-build/terraform-provider-vane/internal/client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceCompany() *schema.Resource {
 	return &schema.Resource{
-		Description: "Creates a Counsel company tenant. Each company gets its own" +
+		Description: "Creates a Vane company tenant. Each company gets its own" +
 			" Ed25519 key pair, attestation chain, and bootstrap API key.",
 
 		Create: resourceCompanyCreate,
@@ -19,7 +19,7 @@ func resourceCompany() *schema.Resource {
 		Update: resourceCompanyUpdate,
 		Delete: resourceCompanyDelete,
 
-		// Import: terraform import counsel_company.acme <bootstrap-api-key>
+		// Import: terraform import vane_company.acme <bootstrap-api-key>
 		// The import ID is the bootstrap API key returned at creation time.
 		Importer: &schema.ResourceImporter{
 			StateContext: resourceCompanyImport,
@@ -114,7 +114,7 @@ func resourceCompanyUpdate(_ *schema.ResourceData, _ interface{}) error {
 	return nil
 }
 
-// resourceCompanyDelete is intentionally a no-op. The Counsel API does not
+// resourceCompanyDelete is intentionally a no-op. The Vane API does not
 // expose a company deletion endpoint; removing a company requires direct
 // database access. Terraform will still remove the resource from state.
 func resourceCompanyDelete(_ *schema.ResourceData, _ interface{}) error {

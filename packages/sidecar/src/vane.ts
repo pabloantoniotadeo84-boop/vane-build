@@ -15,7 +15,7 @@ interface PassportIssuanceResponse {
   spiffeId: string;
 }
 
-export class CounselClient {
+export class VaneClient {
   private readonly cfg: SidecarConfig;
 
   private passport: string | null = null;
@@ -31,7 +31,7 @@ export class CounselClient {
   async initialize(): Promise<void> {
     await this.refreshPassport();
     console.log(
-      `[counsel-sidecar] Initialized — agent=${this.cfg.agentId} company=${this.cfg.companyId}`,
+      `[vane-sidecar] Initialized — agent=${this.cfg.agentId} company=${this.cfg.companyId}`,
     );
   }
 
@@ -64,7 +64,7 @@ export class CounselClient {
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       throw new Error(
-        `Counsel passport issuance failed: HTTP ${res.status} — ${body}`,
+        `Vane passport issuance failed: HTTP ${res.status} — ${body}`,
       );
     }
 
@@ -75,7 +75,7 @@ export class CounselClient {
   }
 
   /**
-   * Records an outbound HTTP call in the Counsel attestation chain.
+   * Records an outbound HTTP call in the Vane attestation chain.
    * Fire-and-forget — never blocks the proxied request.
    */
   attest(method: string, url: string, extra?: Record<string, unknown>): void {
@@ -91,16 +91,16 @@ export class CounselClient {
         payload: { method, url, ...extra },
       }),
     }).catch((err: unknown) => {
-      console.error('[counsel-sidecar] Attestation failed (non-fatal):', err);
+      console.error('[vane-sidecar] Attestation failed (non-fatal):', err);
     });
   }
 
   /**
-   * Verifies a Counsel Agent Passport (CAP+JWT) locally using the cached CA
+   * Verifies a Vane Agent Passport (CAP+JWT) locally using the cached CA
    * public key. Does NOT check revocation — for revocation checking, query
-   * the Counsel OCSP endpoint (GET /v1/ocsp/:jti).
+   * the Vane OCSP endpoint (GET /v1/ocsp/:jti).
    *
-   * Checks: EdDSA signature, typ=CAP+JWT, exp, aud=counsel:passport:v1.
+   * Checks: EdDSA signature, typ=CAP+JWT, exp, aud=vane:passport:v1.
    */
   verifyPassportLocal(token: string): boolean {
     if (!this.caPublicKey) return false;
@@ -124,7 +124,7 @@ export class CounselClient {
       const claims = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as Record<string, unknown>;
       const now = Math.floor(Date.now() / 1000);
       if (typeof claims['exp'] !== 'number' || claims['exp'] < now) return false;
-      if (!Array.isArray(claims['aud']) || !(claims['aud'] as string[]).includes('counsel:passport:v1')) return false;
+      if (!Array.isArray(claims['aud']) || !(claims['aud'] as string[]).includes('vane:passport:v1')) return false;
 
       return true;
     } catch {

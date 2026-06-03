@@ -15,12 +15,12 @@ Think of it like a badge at a secure facility. The badge was issued by a known a
 {
   "iss": "spiffe://vane.local/ca",
   "sub": "spiffe://vane.local/company/acme/agent/researcher-1",
-  "aud": ["counsel:passport:v1"],
+  "aud": ["vane:passport:v1"],
   "jti": "550e8400-e29b-41d4-a716-446655440000",
   "iat": 1751325600,
   "exp": 1751329200,
   "nbf": 1751325600,
-  "counsel": {
+  `"vane":` {
     "v": 1,
     "agentId": "researcher-1",
     "org": "acme",
@@ -35,8 +35,8 @@ Think of it like a badge at a secure facility. The badge was issued by a known a
 ```
 
 - `jti` — unique ID for revocation tracking
-- `counsel.scopes` — what the agent is authorized to do (see scope format below)
-- `counsel.delegationChain` — the full chain from authorizing organization to the agent
+- `vane.scopes` — what the agent is authorized to do (see scope format below)
+- `vane.delegationChain` — the full chain from authorizing organization to the agent
 
 ### Scope format
 
@@ -66,10 +66,10 @@ A verifier holding the CA public key verifies a passport in this order:
 4. Verify the Ed25519 signature over `header.payload`
 5. Check `exp` — passport must not have expired
 6. Check `nbf` — passport must have taken effect
-7. Check `aud` includes `counsel:passport:v1`
+7. Check `aud` includes `vane:passport:v1`
 8. Check `iss` is a valid SPIFFE URI
 9. Check `sub` is a valid SPIFFE URI
-10. Validate the `counsel` object (version, scopes, delegationChain)
+10. Validate the `vane` object (version, scopes, delegationChain)
 11. Check `delegationChain` tail equals `sub`
 12. If a tool name was provided, check scopes cover `tool:<name>`
 

@@ -1,7 +1,7 @@
 {
   "name": "@vane.build/openai-agents",
   "version": "0.1.0",
-  "description": "OpenAI Agents SDK hooks that attest every tool call to Counsel",
+  "description": "OpenAI Agents SDK hooks that attest every tool call to Vane",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

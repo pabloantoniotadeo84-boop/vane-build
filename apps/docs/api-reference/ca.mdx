@@ -116,7 +116,7 @@ This document is designed to be fetched once at verifier startup and cached. It 
 | `fingerprint` | `string` | SHA-256 fingerprint. |
 | `keys` | `object[]` | Inline JWKS. |
 | `passport_format` | `object` | CAP+JWT format specification (see below). |
-| `counsel_version` | `string` | Server version. |
+| `vane_version` | `string` | Server version. |
 
 **`passport_format` fields:**
 
@@ -124,13 +124,13 @@ This document is designed to be fetched once at verifier startup and cached. It 
 |-------|-------|-------------|
 | `version` | `1` | Passport schema version. |
 | `token_type` | `"CAP+JWT"` | Token type identifier in JWT header. |
-| `audience` | `"counsel:passport:v1"` | Required `aud` value. |
-| `claims_namespace` | `"counsel"` | Namespace for Vane-specific claims. |
+| `audience` | `"vane:passport:v1"` | Required `aud` value. |
+| `claims_namespace` | ``"vane"` ` | Namespace for Vane-specific claims. |
 | `scope_format` | `"category:name"` | Format of scope strings. |
 | `scope_wildcards_supported` | `true` | Whether `cat:*` and `*` wildcards are supported. |
 
 <Tip>
-Set `COUNSEL_BASE_URL` to your public URL so the `jwks_uri` in the discovery document is correct when running behind a reverse proxy. If not set, the URL is inferred from the `Host` and `X-Forwarded-Proto` headers.
+Set `VANE_BASE_URL` to your public URL so the `jwks_uri` in the discovery document is correct when running behind a reverse proxy. If not set, the URL is inferred from the `Host` and `X-Forwarded-Proto` headers.
 </Tip>
 
 ### Example
@@ -158,11 +158,11 @@ curl -s "http://localhost:3000/v1/ca/well-known?companyId=acme" | jq .
   "passport_format": {
     "version": 1,
     "token_type": "CAP+JWT",
-    "audience": "counsel:passport:v1",
-    "claims_namespace": "counsel",
+    "audience": "vane:passport:v1",
+    "claims_namespace": `"vane"` ,
     "scope_format": "category:name",
     "scope_wildcards_supported": true
   },
-  "counsel_version": "0.1.0"
+  "vane_version": "0.1.0"
 }
 ```

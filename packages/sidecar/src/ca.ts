@@ -31,7 +31,7 @@ export async function createMitmCA(): Promise<MitmCA> {
 
   const cert = await x509.X509CertificateGenerator.createSelfSigned({
     serialNumber: '01',
-    name: 'CN=Counsel MITM CA,O=Counsel',
+    name: 'CN=Vane MITM CA,O=Vane',
     notBefore: new Date(),
     notAfter: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
     signingAlgorithm: { name: 'ECDSA', hash: 'SHA-256' },

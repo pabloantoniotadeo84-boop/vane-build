@@ -32,7 +32,7 @@ railway add --plugin postgresql
 Required:
 
 ```bash
-railway variables set COUNSEL_MASTER_KEY=$(openssl rand -hex 32)
+railway variables set VANE_MASTER_KEY=$(openssl rand -hex 32)
 ```
 
 Optional but recommended:
@@ -40,7 +40,7 @@ Optional but recommended:
 ```bash
 railway variables set LOG_LEVEL=info
 railway variables set SPIFFE_TRUST_DOMAIN=vane.build
-railway variables set COUNSEL_BASE_URL=https://$(railway domain)
+railway variables set VANE_BASE_URL=https://$(railway domain)
 ```
 
 If you have a Sentry project:
@@ -102,18 +102,18 @@ Railway sets `DATABASE_URL` automatically when a PostgreSQL plugin is added. All
 |----------|--------|-------|
 | `DATABASE_URL` | Railway (automatic) | Set when PostgreSQL plugin is added. |
 | `PORT` | Railway (automatic) | Railway injects `PORT` automatically — do not set this manually. |
-| `COUNSEL_MASTER_KEY` | You | Generate with `openssl rand -hex 32`. |
-| `COUNSEL_BASE_URL` | You | Set to your Railway domain, e.g., `https://my-vane.up.railway.app`. |
+| `VANE_MASTER_KEY` | You | Generate with `openssl rand -hex 32`. |
+| `VANE_BASE_URL` | You | Set to your Railway domain, e.g., `https://my-vane.up.railway.app`. |
 | `SPIFFE_TRUST_DOMAIN` | You | Optional. Defaults to `vane.local`. |
 | `LOG_LEVEL` | You | Optional. Defaults to `info`. |
 | `SENTRY_DSN` | You | Optional. |
 
 ## Custom domains
 
-In the Railway dashboard: **Settings → Domains → Add Domain**. After adding your custom domain, update `COUNSEL_BASE_URL`:
+In the Railway dashboard: **Settings → Domains → Add Domain**. After adding your custom domain, update `VANE_BASE_URL`:
 
 ```bash
-railway variables set COUNSEL_BASE_URL=https://vane.yourdomain.com
+railway variables set VANE_BASE_URL=https://vane.yourdomain.com
 ```
 
 ## Scaling

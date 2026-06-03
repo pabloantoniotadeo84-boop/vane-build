@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.backends.legacy:build"
 
 [project]
-name = "counsel-crewai"
+name = "vane-crewai"
 version = "0.1.0"
-description = "CrewAI observer that attests every agent action and tool use to Counsel"
+description = "CrewAI observer that attests every agent action and tool use to Vane"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
@@ -16,4 +16,4 @@ dev = ["crewai>=0.41.0", "pytest>=7.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["counsel_crewai*"]
+include = ["vane_crewai*"]

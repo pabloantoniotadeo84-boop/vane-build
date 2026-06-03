@@ -1,9 +1,9 @@
 // ── Credential types ──────────────────────────────────────────────────────────
 //
-// These are intentionally duplicated from the Counsel server source so this
+// These are intentionally duplicated from the Vane server source so this
 // package has zero dependencies and can be embedded in any MCP server.
 
-export interface CounselPassportClaims {
+export interface VanePassportClaims {
   iss: string;
   sub: string;
   aud: string[];
@@ -11,7 +11,7 @@ export interface CounselPassportClaims {
   iat: number;
   exp: number;
   nbf: number;
-  counsel: {
+  vane: {
     v: 1;
     agentId: string;
     org: string;
@@ -25,12 +25,11 @@ export interface CounselPassportClaims {
 // ── Attestation receipt ───────────────────────────────────────────────────────
 //
 // Open format. Attached to every verified tool call. Any system can parse and
-// verify this independently — it references the passport by jti so an auditor
-// can retrieve and re-verify the original credential.
+// verify this independently.
 
 export interface AttestationReceipt {
   v: 1;
-  type: 'CounselAttestationReceipt';
+  type: 'VaneAttestationReceipt';
   passportId: string;
   agentId: string;
   agentSpiffeId: string;
@@ -49,7 +48,7 @@ export interface AttestationReceipt {
 // ── Verification result ───────────────────────────────────────────────────────
 
 export type PassportVerificationResult =
-  | { valid: true; claims: CounselPassportClaims; scopeGranted: string }
+  | { valid: true; claims: VanePassportClaims; scopeGranted: string }
   | { valid: false; error: string; code: PassportErrorCode };
 
 export type PassportErrorCode =
@@ -69,12 +68,11 @@ export type PassportErrorCode =
 
 // ── Middleware options ────────────────────────────────────────────────────────
 
-export interface CounselMiddlewareOptions {
-  // Ed25519 SPKI PEM of the Counsel CA root key.
-  // Obtain this once from your Counsel instance (GET /v1/keys/ca or from your
-  // admin). Pin it in your deployment; the only rotation path is a planned key
-  // rollover published by Counsel with advance notice.
-  counselPublicKey: string;
+export interface VaneMiddlewareOptions {
+  // Ed25519 SPKI PEM of the Vane CA root key.
+  // Obtain this once from your Vane instance (GET /v1/ca/public-key?companyId=<id>).
+  // Pin it in your deployment; the only rotation path is a planned key rollover.
+  vanePublicKey: string;
 
   // If true (default), 401 responses include the error code and message.
   // Set to false to return generic 401s without leaking reason strings.

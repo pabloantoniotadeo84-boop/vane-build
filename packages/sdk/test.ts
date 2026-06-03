@@ -1,7 +1,7 @@
-import { CounselClient } from './src/index.js';
+import { VaneClient } from './src/index.js';
 
 async function main() {
-  const client = new CounselClient('http://localhost:3000', 'test-api-key');
+  const client = new VaneClient('http://localhost:3000', 'test-api-key');
 
   const record = await client.attest(
     'agent-abc',

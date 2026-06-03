@@ -4,10 +4,10 @@ import type { LLMResult } from '@langchain/core/outputs';
 import type { AgentAction } from '@langchain/core/agents';
 import type { BaseMessage } from '@langchain/core/messages';
 
-export interface CounselCallbackHandlerOptions {
-  /** Counsel API base URL, e.g. https://your-counsel-instance.example.com */
+export interface VaneCallbackHandlerOptions {
+  /** Vane API base URL, e.g. https://vane.build */
   baseUrl: string;
-  /** Counsel API key (Bearer token) */
+  /** Vane API key (Bearer token) */
   apiKey: string;
   /** Agent ID that will appear on every attestation record */
   agentId: string;
@@ -30,15 +30,15 @@ interface PendingTool {
 
 /**
  * Attach to any LangChain LLM, chain, or agent executor to get a signed,
- * tamper-evident record in Counsel for every LLM call and tool invocation.
+ * tamper-evident record in Vane for every LLM call and tool invocation.
  *
  * @example
- * const handler = new CounselCallbackHandler({ baseUrl, apiKey, agentId });
+ * const handler = new VaneCallbackHandler({ baseUrl, apiKey, agentId });
  * const llm = new ChatOpenAI({ callbacks: [handler] });
  * await llm.invoke("Summarise this contract.");
  */
-export class CounselCallbackHandler extends BaseCallbackHandler {
-  readonly name = 'CounselCallbackHandler';
+export class VaneCallbackHandler extends BaseCallbackHandler {
+  readonly name = 'VaneCallbackHandler';
 
   private readonly baseUrl: string;
   private readonly apiKey: string;
@@ -49,7 +49,7 @@ export class CounselCallbackHandler extends BaseCallbackHandler {
   private readonly pendingLLMs = new Map<string, PendingLLM>();
   private readonly pendingTools = new Map<string, PendingTool>();
 
-  constructor(options: CounselCallbackHandlerOptions) {
+  constructor(options: VaneCallbackHandlerOptions) {
     super();
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
     this.apiKey = options.apiKey;
@@ -72,7 +72,7 @@ export class CounselCallbackHandler extends BaseCallbackHandler {
         payload,
       }),
     }).catch((err: unknown) => {
-      console.error('[Counsel] attest failed:', err);
+      console.error('[Vane] attest failed:', err);
     });
   }
 

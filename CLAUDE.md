@@ -1,8 +1,8 @@
-# Counsel — Architecture Reference
+# Vane — Architecture Reference
 
 ## What This Is
 
-Counsel is a trust and attestation layer for AI agents. Its core job is to produce a tamper-evident, cryptographically signed log of every action an agent takes, along with proof of *who* authorized that action and under what delegation. The log is auditable by third parties without trusting the server.
+Vane is a trust and attestation layer for AI agents. Its core job is to produce a tamper-evident, cryptographically signed log of every action an agent takes, along with proof of *who* authorized that action and under what delegation. The log is auditable by third parties without trusting the server.
 
 The three problems it solves:
 
@@ -38,7 +38,7 @@ src/
 
 packages/
   sdk/
-    src/index.ts       TypeScript client SDK (CounselClient)
+    src/index.ts       TypeScript client SDK (VaneClient)
     test.ts            Manual integration test for the SDK
 ```
 
@@ -65,7 +65,7 @@ Five tables, managed by `src/db/store.ts`. The constructor runs `CREATE TABLE IF
 ```sql
 CREATE TABLE companies (
   company_id    TEXT PRIMARY KEY,
-  spiffe_id     TEXT NOT NULL UNIQUE,  -- spiffe://counsel.local/company/{id}
+  spiffe_id     TEXT NOT NULL UNIQUE,  -- spiffe://vane.local/company/{id}
   registered_at TEXT NOT NULL,
   metadata      TEXT                    -- JSON, nullable
 );
@@ -104,7 +104,7 @@ CREATE TABLE agents (
   PRIMARY KEY (agent_id, company_id)
 );
 ```
-Agent registry, namespaced per company. The same `agentId` string can exist in multiple companies. `spiffe_id` is globally unique because it embeds the company: `spiffe://counsel.local/company/{companyId}/agent/{agentId}`.
+Agent registry, namespaced per company. The same `agentId` string can exist in multiple companies. `spiffe_id` is globally unique because it embeds the company: `spiffe://vane.local/company/{companyId}/agent/{agentId}`.
 
 ### `records`
 ```sql
@@ -154,9 +154,9 @@ Creates a new company tenant. Generates an Ed25519 key pair, an empty attestatio
 ```json
 {
   "companyId":      "acme",
-  "spiffeId":       "spiffe://counsel.local/company/acme",
+  "spiffeId":       "spiffe://vane.local/company/acme",
   "registeredAt":   "2026-01-01T00:00:00.000Z",
-  "apiKey":         "counsel_<hex>"
+  "apiKey":         "vane_<hex>"
 }
 ```
 
@@ -181,7 +181,7 @@ Creates an additional API key scoped to the authenticated company.
 
 **Response 201**
 ```json
-{ "key": "counsel_<hex>", "createdAt": "..." }
+{ "key": "vane_<hex>", "createdAt": "..." }
 ```
 
 ---
@@ -199,7 +199,7 @@ Registers an agent under the authenticated company and issues its initial JWT-SV
 ```json
 {
   "agentId":      "agent-1",
-  "spiffeId":     "spiffe://counsel.local/company/acme/agent/agent-1",
+  "spiffeId":     "spiffe://vane.local/company/acme/agent/agent-1",
   "svid":         "<jwt>",
   "registeredAt": "2026-01-01T00:00:00.000Z"
 }
@@ -223,7 +223,7 @@ Issues a JWT-SVID for the authenticated company identity (the delegation subject
 ```json
 {
   "companyId": "acme",
-  "spiffeId":  "spiffe://counsel.local/company/acme",
+  "spiffeId":  "spiffe://vane.local/company/acme",
   "svid":      "<jwt>"
 }
 ```
@@ -254,7 +254,7 @@ RFC 8693 §2 token exchange. Takes two pre-issued JWT-SVIDs and produces a deleg
   "issued_token_type": "urn:ietf:params:oauth:token-type:jwt",
   "token_type":      "N_A",
   "expires_in":      3600,
-  "delegation_chain": ["spiffe://counsel.local/company/acme", "spiffe://counsel.local/company/acme/agent/agent-1"]
+  "delegation_chain": ["spiffe://vane.local/company/acme", "spiffe://vane.local/company/acme/agent/agent-1"]
 }
 ```
 
@@ -281,8 +281,8 @@ Simplified delegation token issuance. Builds SPIFFE IDs from raw identifiers usi
 ```json
 {
   "token": "<signed jwt>",
-  "sub":   "spiffe://counsel.local/company/acme",
-  "act":   { "sub": "spiffe://counsel.local/company/acme/agent/agent-1" },
+  "sub":   "spiffe://vane.local/company/acme",
+  "act":   { "sub": "spiffe://vane.local/company/acme/agent/agent-1" },
   "jti":   "uuid",
   "scope": "attest:write"
 }
@@ -317,9 +317,9 @@ If `delegation` is present, the server verifies the JWT (signature + expiry + au
   "timestamp":  "2026-01-01T00:00:00.000Z",
   "payload":    { "agentId": "agent-1", "companyId": "acme", "actionType": "data-query", "payload": { ... } },
   "delegation": {
-    "subject":         "spiffe://counsel.local/company/acme",
-    "delegationChain": ["spiffe://counsel.local/company/acme", "spiffe://counsel.local/agent/agent-1"],
-    "act":             { "sub": "spiffe://counsel.local/agent/agent-1" },
+    "subject":         "spiffe://vane.local/company/acme",
+    "delegationChain": ["spiffe://vane.local/company/acme", "spiffe://vane.local/agent/agent-1"],
+    "act":             { "sub": "spiffe://vane.local/agent/agent-1" },
     "tokenId":         "cb6a2a5e-21ad-4d2c-80c9-d37516f276ab"
   },
   "hash":       "f651...",
@@ -420,15 +420,15 @@ This supports O(log n) inclusion proofs. The root returned by `GET /v1/verify` a
 
 ### SPIFFE JWT-SVID format
 
-All JWTs issued by Counsel follow the SPIFFE JWT-SVID spec:
+All JWTs issued by Vane follow the SPIFFE JWT-SVID spec:
 
 **Header**: `{ "alg": "EdDSA", "typ": "JWT", "kid": "<16-hex-char key ID>" }`
 
 **Claims**:
 ```json
 {
-  "sub": "spiffe://counsel.local/agent/agent-1",
-  "aud": ["counsel"],
+  "sub": "spiffe://vane.local/agent/agent-1",
+  "aud": ["vane"],
   "iat": 1700000000,
   "exp": 1700003600,
   "jti": "uuid-v4",
@@ -437,7 +437,7 @@ All JWTs issued by Counsel follow the SPIFFE JWT-SVID spec:
 }
 ```
 
-`verifyJwtSvid` checks: valid EdDSA signature, not expired, audience contains `"counsel"`, `sub` matches the SPIFFE ID pattern `^spiffe://[^/]+/.+$`.
+`verifyJwtSvid` checks: valid EdDSA signature, not expired, audience contains `"vane"`, `sub` matches the SPIFFE ID pattern `^spiffe://[^/]+/.+$`.
 
 ### RFC 8693 delegation chain
 
@@ -461,7 +461,7 @@ round 2: sub-agent-B presents the round-1 token to act on behalf of company
 - **Delegation** — RFC 8693 token exchange (`/v1/token/exchange`) and simplified delegation issuance (`/v1/token-exchange`); delegation chain preservation across multi-hop exchanges; delegation bound cryptographically to attestation records
 - **Persistence** — SQLite via `node:sqlite` DatabaseSync; schema migration for backward compatibility with older DB files
 - **HTTP API** — all endpoints described above, built on Hono
-- **TypeScript SDK** — `@vane.build/sdk` in `packages/sdk`; ships both CJS and ESM builds; `CounselClient` with `attest()` and `getProof()` methods
+- **TypeScript SDK** — `@vane.build/sdk` in `packages/sdk`; ships both CJS and ESM builds; `VaneClient` with `attest()` and `getProof()` methods
 
 ---
 
@@ -477,11 +477,11 @@ round 2: sub-agent-B presents the round-1 token to act on behalf of company
 
 4. **No JWT revocation** — Issued SVIDs and delegation tokens are valid until their `exp`. There is no revocation list, no short-lived rotation, no introspection endpoint.
 
-5. **Single trust domain** — `SPIFFE_TRUST_DOMAIN` is a single global env var. All companies share the same trust domain (`counsel.local` by default). Separate trust domains are not supported.
+5. **Single trust domain** — `SPIFFE_TRUST_DOMAIN` is a single global env var. All companies share the same trust domain (`vane.local` by default). Separate trust domains are not supported.
 
 **SDK**
 
-6. **SDK uses old field name** — `CounselClient.attest()` correctly sends `delegation` in the request body (`packages/sdk/src/index.ts`), matching the server. The `companyId` parameter in `attest()` is still passed in the body and will be embedded in the attestation payload (harmless but redundant — the server always uses the company from auth).
+6. **SDK uses old field name** — `VaneClient.attest()` correctly sends `delegation` in the request body (`packages/sdk/src/index.ts`), matching the server. The `companyId` parameter in `attest()` is still passed in the body and will be embedded in the attestation payload (harmless but redundant — the server always uses the company from auth).
 
 **Operational**
 

@@ -1,8 +1,8 @@
 import { verifyPassport } from './verify.js';
 import type {
   AttestationReceipt,
-  CounselMiddlewareOptions,
-  CounselPassportClaims,
+  VaneMiddlewareOptions,
+  VanePassportClaims,
   PassportVerificationResult,
   VerifyOptions,
 } from './types.js';
@@ -11,26 +11,26 @@ const PACKAGE_VERSION = '@vane.build/mcp-middleware@0.1.0';
 
 // Header name used to pass the attestation receipt to downstream handlers.
 // Value is a base64url-encoded JSON AttestationReceipt.
-export const RECEIPT_HEADER = 'x-counsel-receipt';
+export const RECEIPT_HEADER = 'x-vane-receipt';
 
 // ── Receipt construction ──────────────────────────────────────────────────────
 
 function buildReceipt(
-  claims: CounselPassportClaims,
+  claims: VanePassportClaims,
   scopeGranted: string,
   tool: string,
 ): AttestationReceipt {
   return {
     v: 1,
-    type: 'CounselAttestationReceipt',
+    type: 'VaneAttestationReceipt',
     passportId: claims.jti,
-    agentId: claims.counsel.agentId,
+    agentId: claims.vane.agentId,
     agentSpiffeId: claims.sub,
-    org: claims.counsel.org,
-    orgSpiffeId: claims.counsel.orgSpiffeId,
+    org: claims.vane.org,
+    orgSpiffeId: claims.vane.orgSpiffeId,
     tool,
     scopeGranted,
-    delegationChain: claims.counsel.delegationChain,
+    delegationChain: claims.vane.delegationChain,
     issuedBy: claims.iss,
     passportIssuedAt: new Date(claims.iat * 1000).toISOString(),
     passportExpiresAt: new Date(claims.exp * 1000).toISOString(),
@@ -79,15 +79,15 @@ function unauthorizedJson(
 
 // ── Middleware factory ────────────────────────────────────────────────────────
 
-export function createCounselMiddleware(opts: CounselMiddlewareOptions) {
-  const { counselPublicKey, exposeErrors = true } = opts;
+export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
+  const { vanePublicKey, exposeErrors = true } = opts;
 
   /**
    * Pure verification — call this when you already have the passport token
    * and want to verify it outside of a request context.
    */
   function verify(token: string, verifyOpts: VerifyOptions = {}): PassportVerificationResult {
-    return verifyPassport(token, counselPublicKey, verifyOpts);
+    return verifyPassport(token, vanePublicKey, verifyOpts);
   }
 
   /**
@@ -95,11 +95,11 @@ export function createCounselMiddleware(opts: CounselMiddlewareOptions) {
    *
    * Reads the Authorization: Bearer <passport> header, parses the MCP JSON-RPC
    * body to extract the tool name, verifies the passport, and:
-   *   - On success: forwards the request with X-Counsel-Receipt added
+   *   - On success: forwards the request with X-Vane-Receipt added
    *   - On failure: returns 401 with a JSON error body
    *
    * The downstream handler reads the receipt with:
-   *   const receipt = decodeReceipt(req.headers.get('x-counsel-receipt'));
+   *   const receipt = decodeReceipt(req.headers.get('x-vane-receipt'));
    */
   function fetchMiddleware(): (
     req: Request,
@@ -140,13 +140,13 @@ export function createCounselMiddleware(opts: CounselMiddlewareOptions) {
    * Express/Connect-compatible middleware.
    *
    * Assumes req.body has already been parsed (e.g., by express.json()).
-   * Attaches the decoded AttestationReceipt to req.counselReceipt on success.
+   * Attaches the decoded AttestationReceipt to req.vaneReceipt on success.
    *
    * Usage:
    *   app.use(express.json());
-   *   app.use(counsel.expressMiddleware());
+   *   app.use(vane.expressMiddleware());
    *   app.post('/mcp', (req, res) => {
-   *     console.log(req.counselReceipt);
+   *     console.log(req.vaneReceipt);
    *   });
    */
   function expressMiddleware(): (req: unknown, res: unknown, next: (err?: unknown) => void) => void {
@@ -175,7 +175,7 @@ export function createCounselMiddleware(opts: CounselMiddlewareOptions) {
       }
 
       const receipt = buildReceipt(result.claims, result.scopeGranted, tool ?? '(not an MCP tool call)');
-      r['counselReceipt'] = receipt;
+      r['vaneReceipt'] = receipt;
       next();
     };
   }
@@ -189,7 +189,7 @@ export function createCounselMiddleware(opts: CounselMiddlewareOptions) {
    * Usage:
    *   server.setRequestHandler(
    *     CallToolRequestSchema,
-   *     counsel.mcpHandler(async (request, receipt) => {
+   *     vane.mcpHandler(async (request, receipt) => {
    *       // receipt is a verified AttestationReceipt
    *       return { content: [{ type: 'text', text: 'ok' }] };
    *     })

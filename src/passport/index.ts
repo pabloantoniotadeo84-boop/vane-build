@@ -3,7 +3,7 @@ export type { IssuePassportOptions } from './credential.js';
 export { verifyPassport, matchScope } from './verify.js';
 export type { VerifyPassportOptions } from './verify.js';
 export type {
-  CounselPassportClaims,
+  VanePassportClaims,
   AttestationReceipt,
   PassportVerificationResult,
   PassportErrorCode,

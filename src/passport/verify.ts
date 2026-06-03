@@ -1,6 +1,6 @@
 import { verify as cryptoVerify, createPublicKey } from 'node:crypto';
 import { validateSpiffeId } from '../crypto/spiffe.js';
-import type { CounselPassportClaims, PassportErrorCode, PassportVerificationResult } from './types.js';
+import type { VanePassportClaims, PassportErrorCode, PassportVerificationResult } from './types.js';
 
 export { PASSPORT_AUDIENCE } from './credential.js';
 
@@ -11,12 +11,10 @@ function fromB64url(s: string): Buffer {
 }
 
 export interface VerifyPassportOptions {
-  // Ed25519 SPKI PEM of the Counsel CA root key.
-  // This is the only secret the verifier needs to hold.
+  // Ed25519 SPKI PEM of the Vane CA root key.
   caPublicKey: string;
 
   // If provided, the passport must grant a scope covering "tool:<tool>".
-  // Omit to verify the passport without a tool-level scope check.
   tool?: string;
 
   // Override current time for testing. Unix seconds.
@@ -24,11 +22,11 @@ export interface VerifyPassportOptions {
 }
 
 /**
- * Verifies a Counsel Agent Passport (CAP+JWT) offline.
+ * Verifies a Vane Agent Passport (CAP+JWT) offline.
  *
  * This function makes no network calls. It requires only:
  *   1. The raw passport token
- *   2. The Counsel CA public key (published, static)
+ *   2. The Vane CA public key (published, static)
  *
  * Verification steps (in order):
  *   1.  Parse — split by ".", decode header and payload JSON
@@ -37,11 +35,11 @@ export interface VerifyPassportOptions {
  *   4.  Signature — Ed25519 over "header.payload" using caPublicKey
  *   5.  Expiry — exp must be in the future
  *   6.  Not-before — nbf must be in the past (if present)
- *   7.  Audience — aud must include "counsel:passport:v1"
+ *   7.  Audience — aud must include "vane:passport:v1"
  *   8.  Issuer — iss must be a valid SPIFFE URI
  *   9.  Subject — sub must be a valid SPIFFE URI
- *   10. Counsel claims — "counsel" object must be present
- *   11. Version — counsel.v must be in SUPPORTED_VERSIONS
+ *   10. Vane claims — "vane" object must be present
+ *   11. Version — vane.v must be in SUPPORTED_VERSIONS
  *   12. Chain coherence — delegationChain tail must equal sub
  *   13. Scope — if tool is provided, scopes must cover "tool:<tool>"
  */
@@ -107,8 +105,8 @@ export function verifyPassport(
 
   // Step 7 — audience
   const aud = rawClaims['aud'];
-  if (!Array.isArray(aud) || !aud.includes('counsel:passport:v1')) {
-    return fail('AUDIENCE_MISMATCH', 'Passport audience must include "counsel:passport:v1"');
+  if (!Array.isArray(aud) || !aud.includes('vane:passport:v1')) {
+    return fail('AUDIENCE_MISMATCH', 'Passport audience must include "vane:passport:v1"');
   }
 
   // Step 8 — issuer
@@ -123,12 +121,12 @@ export function verifyPassport(
     return fail('INVALID_SUBJECT', `sub is not a valid SPIFFE ID: ${String(sub)}`);
   }
 
-  // Step 10 — counsel claims object
-  const counsel = rawClaims['counsel'];
-  if (counsel === null || typeof counsel !== 'object' || Array.isArray(counsel)) {
-    return fail('MALFORMED_CLAIMS', 'Missing or malformed "counsel" claim object');
+  // Step 10 — vane claims object
+  const vane = rawClaims['vane'];
+  if (vane === null || typeof vane !== 'object' || Array.isArray(vane)) {
+    return fail('MALFORMED_CLAIMS', 'Missing or malformed "vane" claim object');
   }
-  const c = counsel as Record<string, unknown>;
+  const c = vane as Record<string, unknown>;
 
   // Step 11 — version
   if (!SUPPORTED_VERSIONS.has(c['v'] as number)) {
@@ -136,12 +134,12 @@ export function verifyPassport(
   }
 
   if (!Array.isArray(c['scopes']) || (c['scopes'] as unknown[]).length === 0) {
-    return fail('MALFORMED_CLAIMS', '"counsel.scopes" must be a non-empty array');
+    return fail('MALFORMED_CLAIMS', '"vane.scopes" must be a non-empty array');
   }
   const scopes = c['scopes'] as string[];
 
   if (!Array.isArray(c['delegationChain']) || (c['delegationChain'] as unknown[]).length === 0) {
-    return fail('MALFORMED_CLAIMS', '"counsel.delegationChain" must be a non-empty array');
+    return fail('MALFORMED_CLAIMS', '"vane.delegationChain" must be a non-empty array');
   }
   const chain = c['delegationChain'] as string[];
 
@@ -171,7 +169,7 @@ export function verifyPassport(
     scopeGranted = scopes[0];
   }
 
-  return { valid: true, claims: rawClaims as unknown as CounselPassportClaims, scopeGranted };
+  return { valid: true, claims: rawClaims as unknown as VanePassportClaims, scopeGranted };
 }
 
 /**

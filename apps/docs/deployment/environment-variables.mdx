@@ -7,24 +7,24 @@ description: "Every environment variable Vane reads, with types, defaults, and r
 
 | Variable | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `DATABASE_URL` | `string` | — | **Yes** | PostgreSQL connection string. Example: `postgresql://user:pass@host:5432/counsel`. |
+| `DATABASE_URL` | `string` | — | **Yes** | PostgreSQL connection string. Example: `postgresql://user:pass@host:5432/vane`. |
 | `PORT` | `number` | `3000` | No | Port the HTTP server listens on. |
-| `COUNSEL_BASE_URL` | `string` | Inferred from `Host` + `X-Forwarded-Proto` | No | Public base URL of this Vane instance. Set this when running behind a reverse proxy so the `jwks_uri` in `GET /v1/ca/well-known` is correct. Example: `https://vane.build`. |
+| `VANE_BASE_URL` | `string` | Inferred from `Host` + `X-Forwarded-Proto` | No | Public base URL of this Vane instance. Set this when running behind a reverse proxy so the `jwks_uri` in `GET /v1/ca/well-known` is correct. Example: `https://vane.build`. |
 
 ## Security
 
 | Variable | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `COUNSEL_MASTER_KEY` | `string` | — | No (strongly recommended) | Passphrase used to encrypt Ed25519 private keys at rest with AES-256-GCM. Derive the actual key as SHA-256 of this string. Use a 64-character random hex string for adequate entropy. If not set, keys are stored in plaintext and a warning is logged. |
+| `VANE_MASTER_KEY` | `string` | — | No (strongly recommended) | Passphrase used to encrypt Ed25519 private keys at rest with AES-256-GCM. Derive the actual key as SHA-256 of this string. Use a 64-character random hex string for adequate entropy. If not set, keys are stored in plaintext and a warning is logged. |
 | `SPIFFE_TRUST_DOMAIN` | `string` | `vane.local` | No | Trust domain used in all SPIFFE IDs. Example: `vane.build`. All companies in one deployment share this domain. |
 
 ## mTLS
 
 | Variable | Type | Default | Required for mTLS | Description |
 |----------|------|---------|-------------------|-------------|
-| `COUNSEL_MTLS_CA_CERT` | `string` | — | Enables mTLS | PEM-encoded CA certificate used to verify client certificates. Accepts raw PEM or a file path. Setting this variable switches the server to HTTPS mode. |
-| `COUNSEL_TLS_CERT` | `string` | — | Yes (when mTLS enabled) | PEM-encoded server certificate. Accepts raw PEM or a file path. |
-| `COUNSEL_TLS_KEY` | `string` | — | Yes (when mTLS enabled) | PEM-encoded server private key. Accepts raw PEM or a file path. |
+| `VANE_MTLS_CA_CERT` | `string` | — | Enables mTLS | PEM-encoded CA certificate used to verify client certificates. Accepts raw PEM or a file path. Setting this variable switches the server to HTTPS mode. |
+| `VANE_TLS_CERT` | `string` | — | Yes (when mTLS enabled) | PEM-encoded server certificate. Accepts raw PEM or a file path. |
+| `VANE_TLS_KEY` | `string` | — | Yes (when mTLS enabled) | PEM-encoded server private key. Accepts raw PEM or a file path. |
 
 ## Observability
 
@@ -37,10 +37,10 @@ description: "Every environment variable Vane reads, with types, defaults, and r
 
 | Variable | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `COUNSEL_API_URL` | `string` | — | **Yes** | Base URL of the Vane server. Example: `https://vane.build`. |
-| `COUNSEL_API_KEY` | `string` | — | **Yes** | Company-scoped API key. |
-| `COUNSEL_AGENT_ID` | `string` | — | **Yes** | Agent ID pre-registered on the server. |
-| `COUNSEL_COMPANY_ID` | `string` | — | **Yes** | Company ID. |
+| `VANE_API_URL` | `string` | — | **Yes** | Base URL of the Vane server. Example: `https://vane.build`. |
+| `VANE_API_KEY` | `string` | — | **Yes** | Company-scoped API key. |
+| `VANE_AGENT_ID` | `string` | — | **Yes** | Agent ID pre-registered on the server. |
+| `VANE_COMPANY_ID` | `string` | — | **Yes** | Company ID. |
 | `SIDECAR_PORT` | `number` | `8080` | No | Port for the sidecar proxy. Always binds to `127.0.0.1`. |
 | `SIDECAR_AGENT_TARGET` | `string` | — | No | Where to forward verified inbound calls. Required for inbound (reverse proxy) mode. Example: `http://localhost:3001`. |
 | `SIDECAR_CA_CERT_FILE` | `string` | `./vane-ca.pem` | No | File path to write the MITM CA certificate. |
@@ -49,15 +49,15 @@ description: "Every environment variable Vane reads, with types, defaults, and r
 
 ```bash
 # Required
-DATABASE_URL=postgresql://counsel:secret@db.example.com:5432/counsel
+DATABASE_URL=postgresql://vane:secret@db.example.com:5432/vane
 
 # Security
-COUNSEL_MASTER_KEY=a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890
+VANE_MASTER_KEY=a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890
 SPIFFE_TRUST_DOMAIN=vane.build
 
 # Server
 PORT=3000
-COUNSEL_BASE_URL=https://vane.build
+VANE_BASE_URL=https://vane.build
 
 # Observability
 LOG_LEVEL=info
@@ -68,8 +68,8 @@ SENTRY_DSN=https://key@o1234.ingest.sentry.io/5678
 
 The server does not validate `DATABASE_URL` format at startup — PostgreSQL connection errors will surface on the first query. Check the server logs for `pool error` entries if the database is unreachable.
 
-`COUNSEL_MASTER_KEY` is validated lazily — the server starts successfully without it, but logs a warning at startup:
+`VANE_MASTER_KEY` is validated lazily — the server starts successfully without it, but logs a warning at startup:
 
 ```
-WARN  Vane: COUNSEL_MASTER_KEY is not set — private keys are stored in plaintext in the database
+WARN  Vane: VANE_MASTER_KEY is not set — private keys are stored in plaintext in the database
 ```

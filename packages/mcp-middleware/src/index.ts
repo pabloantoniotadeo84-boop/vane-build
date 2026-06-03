@@ -1,10 +1,10 @@
-export { createCounselMiddleware, decodeReceipt, McpAuthError, RECEIPT_HEADER } from './middleware.js';
+export { createVaneMiddleware, decodeReceipt, McpAuthError, RECEIPT_HEADER } from './middleware.js';
 export { verifyPassport, matchScope } from './verify.js';
 export type {
-  CounselPassportClaims,
+  VanePassportClaims,
   AttestationReceipt,
   PassportVerificationResult,
   PassportErrorCode,
-  CounselMiddlewareOptions,
+  VaneMiddlewareOptions,
   VerifyOptions,
 } from './types.js';

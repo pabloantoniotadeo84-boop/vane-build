@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Counsel — Attestation Dashboard',
+  title: 'Vane — Attestation Dashboard',
   description: 'Live attestation chain monitor',
 };
 

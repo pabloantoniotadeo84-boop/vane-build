@@ -1,7 +1,7 @@
 {
   "name": "@vane.build/sdk",
   "version": "0.1.0",
-  "description": "TypeScript SDK for the Counsel attestation API",
+  "description": "TypeScript SDK for the Vane attestation API",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/cjs/index.d.ts",

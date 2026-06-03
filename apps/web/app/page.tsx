@@ -33,7 +33,7 @@ interface VerifyResponse {
 type WsStatus = 'connecting' | 'connected' | 'disconnected';
 
 const API_BASE = '/api';
-const WS_URL = process.env.NEXT_PUBLIC_COUNSEL_WS_URL ?? 'ws://localhost:3000/v1/ws';
+const WS_URL = process.env.NEXT_PUBLIC_VANE_WS_URL ?? 'ws://localhost:3000/v1/ws';
 
 export default function Dashboard() {
   const [records, setRecords] = useState<AttestationRecord[]>([]);
@@ -121,7 +121,7 @@ export default function Dashboard() {
                 />
                 <path d="M12 2v20M3 7l9 5 9-5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
               </svg>
-              <span className="text-[15px] font-semibold text-[#e6edf3] tracking-tight">counsel</span>
+              <span className="text-[15px] font-semibold text-[#e6edf3] tracking-tight">vane</span>
             </div>
             <span className="text-[#4d565e] text-sm">/</span>
             <span className="text-sm text-[#7d8590]">attestation chain</span>
@@ -166,7 +166,7 @@ export default function Dashboard() {
             </svg>
             <span className="text-sm text-red-300">{error}</span>
             <span className="text-xs text-red-500 ml-auto">
-              Ensure the Counsel API is running on <span className="font-mono">localhost:3000</span>
+              Ensure the Vane API is running on <span className="font-mono">localhost:3000</span>
             </span>
           </div>
         )}

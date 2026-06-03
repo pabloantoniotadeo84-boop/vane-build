@@ -21,7 +21,7 @@ Creates a new API key for the authenticated company. Optionally attaches a human
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `key` | `string` | The new API key (prefix: `counsel_`). Shown once. |
+| `key` | `string` | The new API key (prefix: `vane_`). Shown once. |
 | `createdAt` | `string` | ISO 8601 creation timestamp. |
 
 ### Example
@@ -35,7 +35,7 @@ curl -s -X POST http://localhost:3000/v1/keys \
 
 ```json
 {
-  "key": "counsel_f7e8d9c0b1a2...",
+  "key": "vane_f7e8d9c0b1a2...",
   "createdAt": "2026-01-01T00:01:00.000Z"
 }
 ```
@@ -66,12 +66,12 @@ curl -s http://localhost:3000/v1/keys \
 {
   "keys": [
     {
-      "key": "counsel_a1b2c3d4...",
+      "key": "vane_a1b2c3d4...",
       "label": "bootstrap",
       "createdAt": "2026-01-01T00:00:00.000Z"
     },
     {
-      "key": "counsel_f7e8d9c0...",
+      "key": "vane_f7e8d9c0...",
       "label": "production-agent",
       "createdAt": "2026-01-01T00:01:00.000Z"
     }
@@ -111,7 +111,7 @@ This action is irreversible. Any service using the deleted key will receive `401
 
 ```bash
 curl -s -X DELETE \
-  http://localhost:3000/v1/keys/counsel_f7e8d9c0b1a2... \
+  http://localhost:3000/v1/keys/vane_f7e8d9c0b1a2... \
   -H "Authorization: Bearer $API_KEY"
 ```
 

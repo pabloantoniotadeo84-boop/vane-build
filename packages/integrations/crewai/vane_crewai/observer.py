@@ -1,6 +1,6 @@
 """
-CounselObserver — wraps a CrewAI Crew to attest every agent action and
-task completion to the Counsel attestation API.
+VaneObserver — wraps a CrewAI Crew to attest every agent action and
+task completion to the Vane attestation API.
 """
 
 from __future__ import annotations
@@ -12,14 +12,14 @@ import urllib.error
 from typing import Any, Callable, Optional
 
 
-class CounselObserver:
+class VaneObserver:
     """
     Wraps a CrewAI Crew so every agent step and task completion is attested
-    to Counsel. Uses background threads for HTTP calls — never blocks the crew.
+    to Vane. Uses background threads for HTTP calls — never blocks the crew.
 
     Usage (three lines):
-        from counsel_crewai import CounselObserver
-        observer = CounselObserver(base_url="...", api_key="...", agent_id="...")
+        from vane_crewai import VaneObserver
+        observer = VaneObserver(base_url="...", api_key="...", agent_id="...")
         crew = observer.wrap(crew)
     """
 
@@ -145,7 +145,7 @@ class CounselObserver:
                 pass
         except Exception as exc:  # noqa: BLE001
             # Attestation failures must never crash the crew.
-            print(f"[Counsel] attest failed: {exc}")
+            print(f"[Vane] attest failed: {exc}")
 
 
 def _safe_str(obj: Any) -> str:

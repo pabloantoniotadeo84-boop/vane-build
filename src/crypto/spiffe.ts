@@ -1,4 +1,4 @@
-export const TRUST_DOMAIN = process.env.SPIFFE_TRUST_DOMAIN ?? 'counsel.local';
+export const TRUST_DOMAIN = process.env.SPIFFE_TRUST_DOMAIN ?? 'vane.local';
 
 export interface ParsedSpiffeId {
   trustDomain: string;
@@ -8,7 +8,7 @@ export interface ParsedSpiffeId {
 }
 
 // In multi-tenant deployments agents are namespaced under their company:
-//   spiffe://counsel.local/company/{companyId}/agent/{agentId}
+//   spiffe://vane.local/company/{companyId}/agent/{agentId}
 // This guarantees global uniqueness across tenants within the trust domain.
 export function agentSpiffeId(companyId: string, agentId: string): string {
   return `spiffe://${TRUST_DOMAIN}/company/${encodeURIComponent(companyId)}/agent/${encodeURIComponent(agentId)}`;

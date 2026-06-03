@@ -11,7 +11,7 @@ Three authentication methods are supported, tried in this order:
 
 ### 1. mTLS client certificate
 
-When the server is started with `COUNSEL_MTLS_CA_CERT` set, it runs in HTTPS mode and extracts the client certificate's Common Name (CN) as the `companyId`. If the CN matches a registered company, that company's identity is used with no Bearer token required.
+When the server is started with `VANE_MTLS_CA_CERT` set, it runs in HTTPS mode and extracts the client certificate's Common Name (CN) as the `companyId`. If the CN matches a registered company, that company's identity is used with no Bearer token required.
 
 Existing Bearer-token callers continue to work unmodified — mTLS is additive, not a replacement.
 
@@ -22,12 +22,12 @@ See [mTLS configuration](/security/mtls) for setup details.
 The primary authentication method for most deployments. Pass the key as a Bearer token:
 
 ```
-Authorization: Bearer counsel_a1b2c3d4e5f6...
+Authorization: Bearer vane_a1b2c3d4e5f6...
 ```
 
 API keys are created at company registration (one bootstrap key) and via `POST /v1/keys`. Each key is permanently scoped to its company.
 
-API keys are opaque hex strings prefixed with `counsel_`. They are validated with a direct database lookup — no JWT parsing, no expiry.
+API keys are opaque hex strings prefixed with `vane_`. They are validated with a direct database lookup — no JWT parsing, no expiry.
 
 ### 3. OAuth 2.0 Bearer token
 

@@ -32,7 +32,7 @@ All adapters are created from a single factory. The only required option is the 
 import { createVaneMiddleware } from '@vane.build/mcp-middleware';
 
 const vane = createVaneMiddleware({
-  counselPublicKey: process.env.COUNSEL_CA_PUBLIC_KEY!, // Ed25519 SPKI PEM
+  vanePublicKey: process.env.VANE_CA_PUBLIC_KEY!, // Ed25519 SPKI PEM
   exposeErrors: true, // default: true — include error codes in 401 responses
 });
 ```
@@ -41,7 +41,7 @@ const vane = createVaneMiddleware({
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `counselPublicKey` | `string` | required | Ed25519 SPKI PEM of the Vane CA. Obtain from `GET /v1/ca/public-key?companyId=<id>`. Pin this value in your deployment. |
+| `vanePublicKey` | `string` | required | Ed25519 SPKI PEM of the Vane CA. Obtain from `GET /v1/ca/public-key?companyId=<id>`. Pin this value in your deployment. |
 | `exposeErrors` | `boolean` | `true` | If `false`, 401 responses contain only `{ "error": "Unauthorized" }` without error codes or messages. |
 
 ---
@@ -53,7 +53,7 @@ Fetch-compatible middleware for Hono, Next.js Edge, and Cloudflare Workers.
 Reads `Authorization: Bearer <passport>`, parses the MCP JSON-RPC body to extract the tool name, verifies the passport, and either forwards the request with an `x-vane-receipt` header or returns `401`.
 
 ```typescript
-const handler = counsel.fetchMiddleware();
+const handler = vane.fetchMiddleware();
 
 // Hono example
 app.post('/mcp', async (c) => {
@@ -95,17 +95,17 @@ console.log(receipt.delegationChain); // ["spiffe://..."]
 
 ## `expressMiddleware()`
 
-Express/Connect-compatible middleware. Assumes `req.body` has already been parsed by `express.json()`. Attaches the decoded `AttestationReceipt` to `req.counselReceipt` on success.
+Express/Connect-compatible middleware. Assumes `req.body` has already been parsed by `express.json()`. Attaches the decoded `AttestationReceipt` to `req.vaneReceipt` on success.
 
 ```typescript
 import express from 'express';
 import { createVaneMiddleware } from '@vane.build/mcp-middleware';
 
 const app = express();
-const vane = createVaneMiddleware({ counselPublicKey: process.env.COUNSEL_CA_KEY! });
+const vane = createVaneMiddleware({ vanePublicKey: process.env.VANE_CA_KEY! });
 
 app.use(express.json());
-app.use(counsel.expressMiddleware());
+app.use(vane.expressMiddleware());
 
 app.post('/mcp', (req, res) => {
   const receipt = (req as any).counselReceipt;
@@ -127,12 +127,12 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createVaneMiddleware } from '@vane.build/mcp-middleware';
 
-const vane = createVaneMiddleware({ counselPublicKey: process.env.COUNSEL_CA_KEY! });
+const vane = createVaneMiddleware({ vanePublicKey: process.env.VANE_CA_KEY! });
 const server = new Server({ name: 'my-mcp-server', version: '1.0.0' }, { capabilities: { tools: {} } });
 
 server.setRequestHandler(
   CallToolRequestSchema,
-  counsel.mcpHandler(async (request, receipt) => {
+  vane.mcpHandler(async (request, receipt) => {
     // receipt is a verified AttestationReceipt
     console.log(`Verified: agent ${receipt.agentId} calling ${receipt.tool}`);
 
@@ -166,13 +166,13 @@ const result = await client.callTool({
 Raw passport verification — call this when you already have the token and want to verify it outside a request context.
 
 ```typescript
-const result = counsel.verify(token, {
+const result = vane.verify(token, {
   tool: 'web-search', // optional — check that passport grants tool:web-search
   now: Date.now() / 1000, // optional — override current time (for testing)
 });
 
 if (result.valid) {
-  console.log(result.claims.counsel.agentId);
+  console.log(result.claims.vane.agentId);
   console.log(result.scopeGranted);
 } else {
   console.error(result.code, result.error);

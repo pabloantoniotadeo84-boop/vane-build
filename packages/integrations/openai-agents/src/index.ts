@@ -1,18 +1,18 @@
 /**
  * @vane.build/openai-agents
  *
- * Attests every tool call made by an OpenAI Agents SDK agent to Counsel.
+ * Attests every tool call made by an OpenAI Agents SDK agent to Vane.
  *
  * @example
- * import { createCounselHooks } from '@vane.build/openai-agents';
- * const hooks = createCounselHooks({ baseUrl, apiKey, agentId });
+ * import { createVaneHooks } from '@vane.build/openai-agents';
+ * const hooks = createVaneHooks({ baseUrl, apiKey, agentId });
  * await run(agent, 'Review this contract.', { hooks });
  */
 
-export interface CounselAgentOptions {
-  /** Counsel API base URL */
+export interface VaneAgentOptions {
+  /** Vane API base URL */
   baseUrl: string;
-  /** Counsel API key (Bearer token) */
+  /** Vane API key (Bearer token) */
   apiKey: string;
   /** Agent ID that will appear on every attestation record */
   agentId: string;
@@ -23,7 +23,7 @@ export interface CounselAgentOptions {
 // Structural match for @openai/agents RunHooks — no import needed.
 // If @openai/agents changes the hook signatures, users will get a type
 // error at the call site (run(agent, input, { hooks })), not here.
-export interface CounselRunHooks {
+export interface VaneRunHooks {
   onToolStart?: (
     context: object,
     agent: { name?: string },
@@ -59,14 +59,14 @@ interface PendingTool {
 
 /**
  * Returns a RunHooks object for the OpenAI Agents SDK that sends a signed
- * attestation record to Counsel for every tool invocation.
+ * attestation record to Vane for every tool invocation.
  *
  * Pass the result directly as the `hooks` option to `run()`:
  *
- *   const hooks = createCounselHooks({ baseUrl, apiKey, agentId });
+ *   const hooks = createVaneHooks({ baseUrl, apiKey, agentId });
  *   await run(agent, input, { hooks });
  */
-export function createCounselHooks(options: CounselAgentOptions): CounselRunHooks {
+export function createVaneHooks(options: VaneAgentOptions): VaneRunHooks {
   const base = options.baseUrl.replace(/\/$/, '');
   const companyId = options.companyId ?? '';
 
@@ -88,7 +88,7 @@ export function createCounselHooks(options: CounselAgentOptions): CounselRunHook
         payload,
       }),
     }).catch((err: unknown) => {
-      console.error('[Counsel] attest failed:', err);
+      console.error('[Vane] attest failed:', err);
     });
   }
 

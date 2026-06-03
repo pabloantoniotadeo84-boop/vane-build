@@ -5,7 +5,7 @@ description: "Configure mutual TLS client authentication — how it works and wh
 
 ## Overview
 
-When `COUNSEL_MTLS_CA_CERT` is set, the Vane server switches from HTTP to HTTPS and requests (but does not require) a client certificate on every connection. Clients that present a certificate signed by the configured CA, with a Common Name (CN) matching a registered company ID, authenticate via that certificate without needing a Bearer token.
+When `VANE_MTLS_CA_CERT` is set, the Vane server switches from HTTP to HTTPS and requests (but does not require) a client certificate on every connection. Clients that present a certificate signed by the configured CA, with a Common Name (CN) matching a registered company ID, authenticate via that certificate without needing a Bearer token.
 
 Clients without certificates fall through to normal API key / OAuth token authentication, so existing callers continue to work unmodified.
 
@@ -15,25 +15,25 @@ Three environment variables are required to enable mTLS:
 
 | Variable | Description |
 |----------|-------------|
-| `COUNSEL_MTLS_CA_CERT` | PEM-encoded CA certificate used to verify client certificates. Accepts either the raw PEM string or a file path. |
-| `COUNSEL_TLS_CERT` | PEM-encoded server certificate. Accepts PEM string or file path. |
-| `COUNSEL_TLS_KEY` | PEM-encoded server private key. Accepts PEM string or file path. |
+| `VANE_MTLS_CA_CERT` | PEM-encoded CA certificate used to verify client certificates. Accepts either the raw PEM string or a file path. |
+| `VANE_TLS_CERT` | PEM-encoded server certificate. Accepts PEM string or file path. |
+| `VANE_TLS_KEY` | PEM-encoded server private key. Accepts PEM string or file path. |
 
-If `COUNSEL_MTLS_CA_CERT` is set but `COUNSEL_TLS_CERT` or `COUNSEL_TLS_KEY` is missing, the server logs a fatal error and exits.
+If `VANE_MTLS_CA_CERT` is set but `VANE_TLS_CERT` or `VANE_TLS_KEY` is missing, the server logs a fatal error and exits.
 
 ```bash
-COUNSEL_MTLS_CA_CERT=/etc/ssl/vane-ca.pem \
-COUNSEL_TLS_CERT=/etc/ssl/vane-server.pem \
-COUNSEL_TLS_KEY=/etc/ssl/vane-server-key.pem \
+VANE_MTLS_CA_CERT=/etc/ssl/vane-ca.pem \
+VANE_TLS_CERT=/etc/ssl/vane-server.pem \
+VANE_TLS_KEY=/etc/ssl/vane-server-key.pem \
 npm start
 ```
 
 Or with inline PEM:
 
 ```bash
-COUNSEL_MTLS_CA_CERT="$(cat /etc/ssl/vane-ca.pem)" \
-COUNSEL_TLS_CERT="$(cat /etc/ssl/server.pem)" \
-COUNSEL_TLS_KEY="$(cat /etc/ssl/server-key.pem)" \
+VANE_MTLS_CA_CERT="$(cat /etc/ssl/vane-ca.pem)" \
+VANE_TLS_CERT="$(cat /etc/ssl/server.pem)" \
+VANE_TLS_KEY="$(cat /etc/ssl/server-key.pem)" \
 npm start
 ```
 

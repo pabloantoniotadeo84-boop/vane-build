@@ -106,7 +106,7 @@ app.get('/', async (c) => {
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
 // Resolution order:
-//   1. mTLS client certificate CN → companyId (when COUNSEL_MTLS_CA_CERT is set)
+//   1. mTLS client certificate CN → companyId (when VANE_MTLS_CA_CERT is set)
 //   2. Bearer <api_key>           → api_keys table
 //   3. Bearer <oauth_token>       → oauth_tokens table (prefix: "oauth_")
 
@@ -122,9 +122,9 @@ app.use('/v1/*', async (c, next) => {
   if (isPublic) return next();
 
   // 1. mTLS: extract CN from a verified client certificate.
-  //    Only attempted when the server was started with COUNSEL_MTLS_CA_CERT set
+  //    Only attempted when the server was started with VANE_MTLS_CA_CERT set
   //    (i.e., the underlying socket is a TLSSocket).
-  if (process.env.COUNSEL_MTLS_CA_CERT) {
+  if (process.env.VANE_MTLS_CA_CERT) {
     try {
       const incoming = (c.env as unknown as { incoming?: IncomingMessage }).incoming;
       const socket = incoming?.socket as TLSSocket | undefined;
@@ -482,9 +482,9 @@ app.post('/v1/agents/:agentId/passport/rotate', async (c) => {
   const tenant = tenants.get(companyId)!;
   const agentId = c.req.param('agentId');
 
-  const currentPassport = c.req.header('Counsel-Passport');
+  const currentPassport = c.req.header('Vane-Passport');
   if (!currentPassport) {
-    return c.json({ error: 'Missing Counsel-Passport header' }, 400);
+    return c.json({ error: 'Missing Vane-Passport header' }, 400);
   }
 
   const verification = verifyPassport(currentPassport, { caPublicKey: tenant.keys.publicKey });
@@ -493,10 +493,10 @@ app.post('/v1/agents/:agentId/passport/rotate', async (c) => {
   }
   const { claims } = verification;
 
-  if (claims.counsel.agentId !== agentId) {
+  if (claims.vane.agentId !== agentId) {
     return c.json({ error: 'Passport does not belong to the specified agent' }, 403);
   }
-  if (claims.counsel.org !== companyId) {
+  if (claims.vane.org !== companyId) {
     return c.json({ error: 'Passport was not issued by the authenticated company' }, 403);
   }
 
@@ -513,11 +513,11 @@ app.post('/v1/agents/:agentId/passport/rotate', async (c) => {
   const newPassport = issuePassport({
     agentId,
     agentSpiffeId: agent.spiffeId,
-    org: claims.counsel.org,
-    orgSpiffeId: claims.counsel.orgSpiffeId,
-    scopes: claims.counsel.scopes,
-    delegationChain: claims.counsel.delegationChain,
-    ...(claims.counsel.delegationId !== undefined && { delegationId: claims.counsel.delegationId }),
+    org: claims.vane.org,
+    orgSpiffeId: claims.vane.orgSpiffeId,
+    scopes: claims.vane.scopes,
+    delegationChain: claims.vane.delegationChain,
+    ...(claims.vane.delegationId !== undefined && { delegationId: claims.vane.delegationId }),
     ttl,
     privateKeyPem: tenant.keys.privateKey,
     publicKeyPem: tenant.keys.publicKey,
@@ -527,9 +527,9 @@ app.post('/v1/agents/:agentId/passport/rotate', async (c) => {
     agentId,
     spiffeId: agent.spiffeId,
     org: companyId,
-    orgSpiffeId: claims.counsel.orgSpiffeId,
-    scopes: claims.counsel.scopes,
-    delegationChain: claims.counsel.delegationChain,
+    orgSpiffeId: claims.vane.orgSpiffeId,
+    scopes: claims.vane.scopes,
+    delegationChain: claims.vane.delegationChain,
     passport: newPassport,
     expiresIn: ttl,
     caPublicKey: tenant.keys.publicKey,
@@ -572,20 +572,20 @@ app.post('/v1/passport/verify', async (c) => {
 
   const receipt: AttestationReceipt = {
     v: 1,
-    type: 'CounselAttestationReceipt',
+    type: 'VaneAttestationReceipt',
     passportId: claims.jti,
-    agentId: claims.counsel.agentId,
+    agentId: claims.vane.agentId,
     agentSpiffeId: claims.sub,
-    org: claims.counsel.org,
-    orgSpiffeId: claims.counsel.orgSpiffeId,
+    org: claims.vane.org,
+    orgSpiffeId: claims.vane.orgSpiffeId,
     tool: typeof tool === 'string' ? tool : '(not checked)',
     scopeGranted,
-    delegationChain: claims.counsel.delegationChain,
+    delegationChain: claims.vane.delegationChain,
     issuedBy: claims.iss,
     passportIssuedAt: new Date(claims.iat * 1000).toISOString(),
     passportExpiresAt: new Date(claims.exp * 1000).toISOString(),
     verifiedAt: new Date().toISOString(),
-    verifier: 'counsel-server/0.1.0',
+    verifier: 'vane-server/0.1.0',
   };
 
   return c.json({ valid: true, claims, scopeGranted, receipt });
@@ -831,7 +831,7 @@ app.get('/v1/proof/:index', (c) => {
 
 // ── CA public-key & discovery ─────────────────────────────────────────────────
 
-// Convert an Ed25519 SPKI PEM to a JWK object with Counsel-standard fields.
+// Convert an Ed25519 SPKI PEM to a JWK object with Vane-standard fields.
 function pemToJwk(publicKeyPem: string, kid: string): Record<string, unknown> {
   const raw = createPublicKey(publicKeyPem).export({ format: 'jwk' }) as Record<string, unknown>;
   return { ...raw, kid, alg: 'EdDSA', use: 'sig' };
@@ -914,12 +914,12 @@ app.get('/v1/ca/well-known', async (c) => {
   const fingerprint = pemFingerprint(tenant.keys.publicKey);
 
   // Construct the base URL from the request so the document is self-describing.
-  // COUNSEL_BASE_URL env var overrides inference from Host + X-Forwarded-Proto.
-  const proto = process.env.COUNSEL_BASE_URL
+  // VANE_BASE_URL env var overrides inference from Host + X-Forwarded-Proto.
+  const proto = process.env.VANE_BASE_URL
     ? ''
     : (c.req.header('X-Forwarded-Proto') ?? 'http');
   const host = c.req.header('Host') ?? 'localhost:3000';
-  const baseUrl = process.env.COUNSEL_BASE_URL ?? `${proto}://${host}`;
+  const baseUrl = process.env.VANE_BASE_URL ?? `${proto}://${host}`;
   const jwksUri = `${baseUrl}/v1/ca/public-key?companyId=${encodeURIComponent(companyId)}`;
 
   c.header('Cache-Control', 'public, max-age=3600');
@@ -931,7 +931,7 @@ app.get('/v1/ca/well-known', async (c) => {
     response_types_supported: ['token'],
     token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic'],
 
-    // Counsel-specific identity context
+    // Vane-specific identity context
     company_id: companyId,
     company_spiffe_id: company.spiffeId,
     trust_domain: TRUST_DOMAIN,
@@ -946,18 +946,18 @@ app.get('/v1/ca/well-known', async (c) => {
     // Inline JWKS for verifiers that don't want a second round-trip
     keys: [jwk],
 
-    // Counsel Agent Passport (CAP) format specification
+    // Vane Agent Passport (CAP) format specification
     passport_format: {
       version: 1,
       token_type: 'CAP+JWT',
       audience: PASSPORT_AUDIENCE,
-      claims_namespace: 'counsel',
+      claims_namespace: 'vane',
       scope_format: 'category:name',
       scope_wildcards_supported: true,
     },
 
     // SDK and server metadata
-    counsel_version: '0.1.0',
+    vane_version: '0.1.0',
   });
 });
 

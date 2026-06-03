@@ -3,13 +3,13 @@ package provider
 import (
 	"fmt"
 
-	"github.com/counsel/terraform-provider-counsel/internal/client"
+	"github.com/vane-build/terraform-provider-vane/internal/client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceAPIKey() *schema.Resource {
 	return &schema.Resource{
-		Description: "Creates an additional API key scoped to a Counsel company." +
+		Description: "Creates an additional API key scoped to a Vane company." +
 			" The key value is shown once and stored in Terraform state.",
 
 		Create: resourceAPIKeyCreate,

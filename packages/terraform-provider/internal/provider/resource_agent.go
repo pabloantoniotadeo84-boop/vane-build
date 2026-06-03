@@ -3,20 +3,20 @@ package provider
 import (
 	"fmt"
 
-	"github.com/counsel/terraform-provider-counsel/internal/client"
+	"github.com/vane-build/terraform-provider-vane/internal/client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceAgent() *schema.Resource {
 	return &schema.Resource{
-		Description: "Registers an agent under a Counsel company.",
+		Description: "Registers an agent under a Vane company.",
 
 		Create: resourceAgentCreate,
 		Read:   resourceAgentRead,
 		Update: resourceAgentUpdate,
 		Delete: resourceAgentDelete,
 
-		// Import: terraform import counsel_agent.bot "<agent-id>/<company-api-key>"
+		// Import: terraform import vane_agent.bot "<agent-id>/<company-api-key>"
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -132,7 +132,7 @@ func resourceAgentUpdate(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-// resourceAgentDelete is a no-op. The Counsel API does not expose an agent
+// resourceAgentDelete is a no-op. The Vane API does not expose an agent
 // deletion endpoint. Terraform removes the resource from state only.
 func resourceAgentDelete(_ *schema.ResourceData, _ interface{}) error {
 	return nil

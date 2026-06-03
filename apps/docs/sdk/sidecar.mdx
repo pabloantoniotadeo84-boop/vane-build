@@ -27,10 +27,10 @@ All configuration is via environment variables. None have defaults except `SIDEC
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `COUNSEL_API_URL` | **Yes** | — | Base URL of the Vane server (e.g., `https://vane.build`). |
-| `COUNSEL_API_KEY` | **Yes** | — | Company-scoped API key. |
-| `COUNSEL_AGENT_ID` | **Yes** | — | Agent ID pre-registered on the Vane server. |
-| `COUNSEL_COMPANY_ID` | **Yes** | — | Company ID. |
+| `VANE_API_URL` | **Yes** | — | Base URL of the Vane server (e.g., `https://vane.build`). |
+| `VANE_API_KEY` | **Yes** | — | Company-scoped API key. |
+| `VANE_AGENT_ID` | **Yes** | — | Agent ID pre-registered on the Vane server. |
+| `VANE_COMPANY_ID` | **Yes** | — | Company ID. |
 | `SIDECAR_PORT` | No | `8080` | Port to listen on. Always binds to `127.0.0.1`. |
 | `SIDECAR_AGENT_TARGET` | No | — | Where to forward verified inbound calls (e.g., `http://localhost:3001`). Required for inbound (reverse proxy) mode. |
 | `SIDECAR_CA_CERT_FILE` | No | `./vane-ca.pem` | Path to write the MITM CA certificate. |
@@ -38,10 +38,10 @@ All configuration is via environment variables. None have defaults except `SIDEC
 ## Starting the sidecar
 
 ```bash
-COUNSEL_API_URL=https://vane.build \
-COUNSEL_API_KEY=counsel_a1b2c3d4... \
-COUNSEL_AGENT_ID=researcher-1 \
-COUNSEL_COMPANY_ID=acme \
+VANE_API_URL=https://vane.build \
+VANE_API_KEY=vane_a1b2c3d4... \
+VANE_AGENT_ID=researcher-1 \
+VANE_COMPANY_ID=acme \
 npx @vane.build/sidecar
 ```
 
@@ -118,10 +118,10 @@ HTTPS_PROXY=http://127.0.0.1:8080 \
 Set `SIDECAR_AGENT_TARGET` to your agent's local address. The sidecar will verify incoming `Vane-Passport` (or `Authorization: Bearer <cap-jwt>`) headers before forwarding to your agent.
 
 ```bash
-COUNSEL_API_URL=https://vane.build \
-COUNSEL_API_KEY=counsel_a1b2c3d4... \
-COUNSEL_AGENT_ID=researcher-1 \
-COUNSEL_COMPANY_ID=acme \
+VANE_API_URL=https://vane.build \
+VANE_API_KEY=vane_a1b2c3d4... \
+VANE_AGENT_ID=researcher-1 \
+VANE_COMPANY_ID=acme \
 SIDECAR_AGENT_TARGET=http://localhost:3001 \
 npx @vane.build/sidecar
 ```

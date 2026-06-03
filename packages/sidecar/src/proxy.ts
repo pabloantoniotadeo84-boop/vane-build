@@ -2,7 +2,7 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import * as net from 'node:net';
 import * as tls from 'node:tls';
-import type { CounselClient } from './counsel.js';
+import type { VaneClient } from './vane.js';
 import type { MitmCA } from './ca.js';
 import { getCert } from './ca.js';
 
@@ -11,23 +11,23 @@ import { getCert } from './ca.js';
  *
  *   1. CONNECT <host>:<port>  — HTTPS tunnel. The sidecar terminates TLS using
  *      a dynamically-issued leaf certificate signed by the MITM CA, injects
- *      the agent's Counsel passport, attests the call, then re-encrypts to
+ *      the agent's Vane passport, attests the call, then re-encrypts to
  *      the real destination.
  *
  *   2. GET/POST http://...    — HTTP forward proxy (outbound). Attaches the
- *      agent's Counsel passport as "Counsel-Passport" header, attests the call
- *      to Counsel (fire-and-forget), and forwards the request.
+ *      agent's Vane passport as "Vane-Passport" header, attests the call
+ *      to Vane (fire-and-forget), and forwards the request.
  *
- *   3. GET/POST /path         — Inbound request. Verifies the "Counsel-Passport"
+ *   3. GET/POST /path         — Inbound request. Verifies the "Vane-Passport"
  *      header (or falls back to "Authorization: Bearer <cap-jwt>"), then
  *      reverse-proxies to SIDECAR_AGENT_TARGET. Returns 401 on missing/invalid
  *      passport, 502 if SIDECAR_AGENT_TARGET is not configured.
  *
- *      Special case: GET /counsel-ca-cert.pem returns the MITM CA certificate
+ *      Special case: GET /vane-ca-cert.pem returns the MITM CA certificate
  *      (no auth required) so agents can install it into their trust store.
  */
 export function createProxyServer(
-  client: CounselClient,
+  client: VaneClient,
   agentTarget: string | undefined,
   ca: MitmCA,
 ): http.Server {
@@ -44,7 +44,7 @@ export function createProxyServer(
       return;
     }
     await handleMitmRequest(req, res, target.host, target.port, client).catch((err) => {
-      console.error('[counsel-sidecar] MITM request error:', err);
+      console.error('[vane-sidecar] MITM request error:', err);
       if (!res.headersSent) res.writeHead(502).end();
     });
   });
@@ -57,7 +57,7 @@ export function createProxyServer(
     const url = req.url ?? '/';
     if (url.startsWith('http://') || url.startsWith('https://')) {
       await handleOutbound(req, res, client).catch((err) => {
-        console.error('[counsel-sidecar] Outbound error:', err);
+        console.error('[vane-sidecar] Outbound error:', err);
         if (!res.headersSent) {
           res.writeHead(502, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Bad Gateway' }));
@@ -65,7 +65,7 @@ export function createProxyServer(
       });
     } else {
       await handleInbound(req, res, client, agentTarget, ca.certPem).catch((err) => {
-        console.error('[counsel-sidecar] Inbound error:', err);
+        console.error('[vane-sidecar] Inbound error:', err);
         if (!res.headersSent) {
           res.writeHead(502, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Bad Gateway' }));
@@ -77,14 +77,14 @@ export function createProxyServer(
   server.on('connect', (req, socket, head) => {
     handleConnect(req, socket as net.Socket, head, ca, client, mitmServer, socketTargets).catch(
       (err) => {
-        console.error('[counsel-sidecar] CONNECT handler error:', err);
+        console.error('[vane-sidecar] CONNECT handler error:', err);
         (socket as net.Socket).destroy();
       },
     );
   });
 
   server.on('error', (err) => {
-    console.error('[counsel-sidecar] Server error:', err);
+    console.error('[vane-sidecar] Server error:', err);
   });
 
   return server;
@@ -97,7 +97,7 @@ async function handleConnect(
   socket: net.Socket,
   head: Buffer,
   ca: MitmCA,
-  client: CounselClient,
+  client: VaneClient,
   mitmServer: http.Server,
   socketTargets: WeakMap<net.Socket, { host: string; port: number }>,
 ): Promise<void> {
@@ -117,7 +117,7 @@ async function handleConnect(
   try {
     leaf = await getCert(ca, host);
   } catch (err) {
-    console.error(`[counsel-sidecar] Failed to issue leaf cert for ${host}:`, err);
+    console.error(`[vane-sidecar] Failed to issue leaf cert for ${host}:`, err);
     socket.write('HTTP/1.1 500 MITM Setup Failed\r\n\r\n');
     socket.destroy();
     return;
@@ -147,7 +147,7 @@ async function handleConnect(
     // Suppress TLS errors (e.g. client rejected our cert, connection reset)
     // at debug level — these are expected when the agent hasn't yet installed the CA.
     if ((err as NodeJS.ErrnoException).code !== 'ECONNRESET') {
-      console.error(`[counsel-sidecar] MITM TLS error for ${host}: ${err.message}`);
+      console.error(`[vane-sidecar] MITM TLS error for ${host}: ${err.message}`);
     }
     tlsSocket.destroy();
   });
@@ -168,7 +168,7 @@ async function handleMitmRequest(
   res: http.ServerResponse,
   host: string,
   port: number,
-  client: CounselClient,
+  client: VaneClient,
 ): Promise<void> {
   const path = req.url ?? '/';
 
@@ -183,9 +183,9 @@ async function handleMitmRequest(
   try {
     passport = await client.getPassport();
   } catch (err) {
-    console.error('[counsel-sidecar] Could not obtain passport:', err);
+    console.error('[vane-sidecar] Could not obtain passport:', err);
     res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Counsel passport unavailable' }));
+    res.end(JSON.stringify({ error: 'Vane passport unavailable' }));
     return;
   }
 
@@ -196,7 +196,7 @@ async function handleMitmRequest(
       headers[k] = v;
     }
   }
-  headers['counsel-passport'] = passport;
+  headers['vane-passport'] = passport;
   if (!headers['authorization']) {
     headers['authorization'] = `Bearer ${passport}`;
   }
@@ -231,7 +231,7 @@ async function handleMitmRequest(
 async function handleOutbound(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  client: CounselClient,
+  client: VaneClient,
 ): Promise<void> {
   let target: URL;
   try {
@@ -251,9 +251,9 @@ async function handleOutbound(
   try {
     passport = await client.getPassport();
   } catch (err) {
-    console.error('[counsel-sidecar] Could not obtain passport:', err);
+    console.error('[vane-sidecar] Could not obtain passport:', err);
     res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Counsel passport unavailable' }));
+    res.end(JSON.stringify({ error: 'Vane passport unavailable' }));
     return;
   }
 
@@ -262,7 +262,7 @@ async function handleOutbound(
       ([k]) => k !== 'proxy-connection' && k !== 'proxy-authorization',
     ),
   );
-  headers['counsel-passport'] = passport;
+  headers['vane-passport'] = passport;
   if (!headers['authorization']) {
     headers['authorization'] = `Bearer ${passport}`;
   }
@@ -298,21 +298,21 @@ async function handleOutbound(
 async function handleInbound(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  client: CounselClient,
+  client: VaneClient,
   agentTarget: string | undefined,
   caCertPem: string,
 ): Promise<void> {
   // Unauthenticated CA cert download — agents use this to bootstrap trust.
-  if (req.method === 'GET' && req.url === '/counsel-ca-cert.pem') {
+  if (req.method === 'GET' && req.url === '/vane-ca-cert.pem') {
     res.writeHead(200, {
       'Content-Type': 'application/x-pem-file',
-      'Content-Disposition': 'attachment; filename="counsel-ca.pem"',
+      'Content-Disposition': 'attachment; filename="vane-ca.pem"',
     });
     res.end(caCertPem);
     return;
   }
 
-  const passportHeader = req.headers['counsel-passport'];
+  const passportHeader = req.headers['vane-passport'];
   const authHeader = req.headers['authorization'];
 
   let incomingPassport: string | undefined;
@@ -325,15 +325,15 @@ async function handleInbound(
   if (!incomingPassport) {
     res.writeHead(401, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      error: 'Missing Counsel passport',
-      hint: 'Set "Counsel-Passport: <token>" header or "Authorization: Bearer <cap-jwt>"',
+      error: 'Missing Vane passport',
+      hint: 'Set "Vane-Passport: <token>" header or "Authorization: Bearer <cap-jwt>"',
     }));
     return;
   }
 
   if (!client.verifyPassportLocal(incomingPassport)) {
     res.writeHead(401, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Counsel passport is invalid or has expired' }));
+    res.end(JSON.stringify({ error: 'Vane passport is invalid or has expired' }));
     return;
   }
 

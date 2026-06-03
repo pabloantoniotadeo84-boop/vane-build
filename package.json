@@ -1,5 +1,5 @@
 {
-  "name": "counsel",
+  "name": "vane",
   "version": "0.1.0",
   "description": "Trust and attestation layer for AI agents",
   "type": "module",
@@ -12,7 +12,8 @@
     "build": "tsc",
     "start": "node dist/api/server.js",
     "dev": "tsx src/api/server.ts",
-    "example": "tsx src/example.ts"
+    "example": "tsx src/example.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hono/node-server": "^1.0.0",
@@ -27,6 +28,7 @@
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.8"
   }
 }
