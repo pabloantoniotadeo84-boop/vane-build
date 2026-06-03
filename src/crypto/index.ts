@@ -4,10 +4,24 @@ export { AttestationChain } from './chain.js';
 export { computeRoot, buildProof, verifyProof } from './merkle.js';
 export type { MerkleProof, ProofNode } from './merkle.js';
 export type { InclusionProof } from './chain.js';
-export type { KeyPair, AttestationRecord, DelegationInfo, VerificationResult, AgentRegistration, ActClaim, JwtSvidClaims, TokenExchangeResponse } from './types.js';
+export type { KeyPair, AttestationRecord, DelegationInfo, VerificationResult, AgentRegistration, ActClaim, JwtSvidClaims, TokenExchangeResponse, CrossOrgDelegationClaims } from './types.js';
 
 export { agentSpiffeId, companySpiffeId, parseSpiffeId, validateSpiffeId, TRUST_DOMAIN } from './spiffe.js';
 export type { ParsedSpiffeId } from './spiffe.js';
 
 export { issueJwtSvid, verifyJwtSvid, deriveKeyId, SVID_AUDIENCE } from './svid.js';
 export { exchangeToken, extractDelegationChain, GRANT_TYPE, TOKEN_TYPE_JWT } from './token-exchange.js';
+
+export {
+  issueCrossOrgToken,
+  verifyCrossOrgToken,
+  CROSS_ORG_TOKEN_TYPE,
+  CROSS_ORG_AUDIENCE,
+  CROSS_ORG_MAX_TTL,
+} from './cross-org.js';
+export type {
+  IssueCrossOrgTokenOptions,
+  CrossOrgVerifyOptions,
+  CrossOrgVerificationResult,
+  CrossOrgErrorCode,
+} from './cross-org.js';

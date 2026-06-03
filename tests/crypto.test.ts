@@ -10,7 +10,13 @@ import { issueJwtSvid, verifyJwtSvid } from '../src/crypto/svid.js';
 import { exchangeToken, extractDelegationChain } from '../src/crypto/token-exchange.js';
 import { issuePassport, PASSPORT_AUDIENCE, PASSPORT_TTL_MIN, PASSPORT_TTL_MAX } from '../src/passport/credential.js';
 import { verifyPassport } from '../src/passport/verify.js';
+import {
+  issueCrossOrgToken,
+  verifyCrossOrgToken,
+  CROSS_ORG_MAX_TTL,
+} from '../src/crypto/cross-org.js';
 import { createVaneMiddleware } from '../packages/mcp-middleware/src/middleware.js';
+import { verifyCrossOrgToken as middlewareVerifyCrossOrg } from '../packages/mcp-middleware/src/verify.js';
 import type { AttestationRecord } from '../src/crypto/types.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -764,5 +770,372 @@ describe('Revocation list format', () => {
 
     expect(nextCalled).toBe(true);
     expect(response.status).toBe(200);
+  });
+});
+
+// ── Cross-org delegation tokens ──────────────────────────────────────────────
+
+describe('Cross-org token issuance', () => {
+  it('issues a valid XORG+JWT token', () => {
+    const kp = generateKeyPair();
+    const agentSId = agentSpiffeId('acme', 'billing-agent');
+    const originOrgSId = companySpiffeId('acme');
+    const targetOrgSId = companySpiffeId('exa');
+
+    const token = issueCrossOrgToken({
+      agentId: 'billing-agent',
+      agentSpiffeId: agentSId,
+      originOrg: 'acme',
+      originOrgSpiffeId: originOrgSId,
+      targetOrg: 'exa',
+      targetOrgSpiffeId: targetOrgSId,
+      scopes: ['tool:search'],
+      delegationChain: [originOrgSId, agentSId],
+      privateKeyPem: kp.privateKey,
+      publicKeyPem: kp.publicKey,
+    });
+
+    expect(token.split('.').length).toBe(3);
+    const header = JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8')) as Record<string, unknown>;
+    expect(header['typ']).toBe('XORG+JWT');
+    expect(header['alg']).toBe('EdDSA');
+  });
+
+  it('rejects TTL exceeding 15 minutes', () => {
+    const kp = generateKeyPair();
+    const agentSId = agentSpiffeId('acme', 'agent-1');
+    const originOrgSId = companySpiffeId('acme');
+    const targetOrgSId = companySpiffeId('exa');
+
+    expect(() =>
+      issueCrossOrgToken({
+        agentId: 'agent-1',
+        agentSpiffeId: agentSId,
+        originOrg: 'acme',
+        originOrgSpiffeId: originOrgSId,
+        targetOrg: 'exa',
+        targetOrgSpiffeId: targetOrgSId,
+        scopes: ['tool:search'],
+        delegationChain: [originOrgSId, agentSId],
+        ttl: CROSS_ORG_MAX_TTL + 1,
+        privateKeyPem: kp.privateKey,
+        publicKeyPem: kp.publicKey,
+      }),
+    ).toThrow(/exceeds maximum/);
+  });
+
+  it('rejects when delegationChain tail does not match agentSpiffeId', () => {
+    const kp = generateKeyPair();
+    const agentSId  = agentSpiffeId('acme', 'agent-1');
+    const wrongSId  = agentSpiffeId('acme', 'other-agent');
+    const originOrgSId = companySpiffeId('acme');
+    const targetOrgSId = companySpiffeId('exa');
+
+    expect(() =>
+      issueCrossOrgToken({
+        agentId: 'agent-1',
+        agentSpiffeId: agentSId,
+        originOrg: 'acme',
+        originOrgSpiffeId: originOrgSId,
+        targetOrg: 'exa',
+        targetOrgSpiffeId: targetOrgSId,
+        scopes: ['tool:search'],
+        delegationChain: [originOrgSId, wrongSId],
+        privateKeyPem: kp.privateKey,
+        publicKeyPem: kp.publicKey,
+      }),
+    ).toThrow(/delegationChain tail/);
+  });
+});
+
+describe('Cross-org token verification', () => {
+  function makeXorgToken(kp: { publicKey: string; privateKey: string }) {
+    const agentSId = agentSpiffeId('acme', 'billing-agent');
+    const originOrgSId = companySpiffeId('acme');
+    const targetOrgSId = companySpiffeId('exa');
+    return issueCrossOrgToken({
+      agentId: 'billing-agent',
+      agentSpiffeId: agentSId,
+      originOrg: 'acme',
+      originOrgSpiffeId: originOrgSId,
+      targetOrg: 'exa',
+      targetOrgSpiffeId: targetOrgSId,
+      scopes: ['tool:search', 'tool:summarize'],
+      delegationChain: [originOrgSId, agentSId],
+      privateKeyPem: kp.privateKey,
+      publicKeyPem: kp.publicKey,
+    });
+  }
+
+  it('verifies a valid cross-org token successfully', () => {
+    const kp = generateKeyPair();
+    const token = makeXorgToken(kp);
+    const result = verifyCrossOrgToken(token, kp.publicKey);
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.claims.vane_xorg.originOrg).toBe('acme');
+      expect(result.claims.vane_xorg.targetOrg).toBe('exa');
+      expect(result.claims.vane_xorg.scopes).toContain('tool:search');
+    }
+  });
+
+  it('rejects an expired cross-org token', () => {
+    const kp = generateKeyPair();
+    const agentSId = agentSpiffeId('acme', 'billing-agent');
+    const originOrgSId = companySpiffeId('acme');
+    const targetOrgSId = companySpiffeId('exa');
+    const token = issueCrossOrgToken({
+      agentId: 'billing-agent',
+      agentSpiffeId: agentSId,
+      originOrg: 'acme',
+      originOrgSpiffeId: originOrgSId,
+      targetOrg: 'exa',
+      targetOrgSpiffeId: targetOrgSId,
+      scopes: ['tool:search'],
+      delegationChain: [originOrgSId, agentSId],
+      ttl: 60,
+      privateKeyPem: kp.privateKey,
+      publicKeyPem: kp.publicKey,
+    });
+    const futureNow = Math.floor(Date.now() / 1000) + 61;
+    const result = verifyCrossOrgToken(token, kp.publicKey, { now: futureNow });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('TOKEN_EXPIRED');
+  });
+
+  it('rejects a token signed by the wrong key', () => {
+    const kpA = generateKeyPair();
+    const kpB = generateKeyPair();
+    const token = makeXorgToken(kpA);
+    const result = verifyCrossOrgToken(token, kpB.publicKey);
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('SIGNATURE_INVALID');
+  });
+
+  it('rejects a token targeting the wrong org', () => {
+    const kp = generateKeyPair();
+    const token = makeXorgToken(kp);
+    const result = verifyCrossOrgToken(token, kp.publicKey, { expectedTargetOrg: 'stripe' });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('TARGET_MISMATCH');
+  });
+
+  it('accepts when expectedTargetOrg matches the token target', () => {
+    const kp = generateKeyPair();
+    const token = makeXorgToken(kp);
+    const result = verifyCrossOrgToken(token, kp.publicKey, { expectedTargetOrg: 'exa' });
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects when requested tool scope is not in the token', () => {
+    const kp = generateKeyPair();
+    const token = makeXorgToken(kp); // scopes: ['tool:search', 'tool:summarize']
+    const result = verifyCrossOrgToken(token, kp.publicKey, { tool: 'write' });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('SCOPE_DENIED');
+  });
+
+  it('grants the matching scope for a valid tool call', () => {
+    const kp = generateKeyPair();
+    const token = makeXorgToken(kp);
+    const result = verifyCrossOrgToken(token, kp.publicKey, { tool: 'search' });
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.scopeGranted).toBe('tool:search');
+  });
+
+  it('rejects a regular CAP+JWT passport presented as a cross-org token', () => {
+    const kp = generateKeyPair();
+    const orgSId   = companySpiffeId('acme');
+    const agentSId = agentSpiffeId('acme', 'agent-1');
+    const passport = issuePassport({
+      agentId: 'agent-1',
+      agentSpiffeId: agentSId,
+      org: 'acme',
+      orgSpiffeId: orgSId,
+      scopes: ['tool:*'],
+      delegationChain: [orgSId, agentSId],
+      privateKeyPem: kp.privateKey,
+      publicKeyPem: kp.publicKey,
+    });
+    const result = verifyCrossOrgToken(passport, kp.publicKey);
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('WRONG_TOKEN_TYPE');
+  });
+});
+
+describe('Cross-org tokens in mcp-middleware fetchMiddleware', () => {
+  function makeXorgToken(kp: { publicKey: string; privateKey: string }) {
+    const agentSId = agentSpiffeId('acme', 'billing-agent');
+    const originOrgSId = companySpiffeId('acme');
+    const targetOrgSId = companySpiffeId('exa');
+    return issueCrossOrgToken({
+      agentId: 'billing-agent',
+      agentSpiffeId: agentSId,
+      originOrg: 'acme',
+      originOrgSpiffeId: originOrgSId,
+      targetOrg: 'exa',
+      targetOrgSpiffeId: targetOrgSId,
+      scopes: ['tool:search'],
+      delegationChain: [originOrgSId, agentSId],
+      privateKeyPem: kp.privateKey,
+      publicKeyPem: kp.publicKey,
+    });
+  }
+
+  it('accepts a cross-org token when resolveCrossOrgPublicKey is configured', async () => {
+    const kpA = generateKeyPair();
+    const kpB = generateKeyPair();
+    const token = makeXorgToken(kpA);
+
+    const vane = createVaneMiddleware({
+      vanePublicKey: kpB.publicKey,
+      expectedTargetOrg: 'exa',
+      resolveCrossOrgPublicKey: async (originOrg) =>
+        originOrg === 'acme' ? kpA.publicKey : null,
+    });
+
+    const middleware = vane.fetchMiddleware();
+    const req = new Request('http://localhost/', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'tools/call', params: { name: 'search' } }),
+    });
+
+    let nextCalled = false;
+    const response = await middleware(req, async () => {
+      nextCalled = true;
+      return new Response('ok');
+    });
+
+    expect(nextCalled).toBe(true);
+    expect(response.status).toBe(200);
+  });
+
+  it('rejects a cross-org token when resolveCrossOrgPublicKey is not configured', async () => {
+    const kpA = generateKeyPair();
+    const kpB = generateKeyPair();
+    const token = makeXorgToken(kpA);
+
+    const vane = createVaneMiddleware({ vanePublicKey: kpB.publicKey });
+    const middleware = vane.fetchMiddleware();
+    const req = new Request('http://localhost/', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'tools/call', params: { name: 'search' } }),
+    });
+
+    const response = await middleware(req, async () => new Response('ok'));
+    expect(response.status).toBe(401);
+    const body = await response.json() as { code?: string };
+    expect(body.code).toBe('CROSS_ORG_NOT_ACCEPTED');
+  });
+
+  it('rejects a cross-org token targeting the wrong org', async () => {
+    const kpA = generateKeyPair();
+    const kpB = generateKeyPair();
+    const token = makeXorgToken(kpA); // targets 'exa'
+
+    const vane = createVaneMiddleware({
+      vanePublicKey: kpB.publicKey,
+      expectedTargetOrg: 'stripe',
+      resolveCrossOrgPublicKey: async () => kpA.publicKey,
+    });
+
+    const middleware = vane.fetchMiddleware();
+    const req = new Request('http://localhost/', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'tools/call', params: { name: 'search' } }),
+    });
+
+    const response = await middleware(req, async () => new Response('ok'));
+    expect(response.status).toBe(401);
+    const body = await response.json() as { code?: string };
+    expect(body.code).toBe('TARGET_MISMATCH');
+  });
+
+  it('rejects when resolveCrossOrgPublicKey returns null', async () => {
+    const kpA = generateKeyPair();
+    const kpB = generateKeyPair();
+    const token = makeXorgToken(kpA);
+
+    const vane = createVaneMiddleware({
+      vanePublicKey: kpB.publicKey,
+      resolveCrossOrgPublicKey: async () => null,
+    });
+
+    const middleware = vane.fetchMiddleware();
+    const req = new Request('http://localhost/', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'tools/call', params: { name: 'search' } }),
+    });
+
+    const response = await middleware(req, async () => new Response('ok'));
+    expect(response.status).toBe(401);
+    const body = await response.json() as { code?: string };
+    expect(body.code).toBe('CROSS_ORG_UNKNOWN_ORIGIN');
+  });
+
+  it('attaches crossOrg context to the attestation receipt', async () => {
+    const kpA = generateKeyPair();
+    const kpB = generateKeyPair();
+    const token = makeXorgToken(kpA);
+
+    const vane = createVaneMiddleware({
+      vanePublicKey: kpB.publicKey,
+      expectedTargetOrg: 'exa',
+      resolveCrossOrgPublicKey: async (originOrg) =>
+        originOrg === 'acme' ? kpA.publicKey : null,
+    });
+
+    const { decodeReceipt, RECEIPT_HEADER } = await import('../packages/mcp-middleware/src/middleware.js');
+    const middleware = vane.fetchMiddleware();
+    let capturedReceipt: unknown;
+    const req = new Request('http://localhost/', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'tools/call', params: { name: 'search' } }),
+    });
+
+    await middleware(req, async (modifiedReq) => {
+      const encoded = modifiedReq.headers.get(RECEIPT_HEADER);
+      if (encoded) capturedReceipt = decodeReceipt(encoded);
+      return new Response('ok');
+    });
+
+    expect(capturedReceipt).toBeDefined();
+    const r = capturedReceipt as Record<string, unknown>;
+    expect(r['org']).toBe('acme');
+    expect((r['crossOrg'] as Record<string, unknown>)?.['targetOrg']).toBe('exa');
+  });
+
+  it('server and middleware verify functions produce consistent results', () => {
+    const kp = generateKeyPair();
+    const agentSId = agentSpiffeId('acme', 'billing-agent');
+    const originOrgSId = companySpiffeId('acme');
+    const targetOrgSId = companySpiffeId('exa');
+    const token = issueCrossOrgToken({
+      agentId: 'billing-agent',
+      agentSpiffeId: agentSId,
+      originOrg: 'acme',
+      originOrgSpiffeId: originOrgSId,
+      targetOrg: 'exa',
+      targetOrgSpiffeId: targetOrgSId,
+      scopes: ['tool:search'],
+      delegationChain: [originOrgSId, agentSId],
+      privateKeyPem: kp.privateKey,
+      publicKeyPem: kp.publicKey,
+    });
+
+    const serverResult = verifyCrossOrgToken(token, kp.publicKey);
+    const mwResult     = middlewareVerifyCrossOrg(token, kp.publicKey);
+
+    expect(serverResult.valid).toBe(true);
+    expect(mwResult.valid).toBe(true);
+    if (serverResult.valid && mwResult.valid) {
+      expect(serverResult.claims.vane_xorg.targetOrg).toBe(mwResult.claims.vane_xorg.targetOrg);
+      expect(serverResult.scopeGranted).toBe(mwResult.scopeGranted);
+    }
   });
 });

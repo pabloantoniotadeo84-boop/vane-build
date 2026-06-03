@@ -60,3 +60,26 @@ export interface DelegationInfo {
   act: ActClaim | null;      // raw act claim for deep traversal
   tokenId: string;           // jti — ties this record to the exchange event
 }
+
+// Cross-organizational delegation token (typ: "XORG+JWT").
+// Issued by Company A's Vane instance; verified by Company B's MCP server
+// using Company A's CA public key fetched once from Vane's discovery endpoint.
+export interface CrossOrgDelegationClaims {
+  iss: string;    // SPIFFE ID of the issuing Vane instance's CA
+  sub: string;    // The originating agent's SPIFFE ID
+  aud: string[];  // Must include "vane:xorg:v1"
+  jti: string;    // Unique token ID (UUID v4)
+  iat: number;    // Issued-at (Unix seconds)
+  exp: number;    // Expiry (Unix seconds) — max 15 minutes after iat
+  nbf: number;    // Not-before (Unix seconds, equals iat at issuance)
+  vane_xorg: {
+    v: 1;                        // Schema version — verifiers MUST reject unknown versions
+    agentId: string;             // Human-readable agent identifier
+    originOrg: string;           // The org that issued this token (Company A)
+    originOrgSpiffeId: string;   // Company A's SPIFFE ID
+    targetOrg: string;           // The org this token is presented to (Company B)
+    targetOrgSpiffeId: string;   // Company B's SPIFFE ID
+    scopes: string[];            // Scopes being requested at the target org
+    delegationChain: string[];   // [originOrgSpiffeId, ..., agentSpiffeId]
+  };
+}

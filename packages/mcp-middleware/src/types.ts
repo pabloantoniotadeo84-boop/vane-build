@@ -22,6 +22,28 @@ export interface VanePassportClaims {
   };
 }
 
+// Cross-org delegation token claims (typ: "XORG+JWT").
+// Verified using the *originating* org's CA public key, not the host org's key.
+export interface CrossOrgDelegationClaims {
+  iss: string;
+  sub: string;
+  aud: string[];
+  jti: string;
+  iat: number;
+  exp: number;
+  nbf: number;
+  vane_xorg: {
+    v: 1;
+    agentId: string;
+    originOrg: string;
+    originOrgSpiffeId: string;
+    targetOrg: string;
+    targetOrgSpiffeId: string;
+    scopes: string[];
+    delegationChain: string[];
+  };
+}
+
 // ── Attestation receipt ───────────────────────────────────────────────────────
 //
 // Open format. Attached to every verified tool call. Any system can parse and
@@ -39,16 +61,22 @@ export interface AttestationReceipt {
   scopeGranted: string;
   delegationChain: string[];
   issuedBy: string;
-  passportIssuedAt: string;  // ISO 8601
-  passportExpiresAt: string; // ISO 8601
-  verifiedAt: string;        // ISO 8601
-  verifier: string;          // "@vane.build/mcp-middleware@<version>"
+  passportIssuedAt: string;   // ISO 8601
+  passportExpiresAt: string;  // ISO 8601
+  verifiedAt: string;         // ISO 8601
+  verifier: string;           // "@vane.build/mcp-middleware@<version>"
+  // Present when the verified token was a cross-org delegation token.
+  crossOrg?: {
+    targetOrg: string;
+    targetOrgSpiffeId: string;
+  };
 }
 
 // ── Verification result ───────────────────────────────────────────────────────
 
 export type PassportVerificationResult =
-  | { valid: true; claims: VanePassportClaims; scopeGranted: string }
+  | { valid: true; claims: VanePassportClaims; scopeGranted: string; tokenType: 'passport' }
+  | { valid: true; claims: CrossOrgDelegationClaims; scopeGranted: string; tokenType: 'cross-org' }
   | { valid: false; error: string; code: PassportErrorCode };
 
 export type PassportErrorCode =
@@ -65,7 +93,11 @@ export type PassportErrorCode =
   | 'MALFORMED_CLAIMS'
   | 'CHAIN_INCOHERENT'
   | 'SCOPE_DENIED'
-  | 'PASSPORT_REVOKED';
+  | 'PASSPORT_REVOKED'
+  // Cross-org specific
+  | 'CROSS_ORG_NOT_ACCEPTED'
+  | 'CROSS_ORG_UNKNOWN_ORIGIN'
+  | 'TARGET_MISMATCH';
 
 // ── Middleware options ────────────────────────────────────────────────────────
 
@@ -93,6 +125,27 @@ export interface VaneMiddlewareOptions {
   // Implementation guidance: cache the revocation list with a TTL matched to
   // your risk tolerance (e.g., 60 s) rather than fetching it on every request.
   fetchRevocationList?: () => Promise<string[]>;
+
+  // ── Cross-org support ─────────────────────────────────────────────────────
+  //
+  // To accept cross-org delegation tokens (XORG+JWT) from agents belonging to
+  // external organizations, provide both options below.
+  //
+  // Cross-org tokens are signed with the *originating* org's private key, not
+  // the host org's key. The middleware resolves the originating org's public key
+  // via resolveCrossOrgPublicKey, then verifies the token offline.
+  //
+  // Recommended implementation: call GET /v1/ca/public-key?companyId=<originOrg>
+  // on the Vane server and cache the result (e.g., 1-hour TTL keyed by org ID).
+  // The public key is stable until the originating org rotates their key.
+
+  // Called with the originOrg name extracted from an XORG+JWT token. Return
+  // the SPKI PEM public key for that org, or null to reject the token.
+  resolveCrossOrgPublicKey?: (originOrg: string) => Promise<string | null>;
+
+  // This MCP server's organization ID. When set, cross-org tokens whose
+  // vane_xorg.targetOrg does not match this value are rejected.
+  expectedTargetOrg?: string;
 }
 
 export interface VerifyOptions {

@@ -12,6 +12,8 @@ import {
   TOKEN_TYPE_JWT,
   TRUST_DOMAIN,
   deriveKeyId,
+  issueCrossOrgToken,
+  CROSS_ORG_MAX_TTL,
 } from '../crypto/index.js';
 import type { DelegationInfo, KeyPair } from '../crypto/index.js';
 import { Store } from '../db/store.js';
@@ -783,6 +785,102 @@ app.post('/v1/token-exchange', async (c) => {
   const claims = verifyJwtSvid(token, tenant.keys.publicKey);
 
   return c.json({ token, sub: claims.sub, act: claims.act, jti: claims.jti, scope: claims.scope }, 201);
+});
+
+// ── Cross-org delegation tokens ───────────────────────────────────────────────
+
+/**
+ * POST /v1/token/cross-org
+ *
+ * Issues a cross-org delegation token (XORG+JWT) that Company A's agent can
+ * present to Company B's MCP server.
+ *
+ * The token is signed with the authenticated company's private key and
+ * carries the agent's delegation chain plus the target org and requested
+ * scopes. Company B verifies it offline using Company A's CA public key
+ * (fetched once from GET /v1/ca/public-key?companyId=<originOrg>).
+ *
+ * TTL is capped at CROSS_ORG_MAX_TTL (900 s / 15 minutes).
+ */
+app.post('/v1/token/cross-org', async (c) => {
+  const companyId = c.get('companyId');
+  const tenant = tenants.get(companyId)!;
+
+  let body: Record<string, unknown>;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Request body must be valid JSON' }, 400);
+  }
+
+  const { agentId, targetOrg, targetOrgSpiffeId, scopes, ttl } = body;
+
+  if (typeof agentId !== 'string' || !agentId) {
+    return c.json({ error: 'Missing or invalid field: agentId is required' }, 400);
+  }
+  if (typeof targetOrg !== 'string' || !targetOrg) {
+    return c.json({ error: 'Missing or invalid field: targetOrg is required' }, 400);
+  }
+  if (
+    !Array.isArray(scopes) ||
+    scopes.length === 0 ||
+    !scopes.every((s): s is string => typeof s === 'string')
+  ) {
+    return c.json({ error: 'Missing or invalid field: scopes must be a non-empty array of strings' }, 400);
+  }
+
+  const agent = await store.getAgent(agentId, companyId);
+  if (!agent) return c.json({ error: `Agent not found: ${agentId}` }, 404);
+
+  const resolvedTargetOrgSpiffeId =
+    typeof targetOrgSpiffeId === 'string' && targetOrgSpiffeId
+      ? targetOrgSpiffeId
+      : companySpiffeId(targetOrg);
+
+  let resolvedTtl = CROSS_ORG_MAX_TTL;
+  if (ttl !== undefined) {
+    if (typeof ttl !== 'number' || !Number.isInteger(ttl) || ttl <= 0) {
+      return c.json({ error: 'ttl must be a positive integer (seconds, max 900)' }, 400);
+    }
+    if (ttl > CROSS_ORG_MAX_TTL) {
+      return c.json(
+        { error: `Cross-org token TTL may not exceed ${CROSS_ORG_MAX_TTL} seconds (15 minutes)` },
+        400,
+      );
+    }
+    resolvedTtl = ttl;
+  }
+
+  const originOrgSpiffeId = companySpiffeId(companyId);
+  const delegationChain   = [originOrgSpiffeId, agent.spiffeId];
+
+  const token = issueCrossOrgToken({
+    agentId,
+    agentSpiffeId: agent.spiffeId,
+    originOrg: companyId,
+    originOrgSpiffeId,
+    targetOrg,
+    targetOrgSpiffeId: resolvedTargetOrgSpiffeId,
+    scopes,
+    delegationChain,
+    ttl: resolvedTtl,
+    privateKeyPem: tenant.keys.privateKey,
+    publicKeyPem: tenant.keys.publicKey,
+  });
+
+  return c.json({
+    token,
+    originOrg: companyId,
+    originOrgSpiffeId,
+    targetOrg,
+    targetOrgSpiffeId: resolvedTargetOrgSpiffeId,
+    agentId,
+    agentSpiffeId: agent.spiffeId,
+    delegationChain,
+    scopes,
+    caPublicKey: tenant.keys.publicKey,
+    expiresIn: resolvedTtl,
+  }, 201);
 });
 
 // ── Attestation ───────────────────────────────────────────────────────────────

@@ -1,8 +1,9 @@
-import { verifyPassport } from './verify.js';
+import { verifyPassport, verifyCrossOrgToken, CROSS_ORG_TOKEN_TYPE } from './verify.js';
 import type {
   AttestationReceipt,
   VaneMiddlewareOptions,
   VanePassportClaims,
+  CrossOrgDelegationClaims,
   PassportVerificationResult,
   VerifyOptions,
 } from './types.js';
@@ -16,10 +17,33 @@ export const RECEIPT_HEADER = 'x-vane-receipt';
 // ── Receipt construction ──────────────────────────────────────────────────────
 
 function buildReceipt(
-  claims: VanePassportClaims,
-  scopeGranted: string,
+  result: Extract<PassportVerificationResult, { valid: true }>,
   tool: string,
 ): AttestationReceipt {
+  if (result.tokenType === 'cross-org') {
+    const claims = result.claims as CrossOrgDelegationClaims;
+    const xorg = claims.vane_xorg;
+    return {
+      v: 1,
+      type: 'VaneAttestationReceipt',
+      passportId: claims.jti,
+      agentId: xorg.agentId,
+      agentSpiffeId: claims.sub,
+      org: xorg.originOrg,
+      orgSpiffeId: xorg.originOrgSpiffeId,
+      tool,
+      scopeGranted: result.scopeGranted,
+      delegationChain: xorg.delegationChain,
+      issuedBy: claims.iss,
+      passportIssuedAt: new Date(claims.iat * 1000).toISOString(),
+      passportExpiresAt: new Date(claims.exp * 1000).toISOString(),
+      verifiedAt: new Date().toISOString(),
+      verifier: PACKAGE_VERSION,
+      crossOrg: { targetOrg: xorg.targetOrg, targetOrgSpiffeId: xorg.targetOrgSpiffeId },
+    };
+  }
+
+  const claims = result.claims as VanePassportClaims;
   return {
     v: 1,
     type: 'VaneAttestationReceipt',
@@ -29,7 +53,7 @@ function buildReceipt(
     org: claims.vane.org,
     orgSpiffeId: claims.vane.orgSpiffeId,
     tool,
-    scopeGranted,
+    scopeGranted: result.scopeGranted,
     delegationChain: claims.vane.delegationChain,
     issuedBy: claims.iss,
     passportIssuedAt: new Date(claims.iat * 1000).toISOString(),
@@ -95,21 +119,90 @@ function unauthorizedJson(
 // ── Middleware factory ────────────────────────────────────────────────────────
 
 export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
-  const { vanePublicKey, exposeErrors = true, fetchRevocationList } = opts;
+  const {
+    vanePublicKey,
+    exposeErrors = true,
+    fetchRevocationList,
+    resolveCrossOrgPublicKey,
+    expectedTargetOrg,
+  } = opts;
+
+  // Peek at the token header (without verification) to identify the token type.
+  function peekTokenType(token: string): string | null {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    try {
+      const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')) as Record<string, unknown>;
+      return typeof header['typ'] === 'string' ? header['typ'] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Extract originOrg from an unverified XORG+JWT payload. Used only to route
+  // to the correct public key — the subsequent signature check is what provides
+  // security, not this read.
+  function peekOriginOrg(token: string): string | null {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    try {
+      const raw = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as Record<string, unknown>;
+      const xorg = raw['vane_xorg'];
+      if (!xorg || typeof xorg !== 'object' || Array.isArray(xorg)) return null;
+      const originOrg = (xorg as Record<string, unknown>)['originOrg'];
+      return typeof originOrg === 'string' ? originOrg : null;
+    } catch {
+      return null;
+    }
+  }
 
   /**
-   * Pure verification — call this when you already have the passport token
-   * and want to verify it outside of a request context.
+   * Pure synchronous verification for regular CAP+JWT passports.
+   * For cross-org tokens use verifyAsync, which may need to fetch a public key.
    */
   function verify(token: string, verifyOpts: VerifyOptions = {}): PassportVerificationResult {
-    return verifyPassport(token, vanePublicKey, verifyOpts);
+    const tokenType = peekTokenType(token);
+    if (tokenType === CROSS_ORG_TOKEN_TYPE) {
+      return { valid: false, error: 'Use verifyAsync for cross-org tokens', code: 'CROSS_ORG_NOT_ACCEPTED' };
+    }
+    const result = verifyPassport(token, vanePublicKey, verifyOpts);
+    if (!result.valid) return result;
+    return { ...result, tokenType: 'passport' };
+  }
+
+  /**
+   * Async verification — handles both regular passports and cross-org tokens.
+   * Required when resolveCrossOrgPublicKey may make a network call.
+   */
+  async function verifyAsync(token: string, verifyOpts: VerifyOptions = {}): Promise<PassportVerificationResult> {
+    const tokenType = peekTokenType(token);
+
+    if (tokenType === CROSS_ORG_TOKEN_TYPE) {
+      if (!resolveCrossOrgPublicKey) {
+        return { valid: false, error: 'Cross-org tokens are not accepted by this server', code: 'CROSS_ORG_NOT_ACCEPTED' };
+      }
+      const originOrg = peekOriginOrg(token);
+      if (!originOrg) {
+        return { valid: false, error: 'Could not extract originOrg from cross-org token', code: 'MALFORMED_CLAIMS' };
+      }
+      const originPublicKey = await resolveCrossOrgPublicKey(originOrg);
+      if (!originPublicKey) {
+        return { valid: false, error: `Cannot resolve public key for origin org: ${originOrg}`, code: 'CROSS_ORG_UNKNOWN_ORIGIN' };
+      }
+      return verifyCrossOrgToken(token, originPublicKey, { ...verifyOpts, expectedTargetOrg });
+    }
+
+    const result = verifyPassport(token, vanePublicKey, verifyOpts);
+    if (!result.valid) return result;
+    return { ...result, tokenType: 'passport' };
   }
 
   /**
    * Fetch-compatible middleware (Hono, Next.js Edge, Cloudflare Workers).
    *
    * Reads the Authorization: Bearer <passport> header, parses the MCP JSON-RPC
-   * body to extract the tool name, verifies the passport, and:
+   * body to extract the tool name, verifies the passport (or cross-org token),
+   * and:
    *   - On success: forwards the request with X-Vane-Receipt added
    *   - On failure: returns 401 with a JSON error body
    *
@@ -135,7 +228,7 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
       try { parsedBody = JSON.parse(rawBody); } catch { parsedBody = null; }
       const tool = extractMcpTool(parsedBody) ?? undefined;
 
-      const result = verify(token, { tool });
+      const result = await verifyAsync(token, { tool });
       if (!result.valid) {
         return new Response(
           unauthorizedJson(result, exposeErrors),
@@ -151,7 +244,7 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
         );
       }
 
-      const receipt = buildReceipt(result.claims, result.scopeGranted, tool ?? '(not an MCP tool call)');
+      const receipt = buildReceipt(result, tool ?? '(not an MCP tool call)');
       const newReq = new Request(req, { body: rawBody });
       newReq.headers.set(RECEIPT_HEADER, encodeReceipt(receipt));
 
@@ -185,7 +278,7 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
       }
 
       const tool = extractMcpTool(r['body']) ?? undefined;
-      const result = verify(token, { tool });
+      const result = await verifyAsync(token, { tool });
 
       if (!result.valid) {
         const response = res as { status: (n: number) => { json: (body: unknown) => void } };
@@ -208,7 +301,7 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
         return;
       }
 
-      const receipt = buildReceipt(result.claims, result.scopeGranted, tool ?? '(not an MCP tool call)');
+      const receipt = buildReceipt(result, tool ?? '(not an MCP tool call)');
       r['vaneReceipt'] = receipt;
       next();
     };
@@ -242,7 +335,7 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
       }
 
       const tool = request.params.name;
-      const result = verify(token, { tool });
+      const result = await verifyAsync(token, { tool });
 
       if (!result.valid) {
         throw new McpAuthError(result.code, result.error);
@@ -253,12 +346,12 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
         throw new McpAuthError(revocationFailure.code, revocationFailure.error);
       }
 
-      const receipt = buildReceipt(result.claims, result.scopeGranted, tool);
+      const receipt = buildReceipt(result, tool);
       return handler(request, receipt);
     };
   }
 
-  return { verify, fetchMiddleware, expressMiddleware, mcpHandler };
+  return { verify, verifyAsync, fetchMiddleware, expressMiddleware, mcpHandler };
 }
 
 // ── Error type ────────────────────────────────────────────────────────────────
