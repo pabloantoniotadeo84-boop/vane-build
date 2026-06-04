@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import { generateKeyPair, AttestationChain, signPayload, verifyPayload } from '../crypto/index.js';
+import { generateKeyPair, AttestationChain, signPayload, verifyPayload, rfc6962RootHex, signSTH } from '../crypto/index.js';
 import {
   agentSpiffeId,
   companySpiffeId,
@@ -30,6 +30,8 @@ import { fileURLToPath } from 'node:url';
 import { logger } from '../logger.js';
 import { captureException } from '../sentry.js';
 import { rateLimitMiddleware } from './rate-limit.js';
+import { appendWithCheckpoint, createKeyedQueue } from '../checkpoint/log.js';
+import { createCheckpointRoutes } from './checkpoint-routes.js';
 
 // ── Per-company in-memory state ───────────────────────────────────────────────
 
@@ -43,6 +45,31 @@ logger.info('Connecting to database');
 await store.init();
 logger.info('Database ready');
 
+// ── Global CA key ───────────────────────────────────────────────────────────────
+// One instance-wide Ed25519 key signs every Signed Tree Head, so an external
+// auditor needs only this single public key to verify any checkpoint from any
+// company. It is persisted in the DB (envelope-encrypted when VANE_MASTER_KEY is
+// set); VANE_CA_PRIVATE_KEY + VANE_CA_PUBLIC_KEY (raw PEM) override it for
+// operators who provision and pin the CA key externally.
+async function initCaKey(): Promise<KeyPair> {
+  const envPriv = process.env.VANE_CA_PRIVATE_KEY;
+  const envPub = process.env.VANE_CA_PUBLIC_KEY;
+  if (envPriv && envPub) {
+    logger.info('Using CA key from VANE_CA_PRIVATE_KEY / VANE_CA_PUBLIC_KEY');
+    return { privateKey: envPriv, publicKey: envPub };
+  }
+  let ca = await store.getCaKey();
+  if (!ca) {
+    ca = generateKeyPair();
+    await store.saveCaKey(ca);
+    logger.info('Generated and persisted a new global CA key for Signed Tree Heads');
+  }
+  return ca;
+}
+
+const caKeys = await initCaKey();
+const caKid = deriveKeyId(caKeys.publicKey);
+
 const tenants = new Map<string, Tenant>();
 
 async function initTenant(companyId: string): Promise<Tenant> {
@@ -53,9 +80,37 @@ async function initTenant(companyId: string): Promise<Tenant> {
   }
   const chain = new AttestationChain();
   chain.hydrate(await store.getAllRecords(companyId));
+
+  // Anchor the in-memory chain to its latest checkpoint. If records exist
+  // without a covering STH (e.g. data created before checkpoints existed), mint
+  // one now so /v1/checkpoint is always consistent with the persisted log.
+  let sth = await store.getLatestSTH(companyId);
+  if (chain.length > 0 && (!sth || sth.treeSize < chain.length)) {
+    sth = signSTH(
+      { rootHash: rfc6962RootHex(chain.currentLeafHashes()), treeSize: chain.length, timestamp: Date.now() },
+      caKeys.privateKey,
+    );
+    await store.insertSTH(companyId, sth);
+    logger.info({ companyId, treeSize: chain.length }, 'Backfilled checkpoint for pre-existing records');
+  }
+  if (sth) chain.setLatestSth(sth);
+
   const tenant: Tenant = { keys, chain };
   tenants.set(companyId, tenant);
   return tenant;
+}
+
+// Appends for a single company are serialized so each STH commits to the exact
+// in-memory leaf set that matches the persisted log (see createKeyedQueue).
+const withAppendLock = createKeyedQueue();
+
+// Returns the cached tenant, hydrating it on demand. Null if the company is unknown.
+async function ensureTenant(companyId: string): Promise<Tenant | null> {
+  const cached = tenants.get(companyId);
+  if (cached) return cached;
+  const company = await store.getCompany(companyId);
+  if (!company) return null;
+  return initTenant(companyId);
 }
 
 // Hydrate all existing tenants from the DB on startup.
@@ -148,6 +203,10 @@ app.use('/v1/*', async (c, next) => {
     (c.req.method === 'GET'  && c.req.path === '/v1/ca/public-key') ||
     (c.req.method === 'GET'  && c.req.path === '/v1/ca/public-keys') ||
     (c.req.method === 'GET'  && c.req.path === '/v1/ca/well-known') ||
+    (c.req.method === 'GET'  && c.req.path === '/v1/ca/checkpoint-key') ||
+    // External auditors must reach checkpoints with no tenant credential.
+    (c.req.method === 'GET'  && c.req.path === '/v1/checkpoint') ||
+    (c.req.method === 'GET'  && c.req.path === '/v1/checkpoint/consistency') ||
     (c.req.method === 'POST' && c.req.path === '/v1/companies') ||
     (c.req.method === 'POST' && c.req.path === '/v1/setup') ||
     (c.req.method === 'POST' && c.req.path === '/v1/recover-key') ||
@@ -203,6 +262,44 @@ app.use('/v1/*', async (c, next) => {
 // ── Health ────────────────────────────────────────────────────────────────────
 
 app.get('/v1/health', (c) => c.json({ status: 'ok' }));
+
+// ── Checkpoints (public) ──────────────────────────────────────────────────────
+// GET /v1/checkpoint and GET /v1/checkpoint/consistency. Mounted here, after the
+// auth middleware (which allowlists these paths), so an external auditor can
+// fetch the CA-signed log state with no tenant credential.
+
+app.route('/', createCheckpointRoutes({
+  caPublicKey: caKeys.publicKey,
+  caKid,
+  async latestCheckpoint(companyId) {
+    const tenant = await ensureTenant(companyId);
+    return tenant?.chain.getLatestSth() ?? null;
+  },
+  async checkpointAt(companyId, treeSize) {
+    if (!(await store.getCompany(companyId))) return null;
+    return store.getSTH(companyId, treeSize);
+  },
+  async leafHashes(companyId) {
+    const tenant = await ensureTenant(companyId);
+    return tenant ? tenant.chain.currentLeafHashes() : null;
+  },
+}));
+
+// GET /v1/ca/checkpoint-key — the global CA public key that signs every STH.
+// This is the single trust anchor an external auditor pins.
+app.get('/v1/ca/checkpoint-key', (c) => {
+  const jwk = pemToJwk(caKeys.publicKey, caKid);
+  c.header('Cache-Control', 'public, max-age=3600');
+  return c.json({
+    kid: caKid,
+    pem: caKeys.publicKey,
+    jwk,
+    fingerprint: pemFingerprint(caKeys.publicKey),
+    algorithm: 'EdDSA',
+    usage: 'signed-tree-head',
+    keys: [jwk],
+  });
+});
 
 // ── Company registration ──────────────────────────────────────────────────────
 
@@ -1015,12 +1112,26 @@ app.post('/v1/attest', async (c) => {
     }
   }
 
-  const record = tenant.chain.append(attestationPayload, tenant.keys.privateKey, delegation);
-  await store.insertRecord(companyId, record);
+  // Append the record and atomically commit a CA-signed Signed Tree Head over
+  // the new tree state. If the STH signing or the transaction fails, this throws
+  // and the in-memory chain is left untouched — no record without a checkpoint.
+  // Serialized per company so the STH leaf set matches the committed log.
+  const { record, sth } = await withAppendLock(companyId, () =>
+    appendWithCheckpoint({
+      chain: tenant.chain,
+      signingPrivateKey: tenant.keys.privateKey,
+      caPrivateKey: caKeys.privateKey,
+      payload: attestationPayload,
+      delegation,
+      persist: (rec, buildSth) => store.appendRecordWithSTH(companyId, rec, buildSth),
+    }),
+  );
+
   const verifyResult = tenant.chain.verify(tenant.keys.publicKey);
   broadcast({
     type: 'record',
     record,
+    checkpoint: sth,
     valid: verifyResult.valid,
     ...(verifyResult.valid ? { merkleRoot: verifyResult.merkleRoot } : { failedAtIndex: verifyResult.failedAtIndex }),
   });

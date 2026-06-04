@@ -4,6 +4,10 @@ export { AttestationChain } from './chain.js';
 export { computeRoot, buildProof, verifyProof } from './merkle.js';
 export type { MerkleProof, ProofNode } from './merkle.js';
 export type { InclusionProof } from './chain.js';
+
+export { rfc6962RootHex, consistencyProofHex, verifyConsistencyHex } from './rfc6962.js';
+export { signSTH, verifySTH } from './sth.js';
+export type { SignedTreeHead, STHFields } from './sth.js';
 export type { KeyPair, AttestationRecord, DelegationInfo, VerificationResult, AgentRegistration, ActClaim, JwtSvidClaims, TokenExchangeResponse, CrossOrgDelegationClaims } from './types.js';
 
 export { agentSpiffeId, companySpiffeId, parseSpiffeId, validateSpiffeId, TRUST_DOMAIN } from './spiffe.js';

@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { randomBytes, randomUUID, createCipheriv, createDecipheriv, createHash, timingSafeEqual } from 'node:crypto';
 import type { AttestationRecord, KeyPair, AgentRegistration } from '../crypto/types.js';
+import type { SignedTreeHead } from '../crypto/sth.js';
 import type { WebhookRow, DeliveryRow } from '../webhooks/types.js';
 import { logger } from '../logger.js';
 
@@ -204,6 +205,77 @@ export class Store {
         BEFORE DELETE ON records
         FOR EACH ROW EXECUTE FUNCTION records_append_only()
     `);
+
+    // ── Global CA key ─────────────────────────────────────────────────────────
+    // Single instance-wide Ed25519 key that signs every Signed Tree Head. It is
+    // deliberately NOT a per-company key: a company key lives in this same
+    // database, so a self-signed root proves nothing against a malicious
+    // operator. The CHECK pins this table to a single row.
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS ca_key (
+        id          INTEGER PRIMARY KEY,
+        public_key  TEXT NOT NULL,
+        private_key TEXT NOT NULL,
+        created_at  TEXT NOT NULL,
+        CHECK (id = 1)
+      )
+    `);
+
+    // ── Signed Tree Heads ─────────────────────────────────────────────────────
+    // One CA-signed checkpoint per tree size, per company. The (company_id,
+    // tree_size) primary key also makes a duplicate append at the same size fail
+    // loudly inside the transaction.
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS signed_tree_heads (
+        company_id TEXT    NOT NULL REFERENCES companies(company_id),
+        tree_size  INTEGER NOT NULL,
+        root_hash  TEXT    NOT NULL,
+        timestamp  BIGINT  NOT NULL,
+        signature  TEXT    NOT NULL,
+        PRIMARY KEY (company_id, tree_size)
+      )
+    `);
+
+    // STHs are append-only too: once a checkpoint is published an operator must
+    // not be able to silently rewrite it.
+    await this.pool.query(`
+      CREATE OR REPLACE FUNCTION sth_append_only()
+      RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        RAISE EXCEPTION 'signed_tree_heads table is append-only: % is not permitted', TG_OP;
+      END;
+      $$
+    `);
+    await this.pool.query(`DROP TRIGGER IF EXISTS sth_no_update ON signed_tree_heads`);
+    await this.pool.query(`
+      CREATE TRIGGER sth_no_update
+        BEFORE UPDATE ON signed_tree_heads
+        FOR EACH ROW EXECUTE FUNCTION sth_append_only()
+    `);
+    await this.pool.query(`DROP TRIGGER IF EXISTS sth_no_delete ON signed_tree_heads`);
+    await this.pool.query(`
+      CREATE TRIGGER sth_no_delete
+        BEFORE DELETE ON signed_tree_heads
+        FOR EACH ROW EXECUTE FUNCTION sth_append_only()
+    `);
+  }
+
+  // ── Global CA key ──────────────────────────────────────────────────────────────
+
+  async getCaKey(): Promise<KeyPair | null> {
+    const { rows } = await this.pool.query<{ public_key: string; private_key: string }>(
+      `SELECT public_key, private_key FROM ca_key WHERE id = 1`,
+    );
+    if (!rows[0]) return null;
+    return { publicKey: rows[0].public_key, privateKey: decryptPrivateKey(rows[0].private_key) };
+  }
+
+  async saveCaKey(keys: KeyPair): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO ca_key (id, public_key, private_key, created_at) VALUES (1, $1, $2, $3)
+       ON CONFLICT (id) DO UPDATE SET public_key = EXCLUDED.public_key, private_key = EXCLUDED.private_key`,
+      [keys.publicKey, encryptPrivateKey(keys.privateKey), new Date().toISOString()],
+    );
   }
 
   // ── Companies ────────────────────────────────────────────────────────────────
@@ -407,6 +479,98 @@ export class Store {
         record.signature,
       ],
     );
+  }
+
+  // ── Signed Tree Heads / checkpoints ────────────────────────────────────────────
+
+  /**
+   * Atomically append a record and its Signed Tree Head in one transaction.
+   *
+   * `buildSth` is called INSIDE the transaction, after the record is inserted
+   * but before COMMIT. If it throws (a CA signing failure), the catch rolls the
+   * whole transaction back — the record is never persisted without a valid STH.
+   * A duplicate (company_id, tree_size) likewise aborts the transaction.
+   */
+  async appendRecordWithSTH(
+    companyId: string,
+    record: AttestationRecord,
+    buildSth: () => SignedTreeHead,
+  ): Promise<SignedTreeHead> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO records (company_id, idx, timestamp, payload, delegation, hash, signature)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          companyId,
+          record.index,
+          record.timestamp,
+          JSON.stringify(record.payload),
+          record.delegation ? JSON.stringify(record.delegation) : null,
+          record.hash,
+          record.signature,
+        ],
+      );
+      // Sign inside the transaction: any failure here must unwind the record.
+      const sth = buildSth();
+      await client.query(
+        `INSERT INTO signed_tree_heads (company_id, tree_size, root_hash, timestamp, signature)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [companyId, sth.treeSize, sth.rootHash, sth.timestamp, sth.signature],
+      );
+      await client.query('COMMIT');
+      return sth;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Inserts a standalone STH (used to backfill a checkpoint for legacy records on startup). */
+  async insertSTH(companyId: string, sth: SignedTreeHead): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO signed_tree_heads (company_id, tree_size, root_hash, timestamp, signature)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (company_id, tree_size) DO NOTHING`,
+      [companyId, sth.treeSize, sth.rootHash, sth.timestamp, sth.signature],
+    );
+  }
+
+  async getLatestSTH(companyId: string): Promise<SignedTreeHead | null> {
+    const { rows } = await this.pool.query<{
+      tree_size: number; root_hash: string; timestamp: string; signature: string;
+    }>(
+      `SELECT tree_size, root_hash, timestamp, signature FROM signed_tree_heads
+       WHERE company_id = $1 ORDER BY tree_size DESC LIMIT 1`,
+      [companyId],
+    );
+    if (!rows[0]) return null;
+    return {
+      rootHash: rows[0].root_hash,
+      treeSize: rows[0].tree_size,
+      timestamp: Number(rows[0].timestamp),
+      signature: rows[0].signature,
+    };
+  }
+
+  async getSTH(companyId: string, treeSize: number): Promise<SignedTreeHead | null> {
+    const { rows } = await this.pool.query<{
+      tree_size: number; root_hash: string; timestamp: string; signature: string;
+    }>(
+      `SELECT tree_size, root_hash, timestamp, signature FROM signed_tree_heads
+       WHERE company_id = $1 AND tree_size = $2`,
+      [companyId, treeSize],
+    );
+    if (!rows[0]) return null;
+    return {
+      rootHash: rows[0].root_hash,
+      treeSize: rows[0].tree_size,
+      timestamp: Number(rows[0].timestamp),
+      signature: rows[0].signature,
+    };
   }
 
   // ── Passport revocation ───────────────────────────────────────────────────────

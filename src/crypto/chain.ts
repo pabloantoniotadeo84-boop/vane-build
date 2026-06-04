@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { canonicalize, signPayload, verifyPayload } from './signer.js';
 import { computeRoot, buildProof, verifyProof, type MerkleProof } from './merkle.js';
 import type { AttestationRecord, DelegationInfo, VerificationResult } from './types.js';
+import type { SignedTreeHead } from './sth.js';
 
 export type { MerkleProof } from './merkle.js';
 
@@ -22,20 +23,53 @@ function sha256hex(data: string): string {
 
 export class AttestationChain {
   private readonly records: AttestationRecord[] = [];
+  private latestSth?: SignedTreeHead;
 
   hydrate(records: AttestationRecord[]): void {
     if (this.records.length > 0) throw new Error('hydrate() must be called on an empty chain');
     this.records.push(...records);
   }
 
-  append(payload: unknown, privateKeyPem: string, delegation?: DelegationInfo): AttestationRecord {
+  /**
+   * Computes the next record (index, hash, signature) WITHOUT mutating the
+   * chain. Used by the checkpoint append path so the in-memory chain only
+   * advances after the record + its Signed Tree Head are durably committed.
+   */
+  computeNextRecord(payload: unknown, privateKeyPem: string, delegation?: DelegationInfo): AttestationRecord {
     const index = this.records.length;
     const timestamp = new Date().toISOString();
     const hash = sha256hex(leafPreimage(index, timestamp, payload, delegation));
     const signature = signPayload(hash, privateKeyPem);
-    const record: AttestationRecord = { index, timestamp, payload, ...(delegation && { delegation }), hash, signature };
+    return { index, timestamp, payload, ...(delegation && { delegation }), hash, signature };
+  }
+
+  /** Appends a pre-computed record. Rejects a record whose index is out of order. */
+  push(record: AttestationRecord): void {
+    if (record.index !== this.records.length) {
+      throw new Error(`record index ${record.index} does not match expected ${this.records.length}`);
+    }
+    this.records.push(record);
+  }
+
+  append(payload: unknown, privateKeyPem: string, delegation?: DelegationInfo): AttestationRecord {
+    const record = this.computeNextRecord(payload, privateKeyPem, delegation);
     this.records.push(record);
     return record;
+  }
+
+  /** Record hashes in chain order — the leaf set the Merkle root commits to. */
+  currentLeafHashes(): string[] {
+    return this.records.map((r) => r.hash);
+  }
+
+  /** The most recent Signed Tree Head committed for this chain, if any. */
+  getLatestSth(): SignedTreeHead | undefined {
+    return this.latestSth;
+  }
+
+  /** Sets the latest STH (on startup hydration and after each committed append). */
+  setLatestSth(sth: SignedTreeHead): void {
+    this.latestSth = sth;
   }
 
   /**
