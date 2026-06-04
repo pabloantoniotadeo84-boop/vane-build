@@ -17,6 +17,28 @@ export interface VerifyPassportOptions {
   // If provided, the passport must grant a scope covering "tool:<tool>".
   tool?: string;
 
+  // ── Sender-constraint enforcement (all optional) ────────────────────────────
+  // When supplied, the corresponding constraint is enforced; the passport must
+  // carry a matching value or verification fails closed. When omitted, the
+  // constraint is not checked, so passports issued without these claims still
+  // verify (backward compatible).
+
+  // The exact nonce the caller bound into the passport at issuance. If set, the
+  // passport's vane.nonce must equal it (NONCE_MISMATCH otherwise); a passport
+  // with no nonce fails MISSING_NONCE.
+  expectedNonce?: string;
+
+  // The recipient audience of *this* deployment (e.g. "https://api.example.com").
+  // If set, the passport's vane.aud must equal it (AUDIENCE_MISMATCH otherwise);
+  // a passport with no recipient audience fails MISSING_AUDIENCE.
+  expectedAudience?: string;
+
+  // The canonical hash of the live request (see computeRequestHash). Required to
+  // satisfy a request-bound passport: if the passport carries vane.requestHash it
+  // must equal this value (REQUEST_MISMATCH otherwise, including when this option
+  // is absent — a request-bound passport cannot be accepted unbound).
+  expectedRequestHash?: string;
+
   // Override current time for testing. Unix seconds.
   now?: number;
 }
@@ -41,7 +63,11 @@ export interface VerifyPassportOptions {
  *   10. Vane claims — "vane" object must be present
  *   11. Version — vane.v must be in SUPPORTED_VERSIONS
  *   12. Chain coherence — delegationChain tail must equal sub
- *   13. Scope — if tool is provided, scopes must cover "tool:<tool>"
+ *   13. Nonce — if expectedNonce is set, vane.nonce must match it exactly
+ *   14. Audience — if expectedAudience is set, vane.aud must match it exactly
+ *   15. Request binding — if vane.requestHash is present, it must match
+ *       expectedRequestHash
+ *   16. Scope — if tool is provided, scopes must cover "tool:<tool>"
  */
 export function verifyPassport(
   token: string,
@@ -178,7 +204,50 @@ function verifyPassportImpl(
     );
   }
 
-  // Step 13 — scope
+  // Step 13 — nonce binding. Only enforced when the caller supplies the nonce it
+  // bound at issuance. A passport that lacks a nonce cannot satisfy a nonce
+  // requirement, so MISSING_NONCE rather than NONCE_MISMATCH.
+  if (opts.expectedNonce !== undefined) {
+    const nonce = c['nonce'];
+    if (nonce === undefined || nonce === null) {
+      return fail('MISSING_NONCE', 'expectedNonce was supplied but the passport carries no nonce');
+    }
+    if (typeof nonce !== 'string' || nonce !== opts.expectedNonce) {
+      return fail('NONCE_MISMATCH', 'Passport nonce does not match the expected nonce');
+    }
+  }
+
+  // Step 14 — recipient audience. The per-deployment audience (vane.aud) is
+  // distinct from the top-level protocol audience checked in step 7. Only
+  // enforced when expectedAudience is supplied.
+  if (opts.expectedAudience !== undefined) {
+    const recipientAud = c['aud'];
+    if (recipientAud === undefined || recipientAud === null) {
+      return fail('MISSING_AUDIENCE', 'expectedAudience was supplied but the passport carries no recipient audience');
+    }
+    if (typeof recipientAud !== 'string' || recipientAud !== opts.expectedAudience) {
+      return fail('AUDIENCE_MISMATCH', `Passport recipient audience "${String(recipientAud)}" does not match expected "${opts.expectedAudience}"`);
+    }
+  }
+
+  // Step 15 — request binding. Gated by the *presence of the claim*: a
+  // request-bound passport asserts it is valid for exactly one request, so any
+  // verifier must check it. If it cannot (no expectedRequestHash supplied), the
+  // passport is denied — fail closed.
+  const requestHash = c['requestHash'];
+  if (requestHash !== undefined && requestHash !== null) {
+    if (typeof requestHash !== 'string') {
+      return fail('REQUEST_MISMATCH', 'Passport requestHash claim is malformed');
+    }
+    if (opts.expectedRequestHash === undefined) {
+      return fail('REQUEST_MISMATCH', 'Passport is request-bound but no expectedRequestHash was supplied');
+    }
+    if (requestHash !== opts.expectedRequestHash) {
+      return fail('REQUEST_MISMATCH', 'Passport requestHash does not match the request');
+    }
+  }
+
+  // Step 16 — scope
   let scopeGranted: string;
   if (opts.tool !== undefined) {
     const requested = `tool:${opts.tool}`;

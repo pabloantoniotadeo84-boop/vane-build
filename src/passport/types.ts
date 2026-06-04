@@ -26,6 +26,22 @@ export interface VanePassportClaims {
     scopes: string[];         // Authorization scopes — see scope rules below
     delegationChain: string[]; // [orgSpiffeId, ..., agentSpiffeId] — full authorization path
     delegationId?: string;    // jti of the RFC 8693 token this passport was derived from
+
+    // ── Sender-constraint claims (all optional, all caller-supplied) ──────────
+    // These bind a passport to a single use and defeat bearer-token replay.
+    // A passport that omits them is a plain bearer credential (backward
+    // compatible); a verifier only enforces a constraint when it asks for it.
+
+    nonce?: string;           // 128-bit caller-supplied random value, hex-encoded.
+                              //   Enforced when the verifier passes expectedNonce.
+    aud?: string;             // Per-deployment recipient audience — a single string
+                              //   identifying the intended server (e.g.
+                              //   "https://api.example.com"). Distinct from the
+                              //   top-level protocol `aud` (PASSPORT_AUDIENCE).
+                              //   Enforced when the verifier passes expectedAudience.
+    requestHash?: string;     // SHA-256 hex of the canonical request
+                              //   (METHOD|url|sha256(body)). When present, the
+                              //   verifier MUST validate it against the live request.
   };
 }
 
@@ -73,6 +89,11 @@ export type PassportErrorCode =
   | 'TOKEN_EXPIRED'
   | 'TOKEN_NOT_YET_VALID'
   | 'AUDIENCE_MISMATCH'
+  // Sender-constraint failures (nonce binding / recipient audience / request binding).
+  | 'MISSING_NONCE'
+  | 'NONCE_MISMATCH'
+  | 'MISSING_AUDIENCE'
+  | 'REQUEST_MISMATCH'
   | 'INVALID_ISSUER'
   | 'INVALID_SUBJECT'
   | 'UNSUPPORTED_VERSION'

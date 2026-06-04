@@ -76,6 +76,13 @@ All Vane-specific claims are namespaced under the `vane` object to avoid collisi
 | `vane.scopes` | `string[]` | Authorization scopes. Non-empty array. See scope rules below. |
 | `vane.delegationChain` | `string[]` | Ordered SPIFFE IDs from authorizing org to the agent. The last element MUST equal `sub`. |
 | `vane.delegationId` | `string` | Optional. `jti` of the RFC 8693 token this passport was derived from. Present when the passport was issued from a delegation. |
+| `vane.nonce` | `string` | Optional. Caller-supplied 128-bit value, hex-encoded (32 hex chars). Binds the passport to a single use. Enforced when the verifier passes `expectedNonce`. |
+| `vane.aud` | `string` | Optional. Per-deployment recipient audience — a single string naming the intended server (e.g. `"https://api.example.com"`). Distinct from the top-level protocol `aud`. Enforced when the verifier passes `expectedAudience`. |
+| `vane.requestHash` | `string` | Optional. `SHA-256(METHOD + "\|" + url + "\|" + SHA-256(body))`, hex. When present, the verifier MUST validate it against the live request. |
+
+### Sender constraints
+
+The three claims above are caller-supplied and turn a plain bearer passport into a **sender-constrained** credential that cannot be replayed against a different server, endpoint, or request. They are all optional — a passport that omits them behaves exactly as before, and a verifier only enforces a constraint it explicitly asks for. `vane.nonce` and `vane.aud` are enforced when the verifier passes `expectedNonce` / `expectedAudience`. `vane.requestHash` is enforced whenever it is present in the passport: a request-bound passport presented without a matching `expectedRequestHash` is denied (`REQUEST_MISMATCH`).
 
 ## Scope format
 
@@ -114,7 +121,10 @@ Verification is performed in this order. A failure at any step terminates verifi
 | 11 | Version — `vane.v` must be in supported versions | `UNSUPPORTED_VERSION` |
 | 12 | Scopes — `vane.scopes` must be a non-empty array | `MALFORMED_CLAIMS` |
 | 13 | Chain — `vane.delegationChain` must be non-empty, tail must equal `sub` | `CHAIN_INCOHERENT` |
-| 14 | Scope check — if a tool name was provided, scopes must cover `tool:<name>` | `SCOPE_DENIED` |
+| 14 | Nonce — if `expectedNonce` is set, `vane.nonce` must be present and equal it | `MISSING_NONCE` / `NONCE_MISMATCH` |
+| 15 | Recipient audience — if `expectedAudience` is set, `vane.aud` must be present and equal it | `MISSING_AUDIENCE` / `AUDIENCE_MISMATCH` |
+| 16 | Request binding — if `vane.requestHash` is present, it must equal `expectedRequestHash` | `REQUEST_MISMATCH` |
+| 17 | Scope check — if a tool name was provided, scopes must cover `tool:<name>` | `SCOPE_DENIED` |
 
 ## Error codes
 
@@ -126,7 +136,11 @@ Verification is performed in this order. A failure at any step terminates verifi
 | `SIGNATURE_INVALID` | Ed25519 signature does not verify. |
 | `TOKEN_EXPIRED` | `exp` is in the past. |
 | `TOKEN_NOT_YET_VALID` | `nbf` is in the future. |
-| `AUDIENCE_MISMATCH` | `aud` does not include `"vane:passport:v1"`. |
+| `AUDIENCE_MISMATCH` | Top-level `aud` does not include `"vane:passport:v1"`, or `vane.aud` does not equal `expectedAudience`. |
+| `MISSING_NONCE` | `expectedNonce` was supplied but the passport carries no `vane.nonce`. |
+| `NONCE_MISMATCH` | `vane.nonce` does not equal `expectedNonce`. |
+| `MISSING_AUDIENCE` | `expectedAudience` was supplied but the passport carries no `vane.aud`. |
+| `REQUEST_MISMATCH` | The passport is request-bound (`vane.requestHash` present) and the request hash does not match `expectedRequestHash` (or none was supplied). |
 | `INVALID_ISSUER` | `iss` is not a valid SPIFFE URI. |
 | `INVALID_SUBJECT` | `sub` is not a valid SPIFFE URI. |
 | `UNSUPPORTED_VERSION` | `vane.v` is not 1. |
