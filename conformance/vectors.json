@@ -1,0 +1,313 @@
+{
+  "description": "Conformance test vectors for the Vane Agent Passport (CAP+JWT) verification protocol. Each vector pins all time claims to a fixed epoch and supplies an explicit `now`, so results are stable forever. See conformance/README.md for the full specification.",
+  "protocol": {
+    "tokenType": "CAP+JWT",
+    "algorithm": "EdDSA (Ed25519, PureEdDSA)",
+    "protocolAudience": "vane:passport:v1",
+    "supportedVersions": [
+      1
+    ],
+    "defaultClockSkewSeconds": 30,
+    "referenceEpoch": 1750000000
+  },
+  "vectorCount": 22,
+  "vectors": [
+    {
+      "name": "valid-passport",
+      "description": "A well-formed, in-window passport that must verify.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6Ijg5OTI1ZjRhLWVmNWEtNDhkZC1hMGU0LTRkODFmMDU2ODU1OSIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il19fQ.y_vnyUH3Be2H02vO8GeF2INXNtePFqdcpM62AuzyYJknkIhnvKmeSYa3yDOD78b0N9mhkCXNQErK-0IM-nlMBA",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": true,
+        "scopeGranted": "tool:search"
+      }
+    },
+    {
+      "name": "valid-with-tool",
+      "description": "Passport granting tool:search, verified with tool=\"search\".",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjBlMjU5M2RjLTNjM2YtNDYwNC1hNWU4LTA1ZThiNTNjOTEzZCIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il19fQ.e4kKrVMiW7jJeoCduzF9L5-fDLb-gGQurBC26iDnLAtGp0VBixIBJoWaWb-aAHWQT8OsF8TnJyGW155gXmjiDA",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060,
+        "tool": "search"
+      },
+      "expected": {
+        "valid": true,
+        "scopeGranted": "tool:search"
+      }
+    },
+    {
+      "name": "valid-wildcard-scope",
+      "description": "Passport with scope \"tool:*\" must cover tool=\"delete\".",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6Ijg5MWVkNDI3LWI0ZWQtNDI3Yi05YjE2LTEwOTY1ZjI5MTYxOCIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOioiXSwiZGVsZWdhdGlvbkNoYWluIjpbInNwaWZmZTovL3ZhbmUubG9jYWwvY29tcGFueS9hY21lIiwic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyJdfX0.ljmumn853nhONaXzAjOGKYaw4qamJMwjFgOe2i0-26yd1jy_-z0KuVMNZmsIiE3UCkanaCC7gFHg9MNqkCpsCw",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060,
+        "tool": "delete"
+      },
+      "expected": {
+        "valid": true,
+        "scopeGranted": "tool:*"
+      }
+    },
+    {
+      "name": "expired-passport",
+      "description": "exp is in the past beyond the clock-skew leeway → TOKEN_EXPIRED.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjAyODY4ZmM5LTNhODQtNDhlZC04NWZjLTc4ODRjNGY0NzhjNiIsImlhdCI6MTc0OTk5MjgwMCwiZXhwIjoxNzQ5OTk2NDAwLCJuYmYiOjE3NDk5OTI4MDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il19fQ.hc2kiCYcOn9GIqoeVmLR8FmsdXnd2mwD3OSJahewoqEEVkvQfiCAbst-U2BLN3kPn6xZW-Zz07NvV1VrSlSHBQ",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": false,
+        "code": "TOKEN_EXPIRED"
+      }
+    },
+    {
+      "name": "nbf-in-future",
+      "description": "nbf is 600s ahead of now (beyond the 30s leeway) → TOKEN_NOT_YET_VALID.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjAwMzkwNmJlLWU1MzctNGQ2MS04Y2Q4LWQwN2Q0ZWZiMjFhYSIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDA2MDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il19fQ.mV5xiqusI3akbFJp5MznZTB_3mnAXkIW9IHt41hu5O0suc8DiMT3J9eimfeBXK_Ld8-M4V_4cmeRckcWt_3vDQ",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000000
+      },
+      "expected": {
+        "valid": false,
+        "code": "TOKEN_NOT_YET_VALID"
+      }
+    },
+    {
+      "name": "bad-signature",
+      "description": "Token signed with a non-CA key → SIGNATURE_INVALID.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiI4NWIwMWYxYWEzMzE1Y2I4In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjY2OWE2ODU3LWQ4YWUtNGUwZS05OGUxLWMwOTFhMjM0NTg3OCIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il19fQ.KfZtbBpBYZiWO7g6KOLBxy-CLZkg-dcWeAo9b3M-hAA2vuJjtKPr693ex6HR8de1Hvxb0AjmSoEmAlixmJnzBQ",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": false,
+        "code": "SIGNATURE_INVALID"
+      }
+    },
+    {
+      "name": "tampered-payload",
+      "description": "A valid token whose payload was edited after signing → SIGNATURE_INVALID.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjA1NjgzOWQzLTYxNWItNDY0Mi1iNDNlLThiMWVkZmNkMGE4MyIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LUVWSUwiLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyIqIl0sImRlbGVnYXRpb25DaGFpbiI6WyJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNwaWZmZTovL3ZhbmUubG9jYWwvY29tcGFueS9hY21lL2FnZW50L2FnZW50LTciXX19.5Rcst2IvNj2t2ENt3wkKNTEEqv3L5PleDOkPLkYwZ_XnDOQgJj8-b0QjXPZ_0FGR_g39gceuSZK7nOBVXY9jAA",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": false,
+        "code": "SIGNATURE_INVALID"
+      }
+    },
+    {
+      "name": "wrong-audience",
+      "description": "Passport recipient audience does not match expectedAudience → AUDIENCE_MISMATCH.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjkwZTBmNzM5LTNkMjctNGViNi04MDczLTc5NmI4ZTUwNDU2YyIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il0sImF1ZCI6Imh0dHBzOi8vZXZpbC5leGFtcGxlLmNvbSJ9fQ.LCdtvP_Pm4mYnuwkwDq_2az9InvKAqQzXa_widNY1meGXXfroVgEjbE3RsC3aDg5hz4Cc31wNhikgU7MYadjAA",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060,
+        "expectedAudience": "https://api.example.com"
+      },
+      "expected": {
+        "valid": false,
+        "code": "AUDIENCE_MISMATCH"
+      }
+    },
+    {
+      "name": "wrong-protocol-audience",
+      "description": "Top-level aud does not contain \"vane:passport:v1\" → AUDIENCE_MISMATCH.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ1cm46c29tZTpvdGhlcjphdWRpZW5jZSJdLCJqdGkiOiIwOTk4M2Y2NS1kNTJlLTQ0YTktODM0MC0wZjRhNmE1NDhkMjUiLCJpYXQiOjE3NTAwMDAwMDAsImV4cCI6MTc1MDAwMzYwMCwibmJmIjoxNzUwMDAwMDAwLCJ2YW5lIjp7InYiOjEsImFnZW50SWQiOiJhZ2VudC03Iiwib3JnIjoiYWNtZSIsIm9yZ1NwaWZmZUlkIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzY29wZXMiOlsidG9vbDpzZWFyY2giLCJkYXRhOnJlYWQiXSwiZGVsZWdhdGlvbkNoYWluIjpbInNwaWZmZTovL3ZhbmUubG9jYWwvY29tcGFueS9hY21lIiwic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyJdfX0.w-X0N0eLVoIE7J_eSpOnLS-O4LfsdkE2lOKcFE9GGXNUDCBizeH6CoQzmOoYyhOECzh9Lz5w7zMzCixTFrskDQ",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": false,
+        "code": "AUDIENCE_MISMATCH"
+      }
+    },
+    {
+      "name": "nonce-correct",
+      "description": "Nonce-bound passport verified with the matching expectedNonce → valid.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6ImY1ZmI1ZGYzLTA2ODctNDlkMy05OWE5LWMyODg2NTgxYzZlMiIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il0sIm5vbmNlIjoiYTFiMmMzZDRlNWY2MDcxODI5M2E0YjVjNmQ3ZThmOTAifX0.t3CKA9BUCfZTsb0A3PRIuO8rJj4-czgDgMcmc-TkuGc4qLJw_GPebzQE4wo5OKP1rww4fYiyQXM0PPeMJz7vAQ",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060,
+        "expectedNonce": "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+      },
+      "expected": {
+        "valid": true,
+        "scopeGranted": "tool:search"
+      }
+    },
+    {
+      "name": "nonce-mismatch",
+      "description": "Same nonce-bound passport verified with a different expectedNonce → NONCE_MISMATCH.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6ImY1ZmI1ZGYzLTA2ODctNDlkMy05OWE5LWMyODg2NTgxYzZlMiIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il0sIm5vbmNlIjoiYTFiMmMzZDRlNWY2MDcxODI5M2E0YjVjNmQ3ZThmOTAifX0.t3CKA9BUCfZTsb0A3PRIuO8rJj4-czgDgMcmc-TkuGc4qLJw_GPebzQE4wo5OKP1rww4fYiyQXM0PPeMJz7vAQ",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060,
+        "expectedNonce": "ffffffffffffffffffffffffffffffff"
+      },
+      "expected": {
+        "valid": false,
+        "code": "NONCE_MISMATCH"
+      }
+    },
+    {
+      "name": "missing-nonce",
+      "description": "Verifier demands a nonce but the passport has none → MISSING_NONCE.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6ImEzNjFlZWVlLTc2YzUtNDU2MS04YzFkLWNjZGZkNjQxYzBhNyIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il19fQ.liRE0h_3agnoFn7IspXhaWeuKniHP9sV4DTfLlJQoBNFvdCqjhvvo98ErwVn-oYGfC1IkHsC6CVQKAhI1ps_Bg",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060,
+        "expectedNonce": "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+      },
+      "expected": {
+        "valid": false,
+        "code": "MISSING_NONCE"
+      }
+    },
+    {
+      "name": "invalid-delegation-chain",
+      "description": "delegationChain tail does not equal sub → CHAIN_INCOHERENT.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjhiMGFlMTk0LTAxZmQtNDI3MC04MzkxLWNjZTA4MTU4YTU0MSIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9zb21lb25lLWVsc2UiXX19.C84e74HdqSs9Prtus7XAf2IfyBg1vEZkV5TPv3F6PKFPJSgFkyCqSIKpTVYexrV6Hp_O0DKGM6N4TXvbYQ-MBg",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": false,
+        "code": "CHAIN_INCOHERENT"
+      }
+    },
+    {
+      "name": "cross-org-valid",
+      "description": "Cross-org delegation chain [globex, acme, acme-agent] with tail == sub → valid.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6ImRlZmQxYWVhLTg2NzItNDhlMS04YzExLTdjMjRjM2Q2YzNlYiIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2dsb2JleCIsInNwaWZmZTovL3ZhbmUubG9jYWwvY29tcGFueS9hY21lIiwic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyJdfX0.8D7ax-22P9H1cQPljg8DmDNJr2iChZEQc9orlyzpVabzmIg7rrmQM09z2MfHw5IUVhIhndRqwl7ztxlJFZWfCw",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": true,
+        "scopeGranted": "tool:search"
+      }
+    },
+    {
+      "name": "revoked-passport",
+      "description": "An otherwise-valid passport whose jti is in the revoked set → PASSPORT_REVOKED.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjBiZjhjOWQxLThmMjItNGM5Ni04NDMxLWNjY2RjYzkxOGViMyIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il19fQ.jPLduIp79xCIKtxSho4TspHjdK3_KldsU9j1tWZe3KIqKRazlW8Kb4PdZMkFPlY1KVuc-zW90sHuahn-nvHLBA",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060,
+        "revokedJtis": [
+          "0bf8c9d1-8f22-4c96-8431-cccdcc918eb3"
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "code": "PASSPORT_REVOKED"
+      }
+    },
+    {
+      "name": "unsupported-version",
+      "description": "vane.v is 2, which this protocol version does not understand → UNSUPPORTED_VERSION.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjE5ZjMxYmI4LWY1ZmUtNDEzZi1hNjU0LWNmMDlhYzU0Nzk3NSIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MiwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il19fQ.P4bQvHY0ydSYcX8m32xiJy1trGTn-hcemN-OcQ0ww_Hjo8g_OjGGbl_QTOz_0u5Ylb1OlXi7vXgAcYuMVyKgCA",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": false,
+        "code": "UNSUPPORTED_VERSION"
+      }
+    },
+    {
+      "name": "alg-none",
+      "description": "Header alg is \"none\" (signature stripped) → ALGORITHM_MISMATCH.",
+      "token": "eyJhbGciOiJub25lIiwidHlwIjoiQ0FQK0pXVCJ9.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjQ5YmE5MDQzLTRjNDQtNDAzZS1iNWEwLTQ5NGNjYmQwZTRmNCIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il19fQ.",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": false,
+        "code": "ALGORITHM_MISMATCH"
+      }
+    },
+    {
+      "name": "wrong-token-type",
+      "description": "Header typ is \"JWT\" (an SVID), not \"CAP+JWT\" → WRONG_TOKEN_TYPE.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImMyMjE2ZTRjNjgyYTkyNzUifQ.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjkxNWU5OTRlLWE2MDktNGZkYi1hZTg0LTkxMjZjYWUxODZkNiIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il19fQ.o6vP6Y4ZNgd_dIMU-z_5mIw5t8PfucljhW8xbK1G6qOIT4IHUYze_SaMEZKiMAuaZBQ_HClpTUfz9cG0JfshDQ",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": false,
+        "code": "WRONG_TOKEN_TYPE"
+      }
+    },
+    {
+      "name": "malformed-token",
+      "description": "Token is not three dot-separated segments → MALFORMED_TOKEN.",
+      "token": "this-is-not-a-jwt",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": false,
+        "code": "MALFORMED_TOKEN"
+      }
+    },
+    {
+      "name": "scope-denied",
+      "description": "Passport grants only data:read but tool=\"search\" is requested → SCOPE_DENIED.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6IjZiNWNmNjUxLWUxNjEtNDYxMC1hZDQxLTJiYmI1Y2YyYTUwMyIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJkYXRhOnJlYWQiXSwiZGVsZWdhdGlvbkNoYWluIjpbInNwaWZmZTovL3ZhbmUubG9jYWwvY29tcGFueS9hY21lIiwic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyJdfX0.qWuWwxKebeXxsnmL9v2ux2iWAro-Uw1fE4tYXsaNUFKuNFHlFj6epnnd1jlA-1SeTclqoA4nF8Cymher_q_dCQ",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060,
+        "tool": "search"
+      },
+      "expected": {
+        "valid": false,
+        "code": "SCOPE_DENIED"
+      }
+    },
+    {
+      "name": "request-bound-match",
+      "description": "Request-bound passport verified with the matching expectedRequestHash → valid.",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6ImIxODdiNzc1LTg3YTAtNGE2OS05MjUwLTVhOTY1MTNhNmU3OSIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il0sInJlcXVlc3RIYXNoIjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9fQ.Dug6x95Z7aH0Jth5vNItmmU6BOt8curuvV3wlDnw9YHjC6hUAdGCXgBwHpra1VPNM-vXxyiKPq87mimIxvYRAw",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060,
+        "expectedRequestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expected": {
+        "valid": true,
+        "scopeGranted": "tool:search"
+      }
+    },
+    {
+      "name": "request-bound-unbound-verifier",
+      "description": "Same request-bound passport but the verifier supplies no request hash → REQUEST_MISMATCH (fail closed).",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkNBUCtKV1QiLCJraWQiOiJjMjIxNmU0YzY4MmE5Mjc1In0.eyJpc3MiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NhIiwic3ViIjoic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUvYWdlbnQvYWdlbnQtNyIsImF1ZCI6WyJ2YW5lOnBhc3Nwb3J0OnYxIl0sImp0aSI6ImIxODdiNzc1LTg3YTAtNGE2OS05MjUwLTVhOTY1MTNhNmU3OSIsImlhdCI6MTc1MDAwMDAwMCwiZXhwIjoxNzUwMDAzNjAwLCJuYmYiOjE3NTAwMDAwMDAsInZhbmUiOnsidiI6MSwiYWdlbnRJZCI6ImFnZW50LTciLCJvcmciOiJhY21lIiwib3JnU3BpZmZlSWQiOiJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZSIsInNjb3BlcyI6WyJ0b29sOnNlYXJjaCIsImRhdGE6cmVhZCJdLCJkZWxlZ2F0aW9uQ2hhaW4iOlsic3BpZmZlOi8vdmFuZS5sb2NhbC9jb21wYW55L2FjbWUiLCJzcGlmZmU6Ly92YW5lLmxvY2FsL2NvbXBhbnkvYWNtZS9hZ2VudC9hZ2VudC03Il0sInJlcXVlc3RIYXNoIjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9fQ.Dug6x95Z7aH0Jth5vNItmmU6BOt8curuvV3wlDnw9YHjC6hUAdGCXgBwHpra1VPNM-vXxyiKPq87mimIxvYRAw",
+      "inputs": {
+        "caPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAKOTFIjni2xrvTrrxmTBUjOTXMEl3g+OrObykTbmMkog=\n-----END PUBLIC KEY-----\n",
+        "now": 1750000060
+      },
+      "expected": {
+        "valid": false,
+        "code": "REQUEST_MISMATCH"
+      }
+    }
+  ]
+}
