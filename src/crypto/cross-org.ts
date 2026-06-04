@@ -130,7 +130,11 @@ export type CrossOrgErrorCode =
   | 'MALFORMED_CLAIMS'
   | 'CHAIN_INCOHERENT'
   | 'TARGET_MISMATCH'
-  | 'SCOPE_DENIED';
+  | 'SCOPE_DENIED'
+  // Catch-all for any unexpected error during verification. Emitted by the
+  // fail-closed wrapper so that an exception anywhere in the pipeline always
+  // resolves to a deny rather than escaping the verifier.
+  | 'VERIFICATION_ERROR';
 
 export type CrossOrgVerificationResult =
   | { valid: true; claims: CrossOrgDelegationClaims; scopeGranted: string }
@@ -169,6 +173,22 @@ const SPIFFE_RE = /^spiffe:\/\/[^/]+\/.+$/;
  *   12. Scope — if tool provided, scopes must cover "tool:<tool>"
  */
 export function verifyCrossOrgToken(
+  token: string,
+  originOrgPublicKey: string,
+  opts: CrossOrgVerifyOptions = {},
+): CrossOrgVerificationResult {
+  // Fail-closed wrapper: any error, ambiguity, or unexpected state during
+  // verification resolves to a DENY. An exception thrown in any step below
+  // becomes a structured failure result here — it must never escape this
+  // function and never fall through to a caller as an absent/undefined value.
+  try {
+    return verifyCrossOrgTokenImpl(token, originOrgPublicKey, opts);
+  } catch (err) {
+    return fail('VERIFICATION_ERROR', `Unexpected verification error: ${(err as Error).message}`);
+  }
+}
+
+function verifyCrossOrgTokenImpl(
   token: string,
   originOrgPublicKey: string,
   opts: CrossOrgVerifyOptions = {},

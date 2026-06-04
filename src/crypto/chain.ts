@@ -49,20 +49,31 @@ export class AttestationChain {
     for (let i = 0; i < this.records.length; i++) {
       const rec = this.records[i];
 
-      const expectedHash = sha256hex(leafPreimage(rec.index, rec.timestamp, rec.payload, rec.delegation));
-      if (rec.hash !== expectedHash) {
-        return { valid: false, failedAtIndex: i, error: `record ${i}: hash mismatch` };
-      }
+      // Fail closed: a throw while recomputing the hash (e.g. an un-canonicalizable
+      // payload) means the record cannot be trusted — treat it as a verification
+      // failure at this index, never as a pass.
+      try {
+        const expectedHash = sha256hex(leafPreimage(rec.index, rec.timestamp, rec.payload, rec.delegation));
+        if (rec.hash !== expectedHash) {
+          return { valid: false, failedAtIndex: i, error: `record ${i}: hash mismatch` };
+        }
 
-      const sigCheck = verifyPayload(rec.hash, rec.signature, publicKeyPem);
-      if (!sigCheck.valid) {
-        return { valid: false, failedAtIndex: i, error: `record ${i}: invalid signature` };
-      }
+        const sigCheck = verifyPayload(rec.hash, rec.signature, publicKeyPem);
+        if (!sigCheck.valid) {
+          return { valid: false, failedAtIndex: i, error: `record ${i}: invalid signature` };
+        }
 
-      leafHashes.push(rec.hash);
+        leafHashes.push(rec.hash);
+      } catch (err) {
+        return { valid: false, failedAtIndex: i, error: `record ${i}: verification error: ${(err as Error).message}` };
+      }
     }
 
-    return { valid: true, merkleRoot: computeRoot(leafHashes) };
+    try {
+      return { valid: true, merkleRoot: computeRoot(leafHashes) };
+    } catch (err) {
+      return { valid: false, error: `merkle root computation failed: ${(err as Error).message}` };
+    }
   }
 
   /** O(log n): returns an inclusion proof any external auditor can verify independently. */

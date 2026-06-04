@@ -73,17 +73,38 @@ export function decodeReceipt(encoded: string): AttestationReceipt {
 
 // ── Revocation check ─────────────────────────────────────────────────────────
 
-// Returns a PASSPORT_REVOKED failure result if the JTI is in the list.
+// Returns a failure result when the passport must be denied on revocation
+// grounds, or null when the revocation check passes / is not configured.
+//
+// Fail closed: if the revocation list cannot be fetched or is malformed we
+// cannot prove the passport is still valid, so we DENY rather than allow.
 async function checkRevocation(
   jti: string,
   fetcher: (() => Promise<string[]>) | undefined,
 ): Promise<Extract<PassportVerificationResult, { valid: false }> | null> {
   if (!fetcher) return null;
-  const revoked = await fetcher();
+
+  let revoked: string[];
+  try {
+    revoked = await fetcher();
+  } catch {
+    return { valid: false, code: 'VERIFICATION_ERROR', error: 'Revocation status could not be determined' };
+  }
+
+  if (!Array.isArray(revoked)) {
+    return { valid: false, code: 'VERIFICATION_ERROR', error: 'Revocation list is malformed' };
+  }
   if (revoked.includes(jti)) {
     return { valid: false, code: 'PASSPORT_REVOKED', error: 'Passport has been revoked' };
   }
   return null;
+}
+
+// Builds the deny result used when an unexpected exception is caught inside a
+// middleware verification path. Centralized so every entry point fails closed
+// identically.
+function verificationErrorFailure(): Extract<PassportVerificationResult, { valid: false }> {
+  return { valid: false, code: 'VERIFICATION_ERROR', error: 'Verification failed' };
 }
 
 // ── Token extraction ──────────────────────────────────────────────────────────
@@ -228,7 +249,25 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
       try { parsedBody = JSON.parse(rawBody); } catch { parsedBody = null; }
       const tool = extractMcpTool(parsedBody) ?? undefined;
 
-      const result = await verifyAsync(token, { tool });
+      // Fail closed: run the entire verification path (signature + revocation)
+      // inside a try/catch. Any thrown error becomes a 401 deny — we must never
+      // fall through to next() on an unexpected exception. next() is invoked
+      // only after a clean pass, and is intentionally OUTSIDE this try so that
+      // downstream handler errors are not masked as auth failures.
+      let result: PassportVerificationResult;
+      let revocationFailure: Extract<PassportVerificationResult, { valid: false }> | null = null;
+      try {
+        result = await verifyAsync(token, { tool });
+        if (result.valid) {
+          revocationFailure = await checkRevocation(result.claims.jti, fetchRevocationList);
+        }
+      } catch {
+        return new Response(
+          unauthorizedJson(verificationErrorFailure(), exposeErrors),
+          { status: 401, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+
       if (!result.valid) {
         return new Response(
           unauthorizedJson(result, exposeErrors),
@@ -236,7 +275,6 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
         );
       }
 
-      const revocationFailure = await checkRevocation(result.claims.jti, fetchRevocationList);
       if (revocationFailure) {
         return new Response(
           unauthorizedJson(revocationFailure, exposeErrors),
@@ -278,10 +316,27 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
       }
 
       const tool = extractMcpTool(r['body']) ?? undefined;
-      const result = await verifyAsync(token, { tool });
+      const response = res as { status: (n: number) => { json: (body: unknown) => void } };
+
+      // Fail closed: any thrown error in the verification path results in a 401
+      // deny, never a fall-through to next(). next() runs only on a clean pass.
+      let result: PassportVerificationResult;
+      let revocationFailure: Extract<PassportVerificationResult, { valid: false }> | null = null;
+      try {
+        result = await verifyAsync(token, { tool });
+        if (result.valid) {
+          revocationFailure = await checkRevocation(result.claims.jti, fetchRevocationList);
+        }
+      } catch {
+        if (exposeErrors) {
+          response.status(401).json({ error: 'Unauthorized', code: 'VERIFICATION_ERROR', message: 'Verification failed' });
+        } else {
+          response.status(401).json({ error: 'Unauthorized' });
+        }
+        return;
+      }
 
       if (!result.valid) {
-        const response = res as { status: (n: number) => { json: (body: unknown) => void } };
         if (exposeErrors) {
           response.status(401).json({ error: 'Unauthorized', code: result.code, message: result.error });
         } else {
@@ -290,9 +345,7 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
         return;
       }
 
-      const revocationFailure = await checkRevocation(result.claims.jti, fetchRevocationList);
       if (revocationFailure) {
-        const response = res as { status: (n: number) => { json: (body: unknown) => void } };
         if (exposeErrors) {
           response.status(401).json({ error: 'Unauthorized', code: revocationFailure.code, message: revocationFailure.error });
         } else {
@@ -335,13 +388,27 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
       }
 
       const tool = request.params.name;
-      const result = await verifyAsync(token, { tool });
+
+      // Fail closed: an unexpected throw in the verification path becomes an
+      // McpAuthError deny, never a fall-through to the wrapped handler. The
+      // handler is invoked only after a clean pass, outside this try, so its
+      // own errors are not masked as auth failures.
+      let result: PassportVerificationResult;
+      let revocationFailure: Extract<PassportVerificationResult, { valid: false }> | null = null;
+      try {
+        result = await verifyAsync(token, { tool });
+        if (result.valid) {
+          revocationFailure = await checkRevocation(result.claims.jti, fetchRevocationList);
+        }
+      } catch (err) {
+        if (err instanceof McpAuthError) throw err;
+        throw new McpAuthError('VERIFICATION_ERROR', 'Verification failed');
+      }
 
       if (!result.valid) {
         throw new McpAuthError(result.code, result.error);
       }
 
-      const revocationFailure = await checkRevocation(result.claims.jti, fetchRevocationList);
       if (revocationFailure) {
         throw new McpAuthError(revocationFailure.code, revocationFailure.error);
       }

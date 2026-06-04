@@ -65,12 +65,18 @@ export function buildProof(leafHashes: string[], index: number): MerkleProof {
 }
 
 // O(log n): walk the proof path and compare against the expected root.
+// Fail closed: any error while walking a malformed proof returns false (proof
+// not verified), never a throw that a caller might treat as inconclusive/allow.
 export function verifyProof(leafHash: string, proof: MerkleProof, root: string): boolean {
-  let current = leafHash;
-  for (const node of proof) {
-    current = node.position === 'left'
-      ? hashPair(node.sibling, current)
-      : hashPair(current, node.sibling);
+  try {
+    let current = leafHash;
+    for (const node of proof) {
+      current = node.position === 'left'
+        ? hashPair(node.sibling, current)
+        : hashPair(current, node.sibling);
+    }
+    return current === root;
+  } catch {
+    return false;
   }
-  return current === root;
 }

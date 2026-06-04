@@ -79,4 +79,8 @@ export type PassportErrorCode =
   | 'MALFORMED_CLAIMS'
   | 'CHAIN_INCOHERENT'
   | 'SCOPE_DENIED'
-  | 'PASSPORT_REVOKED';
+  | 'PASSPORT_REVOKED'
+  // Catch-all for any unexpected error during verification. Emitted by the
+  // fail-closed wrapper so that an exception anywhere in the pipeline always
+  // resolves to a deny rather than escaping the verifier.
+  | 'VERIFICATION_ERROR';

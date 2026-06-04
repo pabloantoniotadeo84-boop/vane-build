@@ -69,6 +69,22 @@ export function verifyPassport(
   caPublicKey: string,
   opts: VerifyOptions = {},
 ): PassportVerificationResult {
+  // Fail-closed wrapper: any error, ambiguity, or unexpected state during
+  // verification resolves to a DENY. An exception thrown in any step below
+  // becomes a structured failure result here — it must never escape this
+  // function and never fall through to a caller as an absent/undefined value.
+  try {
+    return verifyPassportImpl(token, caPublicKey, opts);
+  } catch (err) {
+    return fail('VERIFICATION_ERROR', `Unexpected verification error: ${(err as Error).message}`);
+  }
+}
+
+function verifyPassportImpl(
+  token: string,
+  caPublicKey: string,
+  opts: VerifyOptions = {},
+): PassportVerificationResult {
   // Step 1 — parse
   const parts = token.split('.');
   if (parts.length !== 3) {
@@ -241,11 +257,31 @@ export interface CrossOrgVerifyOptions extends VerifyOptions {
  *   11. Target match   — if expectedTargetOrg provided, vane_xorg.targetOrg must match
  *   12. Scope          — if tool provided, scopes must cover "tool:<tool>"
  */
+type CrossOrgResult =
+  | Extract<PassportVerificationResult, { valid: false }>
+  | { valid: true; claims: CrossOrgDelegationClaims; scopeGranted: string; tokenType: 'cross-org' };
+
 export function verifyCrossOrgToken(
   token: string,
   originOrgPublicKey: string,
   opts: CrossOrgVerifyOptions = {},
-): Extract<PassportVerificationResult, { valid: false }> | { valid: true; claims: CrossOrgDelegationClaims; scopeGranted: string; tokenType: 'cross-org' } {
+): CrossOrgResult {
+  // Fail-closed wrapper: any error, ambiguity, or unexpected state during
+  // verification resolves to a DENY. An exception thrown in any step below
+  // becomes a structured failure result here — it must never escape this
+  // function and never fall through to a caller as an absent/undefined value.
+  try {
+    return verifyCrossOrgTokenImpl(token, originOrgPublicKey, opts);
+  } catch (err) {
+    return { valid: false, error: `Unexpected verification error: ${(err as Error).message}`, code: 'VERIFICATION_ERROR' };
+  }
+}
+
+function verifyCrossOrgTokenImpl(
+  token: string,
+  originOrgPublicKey: string,
+  opts: CrossOrgVerifyOptions = {},
+): CrossOrgResult {
   const parts = token.split('.');
   if (parts.length !== 3) {
     return { valid: false, error: 'Expected header.payload.signature', code: 'MALFORMED_TOKEN' };

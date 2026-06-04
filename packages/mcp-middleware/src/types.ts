@@ -94,6 +94,10 @@ export type PassportErrorCode =
   | 'CHAIN_INCOHERENT'
   | 'SCOPE_DENIED'
   | 'PASSPORT_REVOKED'
+  // Catch-all for any unexpected error during verification. Emitted by the
+  // fail-closed wrapper so that an exception anywhere in the pipeline always
+  // resolves to a deny rather than escaping the verifier.
+  | 'VERIFICATION_ERROR'
   // Cross-org specific
   | 'CROSS_ORG_NOT_ACCEPTED'
   | 'CROSS_ORG_UNKNOWN_ORIGIN'

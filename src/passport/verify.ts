@@ -47,6 +47,21 @@ export function verifyPassport(
   token: string,
   opts: VerifyPassportOptions,
 ): PassportVerificationResult {
+  // Fail-closed wrapper: any error, ambiguity, or unexpected state during
+  // verification resolves to a DENY. An exception thrown in any step below
+  // becomes a structured failure result here — it must never escape this
+  // function and never fall through to a caller as an absent/undefined value.
+  try {
+    return verifyPassportImpl(token, opts);
+  } catch (err) {
+    return fail('VERIFICATION_ERROR', `Unexpected verification error: ${(err as Error).message}`);
+  }
+}
+
+function verifyPassportImpl(
+  token: string,
+  opts: VerifyPassportOptions,
+): PassportVerificationResult {
   // Step 1 — parse
   const parts = token.split('.');
   if (parts.length !== 3) {
