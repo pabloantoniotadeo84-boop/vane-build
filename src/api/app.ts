@@ -30,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { logger } from '../logger.js';
 import { captureException } from '../sentry.js';
 import { rateLimitMiddleware } from './rate-limit.js';
+import { createIssuanceRateLimitMiddleware } from './issuance-rate-limit.js';
 import { appendWithCheckpoint, createKeyedQueue } from '../checkpoint/log.js';
 import { createCheckpointRoutes } from './checkpoint-routes.js';
 import { createInclusionProofRoutes } from './inclusion-routes.js';
@@ -182,6 +183,13 @@ app.use('*', async (c, next) => {
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 
 app.use('*', rateLimitMiddleware());
+
+// Tighter sliding-window limits for credential issuance endpoints.
+// Applied after the auth middleware so companyId is available.
+// Limits: 60/min per API key · 1000/hr per API key · 10000/day per company.
+const issuanceRateLimiter = createIssuanceRateLimitMiddleware(store);
+app.on('POST', '/v1/agents/:agentId/passport', issuanceRateLimiter);
+app.on('POST', '/v1/agents/:agentId/passport/rotate', issuanceRateLimiter);
 
 // ── Marketing site ────────────────────────────────────────────────────────────
 

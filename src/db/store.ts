@@ -221,6 +221,21 @@ export class Store {
       )
     `);
 
+    // ── Issuance rate-limit events ────────────────────────────────────────────
+    // One row per credential issuance event. Rows are pruned in-transaction on
+    // each check so the table stays bounded. The index makes per-key window
+    // queries fast regardless of total table size.
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS issuance_rate_limit_events (
+        rate_key TEXT   NOT NULL,
+        ts       BIGINT NOT NULL
+      )
+    `);
+    await this.pool.query(`
+      CREATE INDEX IF NOT EXISTS issuance_rl_events_idx
+        ON issuance_rate_limit_events (rate_key, ts)
+    `);
+
     // ── Signed Tree Heads ─────────────────────────────────────────────────────
     // One CA-signed checkpoint per tree size, per company. The (company_id,
     // tree_size) primary key also makes a duplicate append at the same size fail
@@ -810,6 +825,64 @@ export class Store {
       `UPDATE webhook_deliveries SET attempts = $2, next_retry_at = $3, last_error = $4 WHERE id = $1`,
       [id, attempts, nextRetryAt, lastError],
     );
+  }
+
+  // ── Issuance rate limiting ────────────────────────────────────────────────────
+
+  /**
+   * Sliding-window check-and-increment for issuance rate limits.
+   *
+   * Within a single serialized transaction (advisory lock per key):
+   *   1. Prune events older than the window.
+   *   2. Count remaining events.
+   *   3. If count < limit, record this event and return allowed=true.
+   *   4. Otherwise return allowed=false without recording.
+   *
+   * Satisfies the IssuanceRateLimitStore interface from issuance-rate-limit.ts
+   * via TypeScript structural typing — no explicit `implements` needed.
+   */
+  async checkAndIncrement(
+    key: string,
+    windowMs: number,
+    limit: number,
+    nowMs: number,
+  ): Promise<{ allowed: boolean; limit: number; remaining: number; resetMs: number }> {
+    const windowStart = nowMs - windowMs;
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Advisory lock serializes concurrent requests for the same key, preventing
+      // race conditions that would allow bursts beyond the configured limit.
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [key]);
+      // Prune events outside the current window.
+      await client.query(
+        'DELETE FROM issuance_rate_limit_events WHERE rate_key = $1 AND ts < $2',
+        [key, windowStart],
+      );
+      // Count events and find the oldest one (determines when the window resets).
+      const { rows } = await client.query<{ count: string; oldest_ts: string | null }>(
+        `SELECT COUNT(*) AS count, MIN(ts) AS oldest_ts
+         FROM issuance_rate_limit_events WHERE rate_key = $1`,
+        [key],
+      );
+      const count = Number(rows[0].count);
+      const oldestTs = rows[0].oldest_ts !== null ? Number(rows[0].oldest_ts) : null;
+      const resetMs = oldestTs !== null ? oldestTs + windowMs : nowMs + windowMs;
+      const allowed = count < limit;
+      if (allowed) {
+        await client.query(
+          'INSERT INTO issuance_rate_limit_events (rate_key, ts) VALUES ($1, $2)',
+          [key, nowMs],
+        );
+      }
+      await client.query('COMMIT');
+      return { allowed, limit, remaining: allowed ? limit - count - 1 : 0, resetMs };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   // Returns all pending deliveries whose next_retry_at is <= now (due for retry).
