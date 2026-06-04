@@ -32,6 +32,7 @@ import { captureException } from '../sentry.js';
 import { rateLimitMiddleware } from './rate-limit.js';
 import { appendWithCheckpoint, createKeyedQueue } from '../checkpoint/log.js';
 import { createCheckpointRoutes } from './checkpoint-routes.js';
+import { createInclusionProofRoutes } from './inclusion-routes.js';
 
 // ── Per-company in-memory state ───────────────────────────────────────────────
 
@@ -282,6 +283,32 @@ app.route('/', createCheckpointRoutes({
   async leafHashes(companyId) {
     const tenant = await ensureTenant(companyId);
     return tenant ? tenant.chain.currentLeafHashes() : null;
+  },
+}));
+
+// GET /v1/agents/:agentId/attestations/:index/proof — authenticated inclusion
+// proof. Mounted after the auth middleware so companyId is resolved from the
+// Bearer token; the proof is scoped to that tenant. The response verifies
+// offline against the CA public key (see scripts/verify-proof.ts).
+app.route('/', createInclusionProofRoutes({
+  caPublicKey: caKeys.publicKey,
+  caKid,
+  async agentBelongs(companyId, agentId) {
+    return !!(await store.getAgent(agentId, companyId));
+  },
+  async recordAt(companyId, index) {
+    const tenant = await ensureTenant(companyId);
+    if (!tenant) return null;
+    const records = tenant.chain.getRecords();
+    return index >= 0 && index < records.length ? records[index] : null;
+  },
+  async leafHashes(companyId) {
+    const tenant = await ensureTenant(companyId);
+    return tenant ? tenant.chain.currentLeafHashes() : null;
+  },
+  async latestCheckpoint(companyId) {
+    const tenant = await ensureTenant(companyId);
+    return tenant?.chain.getLatestSth() ?? null;
   },
 }));
 

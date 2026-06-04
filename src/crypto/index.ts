@@ -5,9 +5,13 @@ export { computeRoot, buildProof, verifyProof } from './merkle.js';
 export type { MerkleProof, ProofNode } from './merkle.js';
 export type { InclusionProof } from './chain.js';
 
-export { rfc6962RootHex, consistencyProofHex, verifyConsistencyHex } from './rfc6962.js';
+export { rfc6962RootHex, rfc6962LeafHashHex, consistencyProofHex, verifyConsistencyHex, inclusionProofHex, verifyInclusionHex } from './rfc6962.js';
+export type { InclusionProofNode } from './rfc6962.js';
 export { signSTH, verifySTH } from './sth.js';
 export type { SignedTreeHead, STHFields } from './sth.js';
+export { computeRecordHash, recordLeafPreimage } from './record-hash.js';
+export { buildInclusionProof, verifyInclusionProof } from './inclusion.js';
+export type { InclusionProofResponse, BuildInclusionProofOptions, InclusionVerificationResult } from './inclusion.js';
 export type { KeyPair, AttestationRecord, DelegationInfo, VerificationResult, AgentRegistration, ActClaim, JwtSvidClaims, TokenExchangeResponse, CrossOrgDelegationClaims } from './types.js';
 
 export { agentSpiffeId, companySpiffeId, parseSpiffeId, validateSpiffeId, TRUST_DOMAIN } from './spiffe.js';

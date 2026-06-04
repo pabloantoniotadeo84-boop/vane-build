@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
-import { canonicalize, signPayload, verifyPayload } from './signer.js';
+import { signPayload, verifyPayload } from './signer.js';
 import { computeRoot, buildProof, verifyProof, type MerkleProof } from './merkle.js';
+import { computeRecordHash } from './record-hash.js';
 import type { AttestationRecord, DelegationInfo, VerificationResult } from './types.js';
 import type { SignedTreeHead } from './sth.js';
 
@@ -10,15 +10,6 @@ export interface InclusionProof {
   record: AttestationRecord;
   proof: MerkleProof;
   root: string;
-}
-
-function leafPreimage(index: number, timestamp: string, payload: unknown, delegation?: DelegationInfo): string {
-  const base = `${index}|${timestamp}|${canonicalize(payload)}`;
-  return delegation ? `${base}|${canonicalize(delegation)}` : base;
-}
-
-function sha256hex(data: string): string {
-  return createHash('sha256').update(data).digest('hex');
 }
 
 export class AttestationChain {
@@ -38,7 +29,7 @@ export class AttestationChain {
   computeNextRecord(payload: unknown, privateKeyPem: string, delegation?: DelegationInfo): AttestationRecord {
     const index = this.records.length;
     const timestamp = new Date().toISOString();
-    const hash = sha256hex(leafPreimage(index, timestamp, payload, delegation));
+    const hash = computeRecordHash({ index, timestamp, payload, delegation });
     const signature = signPayload(hash, privateKeyPem);
     return { index, timestamp, payload, ...(delegation && { delegation }), hash, signature };
   }
@@ -87,7 +78,7 @@ export class AttestationChain {
       // payload) means the record cannot be trusted — treat it as a verification
       // failure at this index, never as a pass.
       try {
-        const expectedHash = sha256hex(leafPreimage(rec.index, rec.timestamp, rec.payload, rec.delegation));
+        const expectedHash = computeRecordHash(rec);
         if (rec.hash !== expectedHash) {
           return { valid: false, failedAtIndex: i, error: `record ${i}: hash mismatch` };
         }

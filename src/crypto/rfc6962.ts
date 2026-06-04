@@ -91,6 +91,90 @@ export function rfc6962RootHex(leafHashesHex: string[]): string {
 }
 
 /**
+ * RFC 6962 leaf hash of a single record's leaf DATA: SHA-256(0x00 || leafData).
+ * `leafDataHex` is the record's `hash` field (32 raw bytes as hex). This is the
+ * value an inclusion path starts from. Hex in, hex out.
+ */
+export function rfc6962LeafHashHex(leafDataHex: string): string {
+  return hashLeaf(Buffer.from(leafDataHex, 'hex')).toString('hex');
+}
+
+/**
+ * One step of an inclusion (audit) path: a sibling subtree-root hash and which
+ * side of the pair it sits on. Ordered leaf → root, mirroring `verifyProof` in
+ * merkle.ts so the same simple walk verifies it.
+ */
+export interface InclusionProofNode {
+  sibling: string;            // sibling subtree root, lowercase hex
+  position: 'left' | 'right'; // side of the sibling in its pair
+}
+
+/**
+ * RFC 6962 §2.1.1 audit path PATH(index, D[n]) for the leaf at `index` over the
+ * leaf-DATA hashes (each a record `hash`). Returned leaf → root as
+ * {sibling, position} pairs. The verifier (`verifyInclusionHex`) needs no tree
+ * size — the positions are self-describing.
+ */
+export function inclusionProofHex(index: number, leafHashesHex: string[]): InclusionProofNode[] {
+  const n = leafHashesHex.length;
+  if (!Number.isInteger(index) || index < 0 || index >= n) {
+    throw new RangeError(`inclusion proof: index=${index} out of range [0, ${n})`);
+  }
+  return auditPath(index, toLeaves(leafHashesHex));
+}
+
+function auditPath(m: number, leaves: Buffer[]): InclusionProofNode[] {
+  const n = leaves.length;
+  if (n <= 1) return []; // single-leaf (sub)tree: nothing to combine with
+  const k = largestPowerOfTwoLessThan(n);
+  if (m < k) {
+    // Leaf is in the left child; its sibling is the right child's root.
+    return [
+      ...auditPath(m, leaves.slice(0, k)),
+      { sibling: merkleTreeHash(leaves.slice(k, n)).toString('hex'), position: 'right' },
+    ];
+  }
+  // Leaf is in the right child; its sibling is the left child's root.
+  return [
+    ...auditPath(m - k, leaves.slice(k, n)),
+    { sibling: merkleTreeHash(leaves.slice(0, k)).toString('hex'), position: 'left' },
+  ];
+}
+
+/**
+ * Standalone RFC 6962 inclusion verifier. Walks `proof` from `leafHashHex`
+ * (the RFC 6962 leaf hash, i.e. SHA-256(0x00 || record.hash)) up to a root and
+ * compares it to `rootHex`. Needs NO leaves, NO tree size, NO database.
+ *
+ * Fail-closed: a malformed node, a non-32-byte hash, or any thrown error
+ * returns `false` rather than throwing.
+ */
+export function verifyInclusionHex(
+  leafHashHex: string,
+  proof: InclusionProofNode[],
+  rootHex: string,
+): boolean {
+  try {
+    if (!Array.isArray(proof)) return false;
+    let current: Buffer = Buffer.from(leafHashHex, 'hex');
+    if (current.length !== 32) return false;
+    for (const node of proof) {
+      if (!node || (node.position !== 'left' && node.position !== 'right')) return false;
+      const sibling = Buffer.from(node.sibling, 'hex');
+      if (sibling.length !== 32) return false;
+      current = node.position === 'left'
+        ? hashChildren(sibling, current)
+        : hashChildren(current, sibling);
+    }
+    const root = Buffer.from(rootHex, 'hex');
+    if (root.length !== 32) return false;
+    return current.equals(root);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * RFC 6962 §2.1.2 consistency proof that the tree of size `first` is a prefix
  * of the tree over `leafHashesHex` (whose length is the second/larger size).
  *
