@@ -1,0 +1,41 @@
+name: CI
+
+# Gate every change to main: type safety, tests, and a supply-chain audit.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Least privilege: CI only needs to read the repository.
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # node:sqlite (DatabaseSync) requires Node 22+; matches package.json engines.
+          node-version: '22'
+          cache: 'npm'
+
+      # `npm ci` honors the repo .npmrc (ignore-scripts=true), so no dependency
+      # lifecycle script runs during install in CI.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: Run test suite
+        run: npm test
+
+      # Supply-chain gate: fail on any high or critical advisory.
+      - name: Security audit (fail on high/critical)
+        run: npm audit --audit-level=high
