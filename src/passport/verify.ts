@@ -63,9 +63,16 @@ export function verifyPassport(
     return fail('MALFORMED_TOKEN', 'Could not decode header or payload');
   }
 
-  // Step 2 — algorithm
-  if (header['alg'] !== 'EdDSA') {
-    return fail('ALGORITHM_MISMATCH', `Expected EdDSA, got ${String(header['alg'])}`);
+  // Step 2 — algorithm (first guard, explicit rejection for every bypass vector)
+  const alg = header['alg'];
+  if (alg === undefined || alg === null) {
+    return fail('ALGORITHM_MISMATCH', 'JWT alg header is missing');
+  }
+  if (alg === 'none') {
+    return fail('ALGORITHM_MISMATCH', 'JWT alg:none is not allowed');
+  }
+  if (alg !== 'EdDSA') {
+    return fail('ALGORITHM_MISMATCH', `Expected EdDSA, got ${String(alg)}`);
   }
 
   // Step 3 — token type
@@ -73,13 +80,17 @@ export function verifyPassport(
     return fail('WRONG_TOKEN_TYPE', `Expected CAP+JWT, got ${String(header['typ'])}`);
   }
 
-  // Step 4 — signature
+  // Step 4 — signature (key-type guard before cryptoVerify)
   let sigValid: boolean;
   try {
+    const keyObj = createPublicKey(opts.caPublicKey);
+    if (keyObj.asymmetricKeyType !== 'ed25519') {
+      return fail('SIGNATURE_INVALID', `CA public key must be Ed25519, got ${keyObj.asymmetricKeyType}`);
+    }
     sigValid = cryptoVerify(
       null,
       Buffer.from(`${headerB64}.${payloadB64}`),
-      createPublicKey(opts.caPublicKey),
+      keyObj,
       fromB64url(sigB64),
     );
   } catch {

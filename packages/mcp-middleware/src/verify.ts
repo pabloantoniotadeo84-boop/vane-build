@@ -85,9 +85,16 @@ export function verifyPassport(
     return fail('MALFORMED_TOKEN', 'Could not decode header or payload');
   }
 
-  // Step 2 — algorithm
-  if (header['alg'] !== 'EdDSA') {
-    return fail('ALGORITHM_MISMATCH', `Expected EdDSA, got ${String(header['alg'])}`);
+  // Step 2 — algorithm (first guard, explicit rejection for every bypass vector)
+  const alg = header['alg'];
+  if (alg === undefined || alg === null) {
+    return fail('ALGORITHM_MISMATCH', 'JWT alg header is missing');
+  }
+  if (alg === 'none') {
+    return fail('ALGORITHM_MISMATCH', 'JWT alg:none is not allowed');
+  }
+  if (alg !== 'EdDSA') {
+    return fail('ALGORITHM_MISMATCH', `Expected EdDSA, got ${String(alg)}`);
   }
 
   // Step 3 — token type (CAP+JWT distinguishes passports from SVID tokens)
@@ -95,13 +102,17 @@ export function verifyPassport(
     return fail('WRONG_TOKEN_TYPE', `Expected CAP+JWT, got ${String(header['typ'])}`);
   }
 
-  // Step 4 — signature (Ed25519 over the raw ASCII signing input, not decoded bytes)
+  // Step 4 — signature (key-type guard before cryptoVerify)
   let sigValid: boolean;
   try {
+    const keyObj = createPublicKey(caPublicKey);
+    if (keyObj.asymmetricKeyType !== 'ed25519') {
+      return fail('SIGNATURE_INVALID', `CA public key must be Ed25519, got ${keyObj.asymmetricKeyType}`);
+    }
     sigValid = cryptoVerify(
       null,
       Buffer.from(`${headerB64}.${payloadB64}`),
-      createPublicKey(caPublicKey),
+      keyObj,
       fromB64url(sigB64),
     );
   } catch {
@@ -250,8 +261,16 @@ export function verifyCrossOrgToken(
     return { valid: false, error: 'Could not decode header or payload', code: 'MALFORMED_TOKEN' };
   }
 
-  if (header['alg'] !== 'EdDSA') {
-    return { valid: false, error: `Expected EdDSA, got ${String(header['alg'])}`, code: 'ALGORITHM_MISMATCH' };
+  // Algorithm check — first guard, explicit rejection for every bypass vector.
+  const alg = header['alg'];
+  if (alg === undefined || alg === null) {
+    return { valid: false, error: 'JWT alg header is missing', code: 'ALGORITHM_MISMATCH' };
+  }
+  if (alg === 'none') {
+    return { valid: false, error: 'JWT alg:none is not allowed', code: 'ALGORITHM_MISMATCH' };
+  }
+  if (alg !== 'EdDSA') {
+    return { valid: false, error: `Expected EdDSA, got ${String(alg)}`, code: 'ALGORITHM_MISMATCH' };
   }
   if (header['typ'] !== CROSS_ORG_TOKEN_TYPE) {
     return { valid: false, error: `Expected ${CROSS_ORG_TOKEN_TYPE}, got ${String(header['typ'])}`, code: 'WRONG_TOKEN_TYPE' };
@@ -259,10 +278,14 @@ export function verifyCrossOrgToken(
 
   let sigValid: boolean;
   try {
+    const keyObj = createPublicKey(originOrgPublicKey);
+    if (keyObj.asymmetricKeyType !== 'ed25519') {
+      return { valid: false, error: `Origin org public key must be Ed25519, got ${keyObj.asymmetricKeyType}`, code: 'SIGNATURE_INVALID' };
+    }
     sigValid = cryptoVerify(
       null,
       Buffer.from(`${headerB64}.${payloadB64}`),
-      createPublicKey(originOrgPublicKey),
+      keyObj,
       fromB64url(sigB64),
     );
   } catch {

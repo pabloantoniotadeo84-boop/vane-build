@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sign as cryptoSign, createPrivateKey, randomUUID } from 'node:crypto';
+import { sign as cryptoSign, createPrivateKey, generateKeyPairSync, randomUUID } from 'node:crypto';
 
 import { generateKeyPair } from '../src/crypto/keypair.js';
 import { signPayload, verifyPayload } from '../src/crypto/signer.js';
@@ -1110,7 +1110,7 @@ describe('Cross-org tokens in mcp-middleware fetchMiddleware', () => {
     expect((r['crossOrg'] as Record<string, unknown>)?.['targetOrg']).toBe('exa');
   });
 
-  it('server and middleware verify functions produce consistent results', () => {
+  it('server and middleware verifyCrossOrgToken produce consistent results', () => {
     const kp = generateKeyPair();
     const agentSId = agentSpiffeId('acme', 'billing-agent');
     const originOrgSId = companySpiffeId('acme');
@@ -1137,5 +1137,156 @@ describe('Cross-org tokens in mcp-middleware fetchMiddleware', () => {
       expect(serverResult.claims.vane_xorg.targetOrg).toBe(mwResult.claims.vane_xorg.targetOrg);
       expect(serverResult.scopeGranted).toBe(mwResult.scopeGranted);
     }
+  });
+});
+
+// ── Algorithm confusion hardening ─────────────────────────────────────────────
+//
+// Tests every alg-bypass vector against verifyJwtSvid (the base SVID verifier)
+// and verifyPassport (the passport verifier used by the middleware).
+// Changes to either verifier must keep all six cases passing.
+
+describe('Algorithm confusion hardening — verifyJwtSvid', () => {
+  const kp = generateKeyPair();
+  const sub = companySpiffeId('acme');
+
+  function craftSvid(headerAlg: string | null): string {
+    const b64url = (s: string) => Buffer.from(s, 'utf8').toString('base64url');
+    const now = Math.floor(Date.now() / 1000);
+    // null signals "omit alg entirely from header"
+    const headerObj: Record<string, unknown> = headerAlg === null
+      ? { typ: 'JWT' }
+      : { alg: headerAlg, typ: 'JWT' };
+    const header  = b64url(JSON.stringify(headerObj));
+    const payload = b64url(JSON.stringify({ sub, aud: ['vane'], iat: now, exp: now + 3600, jti: randomUUID() }));
+    const si  = `${header}.${payload}`;
+    const sig = cryptoSign(null, Buffer.from(si), createPrivateKey(kp.privateKey)).toString('base64url');
+    return `${si}.${sig}`;
+  }
+
+  it('rejects alg:none', () => {
+    expect(() => verifyJwtSvid(craftSvid('none'), kp.publicKey)).toThrow(/none/i);
+  });
+
+  it('rejects alg:RS256', () => {
+    expect(() => verifyJwtSvid(craftSvid('RS256'), kp.publicKey)).toThrow(/RS256|Unsupported/i);
+  });
+
+  it('rejects alg:HS256', () => {
+    expect(() => verifyJwtSvid(craftSvid('HS256'), kp.publicKey)).toThrow(/HS256|Unsupported/i);
+  });
+
+  it('rejects missing alg header', () => {
+    expect(() => verifyJwtSvid(craftSvid(null), kp.publicKey)).toThrow(/missing|alg/i);
+  });
+
+  it('rejects token signed with RSA key but alg header claims EdDSA', () => {
+    const { privateKey: rsaPriv } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const rsaPrivPem = rsaPriv.export({ type: 'pkcs8', format: 'pem' }) as string;
+    const b64url = (s: string) => Buffer.from(s, 'utf8').toString('base64url');
+    const now    = Math.floor(Date.now() / 1000);
+    const header  = b64url(JSON.stringify({ alg: 'EdDSA', typ: 'JWT' }));
+    const payload = b64url(JSON.stringify({ sub, aud: ['vane'], iat: now, exp: now + 3600, jti: randomUUID() }));
+    const si  = `${header}.${payload}`;
+    const sig = cryptoSign('sha256', Buffer.from(si), rsaPrivPem).toString('base64url');
+    const token = `${si}.${sig}`;
+    // RSA signature does not verify under an Ed25519 public key
+    expect(() => verifyJwtSvid(token, kp.publicKey)).toThrow();
+  });
+
+  it('accepts a correct EdDSA token', () => {
+    const claims = verifyJwtSvid(craftSvid('EdDSA'), kp.publicKey);
+    expect(claims.sub).toBe(sub);
+  });
+});
+
+describe('Algorithm confusion hardening — verifyPassport', () => {
+  const kp = generateKeyPair();
+  const orgId   = companySpiffeId('acme');
+  const agentId = agentSpiffeId('acme', 'agent-1');
+
+  function craftPassportWithAlg(headerAlg: string | null): string {
+    const b64url = (s: string) => Buffer.from(s, 'utf8').toString('base64url');
+    const now = Math.floor(Date.now() / 1000);
+    const headerObj: Record<string, unknown> = headerAlg === null
+      ? { typ: 'CAP+JWT' }
+      : { alg: headerAlg, typ: 'CAP+JWT' };
+    const header  = b64url(JSON.stringify(headerObj));
+    const payload = b64url(JSON.stringify({
+      iss: 'spiffe://vane.local/ca',
+      sub: agentId,
+      aud: ['vane:passport:v1'],
+      jti: randomUUID(),
+      iat: now,
+      exp: now + 3600,
+      nbf: now,
+      vane: { v: 1, agentId: 'agent-1', org: 'acme', orgSpiffeId: orgId, scopes: ['tool:*'], delegationChain: [orgId, agentId] },
+    }));
+    const si  = `${header}.${payload}`;
+    const sig = cryptoSign(null, Buffer.from(si), createPrivateKey(kp.privateKey)).toString('base64url');
+    return `${si}.${sig}`;
+  }
+
+  it('rejects alg:none', () => {
+    const result = verifyPassport(craftPassportWithAlg('none'), { caPublicKey: kp.publicKey });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('ALGORITHM_MISMATCH');
+  });
+
+  it('rejects alg:RS256', () => {
+    const result = verifyPassport(craftPassportWithAlg('RS256'), { caPublicKey: kp.publicKey });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('ALGORITHM_MISMATCH');
+  });
+
+  it('rejects alg:HS256', () => {
+    const result = verifyPassport(craftPassportWithAlg('HS256'), { caPublicKey: kp.publicKey });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('ALGORITHM_MISMATCH');
+  });
+
+  it('rejects missing alg header', () => {
+    const result = verifyPassport(craftPassportWithAlg(null), { caPublicKey: kp.publicKey });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('ALGORITHM_MISMATCH');
+  });
+
+  it('rejects token signed with RSA key but alg header claims EdDSA', () => {
+    const { privateKey: rsaPriv } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const rsaPrivPem = rsaPriv.export({ type: 'pkcs8', format: 'pem' }) as string;
+    const b64url = (s: string) => Buffer.from(s, 'utf8').toString('base64url');
+    const now    = Math.floor(Date.now() / 1000);
+    const header  = b64url(JSON.stringify({ alg: 'EdDSA', typ: 'CAP+JWT' }));
+    const payload = b64url(JSON.stringify({
+      iss: 'spiffe://vane.local/ca',
+      sub: agentId,
+      aud: ['vane:passport:v1'],
+      jti: randomUUID(),
+      iat: now,
+      exp: now + 3600,
+      nbf: now,
+      vane: { v: 1, agentId: 'agent-1', org: 'acme', orgSpiffeId: orgId, scopes: ['tool:*'], delegationChain: [orgId, agentId] },
+    }));
+    const si  = `${header}.${payload}`;
+    const sig = cryptoSign('sha256', Buffer.from(si), rsaPrivPem).toString('base64url');
+    const token = `${si}.${sig}`;
+    const result = verifyPassport(token, { caPublicKey: kp.publicKey });
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.code).toBe('SIGNATURE_INVALID');
+  });
+
+  it('accepts a correct EdDSA passport', () => {
+    const token = issuePassport({
+      agentId: 'agent-1',
+      agentSpiffeId: agentId,
+      org: 'acme',
+      orgSpiffeId: orgId,
+      scopes: ['tool:*'],
+      delegationChain: [orgId, agentId],
+      privateKeyPem: kp.privateKey,
+      publicKeyPem: kp.publicKey,
+    });
+    const result = verifyPassport(token, { caPublicKey: kp.publicKey });
+    expect(result.valid).toBe(true);
   });
 });

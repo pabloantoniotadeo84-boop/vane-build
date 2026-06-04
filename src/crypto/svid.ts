@@ -71,12 +71,23 @@ export function verifyJwtSvid(
 
   const [headerB64, payloadB64, sigB64] = parts;
   const header = JSON.parse(fromB64url(headerB64).toString('utf8'));
-  if (header.alg !== 'EdDSA') throw new Error(`Unsupported JWT algorithm: ${header.alg}`);
+
+  // Algorithm check is the first guard — explicit rejection for every bypass vector.
+  const alg = header.alg;
+  if (alg === undefined || alg === null) throw new Error('JWT alg header is missing');
+  if (alg === 'none') throw new Error('JWT alg:none is not allowed');
+  if (alg !== 'EdDSA') throw new Error(`Unsupported JWT algorithm: ${alg}`);
+
+  // Key-type guard — rejects non-Ed25519 keys before cryptoVerify is called.
+  const keyObj = createPublicKey(publicKeyPem);
+  if (keyObj.asymmetricKeyType !== 'ed25519') {
+    throw new Error(`Public key must be Ed25519 for JWT-SVID verification, got ${keyObj.asymmetricKeyType}`);
+  }
 
   const valid = cryptoVerify(
     null,
     Buffer.from(`${headerB64}.${payloadB64}`),
-    createPublicKey(publicKeyPem),
+    keyObj,
     fromB64url(sigB64),
   );
   if (!valid) throw new Error('JWT signature verification failed');

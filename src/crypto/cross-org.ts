@@ -188,8 +188,16 @@ export function verifyCrossOrgToken(
     return fail('MALFORMED_TOKEN', 'Could not decode header or payload');
   }
 
-  if (header['alg'] !== 'EdDSA') {
-    return fail('ALGORITHM_MISMATCH', `Expected EdDSA, got ${String(header['alg'])}`);
+  // Algorithm check — first guard, explicit rejection for every bypass vector.
+  const alg = header['alg'];
+  if (alg === undefined || alg === null) {
+    return fail('ALGORITHM_MISMATCH', 'JWT alg header is missing');
+  }
+  if (alg === 'none') {
+    return fail('ALGORITHM_MISMATCH', 'JWT alg:none is not allowed');
+  }
+  if (alg !== 'EdDSA') {
+    return fail('ALGORITHM_MISMATCH', `Expected EdDSA, got ${String(alg)}`);
   }
 
   if (header['typ'] !== CROSS_ORG_TOKEN_TYPE) {
@@ -198,10 +206,14 @@ export function verifyCrossOrgToken(
 
   let sigValid: boolean;
   try {
+    const keyObj = createPublicKey(originOrgPublicKey);
+    if (keyObj.asymmetricKeyType !== 'ed25519') {
+      return fail('SIGNATURE_INVALID', `Origin org public key must be Ed25519, got ${keyObj.asymmetricKeyType}`);
+    }
     sigValid = cryptoVerify(
       null,
       Buffer.from(`${headerB64}.${payloadB64}`),
-      createPublicKey(originOrgPublicKey),
+      keyObj,
       fromB64url(sigB64),
     );
   } catch {
