@@ -27,7 +27,7 @@
 //   - step 7: aud must contain "vane:xorg:v1"
 //   - step 10: "vane_xorg" object instead of "vane"
 //   - step 11: targetOrg must match expectedTargetOrg if provided
-//   - no NOT-BEFORE check (step 6 is skipped for cross-org tokens)
+//   - NOT-BEFORE (step 6) is also enforced when nbf is present
 //
 // Scope matching rules:
 //   "*"      — covers any scope
@@ -49,6 +49,21 @@ export const CROSS_ORG_TOKEN_TYPE = 'XORG+JWT';
 const SUPPORTED_VERSIONS  = new Set([1]);
 const SPIFFE_RE           = /^spiffe:\/\/[^/]+\/.+$/;
 
+// Clock-skew leeway (seconds) applied to every time-based claim check. A token
+// is valid while (exp + leeway) > now and not-yet-valid only when
+// (nbf - leeway) > now. Absorbs small clock differences between the issuer and
+// the verifier so a freshly issued token is not rejected when this verifier's
+// clock runs slightly behind the issuer's.
+export const DEFAULT_CLOCK_SKEW_SECONDS = 30;
+
+// Resolves the effective leeway, applying the default and rejecting negatives
+// (which would shrink the validity window and could let an expired token through).
+function resolveClockSkew(clockSkewSeconds?: number): number {
+  const leeway = clockSkewSeconds ?? DEFAULT_CLOCK_SKEW_SECONDS;
+  if (leeway < 0) throw new Error('clockSkewSeconds must not be negative');
+  return leeway;
+}
+
 function fromB64url(s: string): Buffer {
   return Buffer.from(s, 'base64url');
 }
@@ -69,12 +84,16 @@ export function verifyPassport(
   caPublicKey: string,
   opts: VerifyOptions = {},
 ): PassportVerificationResult {
+  // Resolved before the fail-closed try so a negative clockSkewSeconds throws
+  // to the caller rather than being silently swallowed into a DENY result.
+  const leeway = resolveClockSkew(opts.clockSkewSeconds);
+
   // Fail-closed wrapper: any error, ambiguity, or unexpected state during
   // verification resolves to a DENY. An exception thrown in any step below
   // becomes a structured failure result here — it must never escape this
   // function and never fall through to a caller as an absent/undefined value.
   try {
-    return verifyPassportImpl(token, caPublicKey, opts);
+    return verifyPassportImpl(token, caPublicKey, opts, leeway);
   } catch (err) {
     return fail('VERIFICATION_ERROR', `Unexpected verification error: ${(err as Error).message}`);
   }
@@ -84,6 +103,7 @@ function verifyPassportImpl(
   token: string,
   caPublicKey: string,
   opts: VerifyOptions = {},
+  leeway = 0,
 ): PassportVerificationResult {
   // Step 1 — parse
   const parts = token.split('.');
@@ -140,15 +160,15 @@ function verifyPassportImpl(
 
   const now = opts.now ?? Math.floor(Date.now() / 1000);
 
-  // Step 5 — expiry
+  // Step 5 — expiry (valid while exp + leeway > now)
   const exp = rawClaims['exp'];
-  if (typeof exp !== 'number' || exp < now) {
+  if (typeof exp !== 'number' || exp + leeway < now) {
     return fail('TOKEN_EXPIRED', 'Passport has expired');
   }
 
-  // Step 6 — not-before
+  // Step 6 — not-before (premature only when nbf - leeway > now)
   const nbf = rawClaims['nbf'];
-  if (typeof nbf === 'number' && nbf > now) {
+  if (typeof nbf === 'number' && nbf - leeway > now) {
     return fail('TOKEN_NOT_YET_VALID', 'Passport is not yet valid');
   }
 
@@ -266,12 +286,16 @@ export function verifyCrossOrgToken(
   originOrgPublicKey: string,
   opts: CrossOrgVerifyOptions = {},
 ): CrossOrgResult {
+  // Resolved before the fail-closed try so a negative clockSkewSeconds throws
+  // to the caller rather than being silently swallowed into a DENY result.
+  const leeway = resolveClockSkew(opts.clockSkewSeconds);
+
   // Fail-closed wrapper: any error, ambiguity, or unexpected state during
   // verification resolves to a DENY. An exception thrown in any step below
   // becomes a structured failure result here — it must never escape this
   // function and never fall through to a caller as an absent/undefined value.
   try {
-    return verifyCrossOrgTokenImpl(token, originOrgPublicKey, opts);
+    return verifyCrossOrgTokenImpl(token, originOrgPublicKey, opts, leeway);
   } catch (err) {
     return { valid: false, error: `Unexpected verification error: ${(err as Error).message}`, code: 'VERIFICATION_ERROR' };
   }
@@ -281,6 +305,7 @@ function verifyCrossOrgTokenImpl(
   token: string,
   originOrgPublicKey: string,
   opts: CrossOrgVerifyOptions = {},
+  leeway = 0,
 ): CrossOrgResult {
   const parts = token.split('.');
   if (parts.length !== 3) {
@@ -333,9 +358,17 @@ function verifyCrossOrgTokenImpl(
 
   const now = opts.now ?? Math.floor(Date.now() / 1000);
 
+  // Expiry — valid while (exp + leeway) > now.
   const exp = rawClaims['exp'];
-  if (typeof exp !== 'number' || exp < now) {
+  if (typeof exp !== 'number' || exp + leeway < now) {
     return { valid: false, error: 'Cross-org token has expired', code: 'TOKEN_EXPIRED' };
+  }
+
+  // Not-before — premature only when (nbf - leeway) > now. Skipped when the
+  // token carries no nbf, so this stays backward compatible with older tokens.
+  const nbf = rawClaims['nbf'];
+  if (typeof nbf === 'number' && nbf - leeway > now) {
+    return { valid: false, error: 'Cross-org token is not yet valid', code: 'TOKEN_NOT_YET_VALID' };
   }
 
   const aud = rawClaims['aud'];

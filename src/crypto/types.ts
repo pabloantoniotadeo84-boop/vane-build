@@ -39,6 +39,9 @@ export interface JwtSvidClaims {
   aud: string[];
   iat: number;
   exp: number;
+  nbf?: number;     // Not-before (Unix seconds, equals iat at issuance). Optional
+                    // for backward compatibility with tokens issued before nbf
+                    // was added; always present on freshly issued SVIDs.
   jti: string;
   act?: ActClaim;   // present on delegation tokens
   scope?: string;   // present on delegation tokens issued via /v1/token-exchange

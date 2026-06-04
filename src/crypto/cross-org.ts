@@ -6,7 +6,7 @@ import {
   randomUUID,
 } from 'node:crypto';
 import { validateSpiffeId, TRUST_DOMAIN } from './spiffe.js';
-import { deriveKeyId } from './svid.js';
+import { deriveKeyId, resolveClockSkew } from './svid.js';
 import type { CrossOrgDelegationClaims } from './types.js';
 
 export const CROSS_ORG_TOKEN_TYPE = 'XORG+JWT';
@@ -123,6 +123,7 @@ export type CrossOrgErrorCode =
   | 'WRONG_TOKEN_TYPE'
   | 'SIGNATURE_INVALID'
   | 'TOKEN_EXPIRED'
+  | 'TOKEN_NOT_YET_VALID'
   | 'AUDIENCE_MISMATCH'
   | 'INVALID_ISSUER'
   | 'INVALID_SUBJECT'
@@ -148,6 +149,10 @@ export interface CrossOrgVerifyOptions {
   expectedTargetOrg?: string;  // if provided, vane_xorg.targetOrg must match
   tool?: string;               // if provided, scopes must cover "tool:<tool>"
   now?: number;                // override current time for testing
+  // Clock-skew leeway in seconds applied to the exp and nbf checks. Defaults to
+  // 30. Valid while (exp + leeway) > now; not-yet-valid only when
+  // (nbf - leeway) > now. A negative value throws.
+  clockSkewSeconds?: number;
 }
 
 const SPIFFE_RE = /^spiffe:\/\/[^/]+\/.+$/;
@@ -163,7 +168,8 @@ const SPIFFE_RE = /^spiffe:\/\/[^/]+\/.+$/;
  *   2.  Algorithm — header.alg must be "EdDSA"
  *   3.  Token type — header.typ must be "XORG+JWT"
  *   4.  Signature — Ed25519 over "header.payload" using originOrgPublicKey
- *   5.  Expiry — exp must be in the future
+ *   5.  Expiry — (exp + clock-skew leeway) must be in the future
+ *   5b. Not-before — if nbf present, (nbf - leeway) must not be in the future
  *   6.  Audience — aud must include "vane:xorg:v1"
  *   7.  Issuer — iss must be a valid SPIFFE URI
  *   8.  Subject — sub must be a valid SPIFFE URI
@@ -177,12 +183,16 @@ export function verifyCrossOrgToken(
   originOrgPublicKey: string,
   opts: CrossOrgVerifyOptions = {},
 ): CrossOrgVerificationResult {
+  // Resolved before the fail-closed try so a negative clockSkewSeconds throws
+  // to the caller rather than being silently swallowed into a DENY result.
+  const leeway = resolveClockSkew(opts.clockSkewSeconds);
+
   // Fail-closed wrapper: any error, ambiguity, or unexpected state during
   // verification resolves to a DENY. An exception thrown in any step below
   // becomes a structured failure result here — it must never escape this
   // function and never fall through to a caller as an absent/undefined value.
   try {
-    return verifyCrossOrgTokenImpl(token, originOrgPublicKey, opts);
+    return verifyCrossOrgTokenImpl(token, originOrgPublicKey, opts, leeway);
   } catch (err) {
     return fail('VERIFICATION_ERROR', `Unexpected verification error: ${(err as Error).message}`);
   }
@@ -192,6 +202,7 @@ function verifyCrossOrgTokenImpl(
   token: string,
   originOrgPublicKey: string,
   opts: CrossOrgVerifyOptions = {},
+  leeway = 0,
 ): CrossOrgVerificationResult {
   const parts = token.split('.');
   if (parts.length !== 3) {
@@ -245,9 +256,17 @@ function verifyCrossOrgTokenImpl(
 
   const now = opts.now ?? Math.floor(Date.now() / 1000);
 
+  // Expiry — valid while (exp + leeway) > now.
   const exp = rawClaims['exp'];
-  if (typeof exp !== 'number' || exp < now) {
+  if (typeof exp !== 'number' || exp + leeway < now) {
     return fail('TOKEN_EXPIRED', 'Cross-org token has expired');
+  }
+
+  // Not-before — premature only when (nbf - leeway) > now. Skipped when the
+  // token carries no nbf, so this stays backward compatible with older tokens.
+  const nbf = rawClaims['nbf'];
+  if (typeof nbf === 'number' && nbf - leeway > now) {
+    return fail('TOKEN_NOT_YET_VALID', 'Cross-org token is not yet valid');
   }
 
   const aud = rawClaims['aud'];

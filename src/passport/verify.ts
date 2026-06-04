@@ -1,5 +1,6 @@
 import { verify as cryptoVerify, createPublicKey } from 'node:crypto';
 import { validateSpiffeId } from '../crypto/spiffe.js';
+import { resolveClockSkew } from '../crypto/svid.js';
 import type { VanePassportClaims, PassportErrorCode, PassportVerificationResult } from './types.js';
 
 export { PASSPORT_AUDIENCE } from './credential.js';
@@ -41,6 +42,13 @@ export interface VerifyPassportOptions {
 
   // Override current time for testing. Unix seconds.
   now?: number;
+
+  // Clock-skew leeway in seconds applied to the exp and nbf checks. Defaults to
+  // 30. A token is valid while (exp + leeway) > now and is rejected as
+  // not-yet-valid only when (nbf - leeway) > now. Must not be negative — a
+  // negative value throws (it would shrink the validity window and could let an
+  // expired token through).
+  clockSkewSeconds?: number;
 }
 
 /**
@@ -73,12 +81,16 @@ export function verifyPassport(
   token: string,
   opts: VerifyPassportOptions,
 ): PassportVerificationResult {
+  // Resolved before the fail-closed try so a negative clockSkewSeconds throws
+  // to the caller rather than being silently swallowed into a DENY result.
+  const leeway = resolveClockSkew(opts.clockSkewSeconds);
+
   // Fail-closed wrapper: any error, ambiguity, or unexpected state during
   // verification resolves to a DENY. An exception thrown in any step below
   // becomes a structured failure result here — it must never escape this
   // function and never fall through to a caller as an absent/undefined value.
   try {
-    return verifyPassportImpl(token, opts);
+    return verifyPassportImpl(token, opts, leeway);
   } catch (err) {
     return fail('VERIFICATION_ERROR', `Unexpected verification error: ${(err as Error).message}`);
   }
@@ -87,6 +99,7 @@ export function verifyPassport(
 function verifyPassportImpl(
   token: string,
   opts: VerifyPassportOptions,
+  leeway: number,
 ): PassportVerificationResult {
   // Step 1 — parse
   const parts = token.split('.');
@@ -143,15 +156,15 @@ function verifyPassportImpl(
 
   const now = opts.now ?? Math.floor(Date.now() / 1000);
 
-  // Step 5 — expiry
+  // Step 5 — expiry (valid while exp + leeway > now)
   const exp = rawClaims['exp'];
-  if (typeof exp !== 'number' || exp < now) {
+  if (typeof exp !== 'number' || exp + leeway < now) {
     return fail('TOKEN_EXPIRED', 'Passport has expired');
   }
 
-  // Step 6 — not-before
+  // Step 6 — not-before (premature only when nbf - leeway > now)
   const nbf = rawClaims['nbf'];
-  if (typeof nbf === 'number' && nbf > now) {
+  if (typeof nbf === 'number' && nbf - leeway > now) {
     return fail('TOKEN_NOT_YET_VALID', 'Passport is not yet valid');
   }
 

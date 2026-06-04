@@ -12,6 +12,23 @@ import type { JwtSvidClaims } from './types.js';
 const DEFAULT_TTL = 3600;
 export const SVID_AUDIENCE = 'vane';
 
+// Clock-skew leeway (seconds) applied to every time-based claim check. A token
+// is treated as still valid if (exp + leeway) > now, and as not-yet-valid only
+// if (nbf - leeway) > now. This absorbs small clock differences between the
+// issuer and the verifier so a freshly issued token is not rejected when the
+// verifier's clock runs slightly behind the issuer's. This is the single source
+// of truth for the default; other src/ verifiers import it.
+export const DEFAULT_CLOCK_SKEW_SECONDS = 30;
+
+// Resolves the effective leeway from a caller-supplied value, applying the
+// default and rejecting negative values (which would shrink the validity window
+// and could let an expired token through).
+export function resolveClockSkew(clockSkewSeconds?: number): number {
+  const leeway = clockSkewSeconds ?? DEFAULT_CLOCK_SKEW_SECONDS;
+  if (leeway < 0) throw new Error('clockSkewSeconds must not be negative');
+  return leeway;
+}
+
 function b64url(data: string | Buffer): string {
   return (typeof data === 'string' ? Buffer.from(data, 'utf8') : data).toString('base64url');
 }
@@ -46,6 +63,7 @@ export function issueJwtSvid(
     aud: [SVID_AUDIENCE],
     iat: now,
     exp: now + ttl,
+    nbf: now,
     jti: randomUUID(),
     ...extraClaims,
   }));
@@ -65,7 +83,11 @@ export function verifyJwtSvid(
   token: string,
   publicKeyPem: string,
   requiredAudience = SVID_AUDIENCE,
+  clockSkewSeconds?: number,
 ): JwtSvidClaims {
+  // Resolved up front so a negative leeway throws before any token parsing.
+  const leeway = resolveClockSkew(clockSkewSeconds);
+
   const parts = token.split('.');
   if (parts.length !== 3) throw new Error('Malformed JWT: expected header.payload.signature');
 
@@ -95,7 +117,13 @@ export function verifyJwtSvid(
   const claims = JSON.parse(fromB64url(payloadB64).toString('utf8')) as JwtSvidClaims;
   const now = Math.floor(Date.now() / 1000);
 
-  if (claims.exp < now) throw new Error('JWT-SVID has expired');
+  // Expiry — valid while (exp + leeway) > now.
+  if (claims.exp + leeway < now) throw new Error('JWT-SVID has expired');
+  // Not-before — premature only when (nbf - leeway) > now. Skipped when the
+  // token carries no nbf (older tokens), so this stays backward compatible.
+  if (typeof claims.nbf === 'number' && claims.nbf - leeway > now) {
+    throw new Error('JWT-SVID is not yet valid');
+  }
   if (!Array.isArray(claims.aud) || !claims.aud.includes(requiredAudience)) {
     throw new Error(`JWT-SVID audience mismatch: expected "${requiredAudience}"`);
   }

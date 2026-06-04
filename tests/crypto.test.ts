@@ -4,7 +4,7 @@ import { sign as cryptoSign, createPrivateKey, generateKeyPairSync, randomUUID }
 import { generateKeyPair } from '../src/crypto/keypair.js';
 import { signPayload, verifyPayload } from '../src/crypto/signer.js';
 import { AttestationChain } from '../src/crypto/chain.js';
-import { deriveKeyId } from '../src/crypto/svid.js';
+import { deriveKeyId, DEFAULT_CLOCK_SKEW_SECONDS } from '../src/crypto/svid.js';
 import { agentSpiffeId, companySpiffeId } from '../src/crypto/spiffe.js';
 import { issueJwtSvid, verifyJwtSvid } from '../src/crypto/svid.js';
 import { exchangeToken, extractDelegationChain } from '../src/crypto/token-exchange.js';
@@ -140,8 +140,9 @@ describe('Passport expiry', () => {
       publicKeyPem: publicKey,
     });
 
-    // Advance the clock past the TTL — the passport is now expired
-    const futureNow = Math.floor(Date.now() / 1000) + PASSPORT_TTL_MIN + 1;
+    // Advance the clock past the TTL *and* the clock-skew leeway — only then is
+    // the passport unambiguously expired.
+    const futureNow = Math.floor(Date.now() / 1000) + PASSPORT_TTL_MIN + DEFAULT_CLOCK_SKEW_SECONDS + 1;
     const result = verifyPassport(token, { caPublicKey: publicKey, now: futureNow });
 
     expect(result.valid).toBe(false);
@@ -897,7 +898,8 @@ describe('Cross-org token verification', () => {
       privateKeyPem: kp.privateKey,
       publicKeyPem: kp.publicKey,
     });
-    const futureNow = Math.floor(Date.now() / 1000) + 61;
+    // Past the 60s TTL *and* the clock-skew leeway — unambiguously expired.
+    const futureNow = Math.floor(Date.now() / 1000) + 60 + DEFAULT_CLOCK_SKEW_SECONDS + 1;
     const result = verifyCrossOrgToken(token, kp.publicKey, { now: futureNow });
     expect(result.valid).toBe(false);
     if (!result.valid) expect(result.code).toBe('TOKEN_EXPIRED');

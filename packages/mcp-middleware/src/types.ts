@@ -159,4 +159,11 @@ export interface VerifyOptions {
 
   // Override current time for testing. Unix seconds.
   now?: number;
+
+  // Clock-skew leeway in seconds applied to the exp and nbf checks. Defaults to
+  // 30. A token is valid while (exp + leeway) > now, and is rejected as
+  // not-yet-valid only when (nbf - leeway) > now. Absorbs small clock
+  // differences between issuer and verifier. Must not be negative — a negative
+  // value throws.
+  clockSkewSeconds?: number;
 }
