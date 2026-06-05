@@ -4,1078 +4,1252 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Vane — Agent Identity Infrastructure</title>
-<meta name="description" content="Cryptographic passports for AI agents. Verifiable by anyone. Trusted everywhere." />
+<meta name="description" content="Cryptographic passports for AI agents. Ed25519-signed, Merkle-attested. Verifiable by anyone. Trusted everywhere." />
 
-<!-- Geist + Geist Mono -->
+<!-- Open Graph -->
+<meta property="og:type"        content="website" />
+<meta property="og:title"       content="Vane — Agent Identity Infrastructure" />
+<meta property="og:description" content="Cryptographic passports for AI agents. Ed25519-signed. Merkle-attested." />
+<meta property="og:image"       content="/og.svg" />
+<meta property="og:url"         content="https://vane.build" />
+<!-- Twitter / X -->
+<meta name="twitter:card"        content="summary_large_image" />
+<meta name="twitter:title"       content="Vane — Agent Identity Infrastructure" />
+<meta name="twitter:description" content="Cryptographic passports for AI agents. Verifiable by anyone." />
+<meta name="twitter:image"       content="/og.svg" />
+<!-- Theme -->
+<meta name="theme-color" content="#b5451b" />
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+<!-- Fonts — Bricolage Grotesque (variable grotesque) + Geist Mono -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
 <style>
 /* ============================================================
-   VANE — palette is absolute, no deviation
+   DESIGN TOKENS
    ============================================================ */
-:root{
-  --clay:        #b5451b;   /* terracotta dominant / Roland Garros */
-  --clay-light:  #c8552a;
-  --warm-gray:   #f0ede8;   /* the only "breath" background */
-  --navy:        #0a1628;   /* accent: headlines on paper, card border, footer */
-  --ink-body:    #3d2e1e;   /* body text on paper */
-  --off-white:   #f5f0e8;
-  --warm-white:  #ede8e0;
-}
+:root {
+  --clay:       #b5451b;
+  --clay-light: #c8552a;
+  --clay-dark:  #9a3716;
+  --warm-gray:  #f0ede8;
+  --navy:       #0a1628;
+  --ink-body:   #3d2e1e;
+  --off-white:  #f5f0e8;
+  --warm-white: #ede8e0;
 
-*{ margin:0; padding:0; box-sizing:border-box; }
-html{ -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; scroll-behavior:auto; }
-body{
-  font-family:'Geist', system-ui, sans-serif;
-  background:var(--clay);
-  color:var(--off-white);
-  overflow-x:hidden;
-}
-::selection{ background:var(--clay); color:var(--off-white); }
+  --font-sans: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
 
-.mono{ font-family:'Geist Mono', ui-monospace, monospace; }
-
-/* ---------- shared section scaffolding ---------- */
-.section{
-  position:relative;
-  min-height:100vh;
-  width:100%;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  padding:9vh 7vw;
-  z-index:2;                 /* paints over the sticky hero */
+  /* Emil-grade custom easing */
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.sec-num{
-  position:absolute;
-  top:9vh; left:7vw;
-  font-family:'Geist Mono', monospace;
-  font-size:0.8rem;
-  letter-spacing:0.15em;
-  color:var(--clay);
-}
-.eyebrow{
-  font-family:'Geist Mono', monospace;
-  font-size:0.75rem;
-  letter-spacing:0.18em;
-  text-transform:uppercase;
-}
-
-/* ---------- reveal on scroll ---------- */
-.r{
-  opacity:0;
-  transform:translateY(40px);
-  transition:opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1);
-  will-change:opacity, transform;
-}
-[data-reveal].in .r{ opacity:1; transform:none; }
 
 /* ============================================================
-   LOGO — fixed, all sections
+   RESET + BASE
    ============================================================ */
-.logo{
-  position:fixed;
-  top:32px; left:7vw;
-  z-index:100;
-  display:flex;
-  align-items:center;
-  gap:12px;
-  text-decoration:none;
-  mix-blend-mode:normal;
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: auto;
+  font-optical-sizing: auto;
 }
-.logo svg{
-  display:block;                /* kill inline-baseline gap so icon centers cleanly */
-  transition:transform .4s ease;
+body {
+  font-family: var(--font-sans);
+  background: var(--clay);
+  color: var(--off-white);
+  overflow-x: hidden;
 }
-.logo:hover svg{ transform:rotate(45deg); }
-/* default = on paper (off-white section): terracotta mark, navy word */
-.logo .mark line{ stroke:var(--clay); stroke-width:2; transition:stroke .3s ease; }
-.logo .word{
-  font-weight:600;             /* medium, ZettaJoule-like */
-  font-size:1.15rem;
-  letter-spacing:0.08em;       /* breathing room between letters */
-  line-height:1;               /* trims the line box so caps sit on the icon's centerline */
-  transform:translateY(1px);   /* optical centering: cancels the cap-height top bias */
-  color:var(--navy);
-  transition:color .3s ease;
-}
-/* on terracotta section: everything goes off-white so it stays visible */
-.logo.on-terra .mark line{ stroke:var(--off-white); }
-.logo.on-terra .word{ color:var(--off-white); }
+::selection { background: var(--clay); color: var(--off-white); }
+.mono { font-family: var(--font-mono); }
 
 /* ============================================================
-   NAV — fixed, follows the active section theme like the logo
+   SHARED SECTION SCAFFOLDING
    ============================================================ */
-.nav{
-  position:fixed;
-  top:34px; right:7vw;
-  z-index:100;
-  display:flex;
-  align-items:center;
-  gap:1.7rem;
+.section {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 9vh 7vw;
+  z-index: 2;
 }
-.nav-link{
-  font-family:'Geist Mono', monospace;
-  font-size:0.78rem;
-  letter-spacing:0.08em;
-  text-decoration:none;
-  color:var(--navy);
-  opacity:0.8;
-  transition:color .3s ease, opacity .3s ease;
+.sec-num {
+  position: absolute;
+  top: 9vh; left: 7vw;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.15em;
+  color: var(--clay);
 }
-.nav-link:hover{ color:var(--clay); opacity:1; }
-.nav.on-terra .nav-link{ color:var(--off-white); opacity:0.85; }
-.nav.on-terra .nav-link:hover{ color:var(--off-white); opacity:1; }
-.nav-cta{
-  font-family:'Geist Mono', monospace;
-  font-size:0.78rem;
-  letter-spacing:0.06em;
-  padding:0.62rem 1.15rem;
-  text-decoration:none;
-  background:var(--navy);
-  color:var(--off-white);
-  border:1px solid var(--navy);
-  transition:transform .2s ease, background .25s ease, color .25s ease, border-color .25s ease;
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
-.nav-cta:hover{ transform:scale(1.03); background:#13233f; }
-/* on terracotta / navy sections a navy fill would vanish — switch to a ghost button */
-.nav.on-terra .nav-cta{ background:transparent; border-color:var(--off-white); color:var(--off-white); }
-.nav.on-terra .nav-cta:hover{ background:var(--off-white); color:var(--clay); }
 
 /* ============================================================
-   HERO — sticky particle field
+   REVEAL ON SCROLL
    ============================================================ */
-.hero{
-  position:relative;
-  height:100vh;
-  width:100%;
-  background:var(--clay);
-  overflow:hidden;
-  display:flex;
-  align-items:center;
-  z-index:1;
+.r {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity .6s var(--ease-out), transform .6s var(--ease-out);
+  will-change: opacity, transform;
 }
-#particles{
-  position:absolute;
-  inset:0;
-  width:100%; height:100%;
-  display:block;
+[data-reveal].in .r { opacity: 1; transform: none; }
+
+/* ============================================================
+   LOGO — fixed
+   ============================================================ */
+.logo {
+  position: fixed;
+  top: 32px; left: 7vw;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none;
 }
-.hero-inner{
-  position:relative;
-  z-index:3;
-  padding-left:7vw;
-  max-width:1100px;
+.logo svg { display: block; transition: transform .4s var(--ease-out); }
+.logo:hover svg { transform: rotate(45deg); }
+.logo .mark line { stroke: var(--clay); stroke-width: 2; transition: stroke .3s ease; }
+.logo .word {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  transform: translateY(1px);
+  color: var(--navy);
+  transition: color .3s ease;
 }
-.hero .eyebrow{ color:rgba(245,240,232,0.85); margin-bottom:2.2rem; }
-.hero h1{
-  font-weight:800;
-  font-size:clamp(3rem, 9vw, 9rem);
-  line-height:0.92;
-  letter-spacing:-0.035em;
+.logo.on-terra .mark line { stroke: var(--off-white); }
+.logo.on-terra .word     { color: var(--off-white); }
+
+/* ============================================================
+   NAV — sticky full-width bar
+   ============================================================ */
+.nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  width: 100%;
+  height: 84px;
+  z-index: 90;                /* below the logo (z-index 100), above all sections */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1.4rem;
+  padding: 0 7vw;
+  background: rgba(10, 22, 40, 0.16);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border-bottom: 1px solid transparent;
+  transition: background .3s var(--ease-out), border-color .3s var(--ease-out);
 }
-.hero h1 .line1{ color:var(--off-white); display:block; }
-.hero h1 .line2{ color:var(--off-white); display:block; }
-.hero p.lede{
-  margin-top:2.4rem;
-  font-size:1.15rem;
-  line-height:1.6;
-  max-width:34ch;
-  color:rgba(245,240,232,0.75);
-}
-.hero .actions{
-  margin-top:3rem;
-  display:flex;
-  gap:1rem;
-  flex-wrap:wrap;
+.nav.scrolled {
+  background: rgba(10, 22, 40, 0.82);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-bottom: 1px solid rgba(181, 69, 27, 0.28);
 }
 
-/* buttons */
-.btn{
-  font-family:'Geist Mono', monospace;
-  font-size:0.85rem;
-  letter-spacing:0.06em;
-  padding:1rem 1.7rem;
-  border:1px solid transparent;
-  cursor:pointer;
-  text-decoration:none;
-  display:inline-block;
-  transition:transform .2s ease, background .25s ease, color .25s ease;
-  border-radius:0;
+/* ── Menu (desktop) ─────────────────────────────────── */
+.nav-menu {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0; padding: 0;
 }
-.btn:hover{ transform:scale(1.02); }
-.btn-clay{ background:var(--clay); color:var(--off-white); }
-.btn-clay:hover{ background:var(--clay-light); }
-.btn-ghost{ background:transparent; color:var(--off-white); border-color:rgba(245,240,232,0.45); }
-.btn-ghost:hover{ border-color:var(--off-white); }
-.btn-light{ background:var(--off-white); color:var(--clay); }
-.btn-light-navy{ background:var(--off-white); color:var(--navy); }
-.btn-navy{ background:var(--navy); color:var(--off-white); }
-.btn-navy:hover{ background:#13233f; }
-.btn-outline-navy{ background:transparent; color:var(--navy); border-color:var(--navy); }
-.btn-outline-navy:hover{ background:var(--navy); color:var(--off-white); }
+.nav-item { position: relative; display: flex; align-items: center; height: 100%; }
 
-/* scroll indicator */
-.scroll-ind{
-  position:absolute;
-  left:7vw; bottom:36px;
-  z-index:3;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:0.9rem;
+.nav-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  color: var(--off-white);
+  opacity: 0.82;
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0.7rem;
+  cursor: pointer;
+  transition: color .2s ease, opacity .2s ease;
 }
-.scroll-ind .track{
-  position:relative;
-  width:1px; height:64px;
-  background:rgba(245,240,232,0.25);
-  overflow:hidden;
+.nav-trigger:hover,
+.nav-item.open > .nav-trigger { color: var(--clay-light); opacity: 1; }
+.nav-trigger:focus-visible { outline: 1px solid var(--clay-light); outline-offset: 3px; opacity: 1; }
+
+/* caret chevron */
+.nav-trigger .caret {
+  width: 6px; height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform .2s var(--ease-out);
+  opacity: 0.65;
 }
-.scroll-ind .dot{
-  position:absolute;
-  left:50%; top:0;
-  width:4px; height:4px;
-  margin-left:-2px;
-  border-radius:50%;
-  background:var(--off-white);
-  animation:scrolldot 2.4s cubic-bezier(.7,0,.3,1) infinite;
+.nav-item.open > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
+
+/* ── Dropdown panel — absolute, never pushes content ─── */
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem;
+  background: rgba(10, 22, 40, 0.96);
+  border: 1px solid rgba(181, 69, 27, 0.3);
+  border-radius: 4px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  /* hidden state — transform + opacity only, origin-aware */
+  opacity: 0;
+  transform: translateX(-50%) translateY(-6px) scale(0.98);
+  transform-origin: top center;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s linear .2s;
 }
-@keyframes scrolldot{
-  0%   { top:-6px; opacity:0; }
-  25%  { opacity:1; }
-  75%  { opacity:1; }
-  100% { top:64px; opacity:0; }
+.nav-item.open > .nav-dropdown {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
 }
-.scroll-ind .label{
-  font-family:'Geist Mono', monospace;
-  font-size:0.65rem;
-  letter-spacing:0.25em;
-  color:rgba(245,240,232,0.4);
-  writing-mode:vertical-rl;
+/* Hover-to-open — desktop pointers only */
+@media (hover: hover) and (pointer: fine) {
+  .nav-item.has-dropdown:hover > .nav-dropdown {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
+  }
+  .nav-item.has-dropdown:hover > .nav-trigger { color: var(--clay-light); opacity: 1; }
+  .nav-item.has-dropdown:hover > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
 }
+
+.nav-dropdown a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  color: rgba(245, 240, 232, 0.82);
+  padding: 0.6rem 0.7rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease, transform .12s ease;
+}
+.nav-dropdown a:hover  { background: rgba(181, 69, 27, 0.18); color: var(--off-white); }
+.nav-dropdown a:active { transform: scale(0.985); }
+.nav-dropdown a .ext   { opacity: 0.5; font-size: 0.85em; }
+
+/* ── Action buttons ─────────────────────────────────── */
+.nav-actions { display: flex; align-items: center; gap: 0.7rem; margin-left: 0.4rem; }
+.nav-demo {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  padding: 0.55rem 1rem;
+  text-decoration: none;
+  background: transparent;
+  color: var(--off-white);
+  border: 1px solid rgba(245, 240, 232, 0.4);
+  border-radius: 3px;
+  transition: background .2s ease, border-color .2s ease, transform .15s ease;
+}
+.nav-demo:hover  { background: rgba(245, 240, 232, 0.1); border-color: var(--off-white); }
+.nav-demo:active { transform: scale(0.97); }
+.nav-cta {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  padding: 0.58rem 1.1rem;
+  text-decoration: none;
+  background: var(--clay);
+  color: var(--off-white);
+  border: 1px solid var(--clay);
+  border-radius: 3px;
+  transition: background .2s ease, transform .15s ease;
+}
+.nav-cta:hover  { background: var(--clay-light); border-color: var(--clay-light); }
+.nav-cta:active { transform: scale(0.97); }
+
+/* ── Hamburger (mobile) ─────────────────────────────── */
+.nav-burger {
+  display: none;
+  position: relative;
+  width: 30px; height: 30px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.nav-burger span {
+  position: absolute;
+  left: 5px; right: 5px;
+  height: 2px;
+  background: var(--off-white);
+  border-radius: 2px;
+  transition: transform .25s var(--ease-out), opacity .2s ease-out, top .25s var(--ease-out);
+}
+.nav-burger span:nth-child(1) { top: 9px; }
+.nav-burger span:nth-child(2) { top: 14px; }
+.nav-burger span:nth-child(3) { top: 19px; }
+.nav-burger.open span:nth-child(1) { top: 14px; transform: rotate(45deg); }
+.nav-burger.open span:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
+.nav-burger.open span:nth-child(3) { top: 14px; transform: rotate(-45deg); }
+
+/* ── Mobile slide-down panel — flat links, no dropdowns ─ */
+.nav-mobile {
+  position: fixed;
+  top: 84px; left: 0; right: 0;
+  z-index: 89;
+  background: rgba(10, 22, 40, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(181, 69, 27, 0.3);
+  padding: 1.4rem 7vw 2rem;
+  max-height: calc(100dvh - 84px);
+  overflow-y: auto;
+  /* hidden state */
+  opacity: 0;
+  transform: translateY(-12px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .25s var(--ease-out), transform .25s var(--ease-out), visibility 0s linear .25s;
+}
+.nav-mobile.open {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .25s var(--ease-out), transform .25s var(--ease-out), visibility 0s;
+}
+.nav-mobile .mob-group { margin-bottom: 1.3rem; }
+.nav-mobile .mob-head {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--clay-light);
+  margin-bottom: 0.4rem;
+}
+.nav-mobile a {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  color: rgba(245, 240, 232, 0.86);
+  padding: 0.48rem 0;
+  transition: color .15s ease, transform .12s ease;
+}
+.nav-mobile a:hover  { color: var(--clay-light); }
+.nav-mobile a:active { transform: translateX(3px); }
+.nav-mobile .mob-actions { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 0.4rem; }
+.nav-mobile .mob-actions a { text-align: center; padding: 0.85rem; border-radius: 3px; }
+
+/* ── Responsive: collapse to hamburger ──────────────── */
+@media (max-width: 900px) {
+  .nav-menu, .nav-actions { display: none; }
+  .nav-burger { display: block; }
+}
+
+/* ── Reduced motion: keep fades, drop movement ──────── */
+@media (prefers-reduced-motion: reduce) {
+  .nav, .nav-dropdown, .nav-mobile, .nav-burger span, .nav-trigger .caret {
+    transition: opacity .15s ease, background-color .15s ease, border-color .15s ease, visibility 0s !important;
+  }
+  .nav-dropdown,
+  .nav-item.open > .nav-dropdown,
+  .nav-item.has-dropdown:hover > .nav-dropdown { transform: translateX(-50%) !important; }
+  .nav-mobile, .nav-mobile.open { transform: none !important; }
+}
+
+/* ============================================================
+   HERO — split layout, CSS background
+   ============================================================ */
+.hero {
+  position: relative;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  z-index: 1;
+  background:
+    radial-gradient(ellipse 80% 60% at 75% 20%, rgba(200,85,42,.22) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 50% at 20% 75%, rgba(154,55,22,.18) 0%, transparent 60%),
+    linear-gradient(rgba(154,55,22,.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(154,55,22,.09) 1px, transparent 1px),
+    var(--clay);
+  background-size: 100% 100%, 100% 100%, 72px 72px, 72px 72px;
+}
+
+.hero-layout {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  padding: 9vh 7vw;
+  padding-top: clamp(100px, 12vh, 140px);
+  display: flex;
+  align-items: center;
+  gap: 4vw;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.hero-copy { flex: 1 1 0; min-width: 0; }
+.hero-pg   { flex: 0 0 auto; width: min(460px, 45vw); }
+
+/* Hero entrance — CSS-only stagger */
+.hero-copy .eyebrow {
+  color: rgba(245,240,232,.7);
+  margin-bottom: 1.8rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-copy .eyebrow  { opacity:0; transform:translateY(20px); animation: hFadeUp .55s var(--ease-out) .04s forwards; }
+  .hero-copy h1        { opacity:0; transform:translateY(28px); animation: hFadeUp .65s var(--ease-out) .14s forwards; }
+  .hero-copy p.lede    { opacity:0; transform:translateY(24px); animation: hFadeUp .65s var(--ease-out) .28s forwards; }
+  .hero-copy .actions  { opacity:0; transform:translateY(20px); animation: hFadeUp .6s  var(--ease-out) .42s forwards; }
+  .hero-pg             { opacity:0; transform:translateY(32px); animation: hFadeUp .8s  var(--ease-out) .56s forwards; }
+}
+@keyframes hFadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero-copy h1 {
+  font-weight: 800;
+  font-size: clamp(3.2rem, 8vw, 8.5rem);
+  line-height: 0.91;
+  letter-spacing: -0.03em;
+  color: var(--off-white);
+}
+.hero-copy h1 .line1, .hero-copy h1 .line2 { display: block; }
+
+.hero-copy p.lede {
+  margin-top: 1.8rem;
+  font-size: clamp(.98rem, 1.3vw, 1.15rem);
+  line-height: 1.65;
+  max-width: 34ch;
+  color: rgba(245,240,232,.72);
+}
+.hero-copy .actions {
+  margin-top: 2.4rem;
+  display: flex;
+  gap: .85rem;
+  flex-wrap: wrap;
+}
+
+/* Scroll indicator */
+.scroll-ind {
+  position: absolute;
+  left: 7vw; bottom: 36px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .85rem;
+}
+.scroll-ind .track {
+  position: relative;
+  width: 1px; height: 56px;
+  background: rgba(245,240,232,.2);
+  overflow: hidden;
+}
+.scroll-ind .dot {
+  position: absolute;
+  left: 50%; top: 0;
+  width: 4px; height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--off-white);
+  animation: scrolldot 2.4s var(--ease-in-out) infinite;
+}
+@keyframes scrolldot {
+  0%  { top:-6px; opacity:0 }
+  25% { opacity:1 }
+  75% { opacity:1 }
+  100%{ top:56px; opacity:0 }
+}
+.scroll-ind .label {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  letter-spacing: .25em;
+  color: rgba(245,240,232,.35);
+  writing-mode: vertical-rl;
+}
+
+/* ============================================================
+   PASSPORT PLAYGROUND — THE CENTERPIECE
+   ============================================================ */
+.pg-card {
+  background: #060d18;
+  border: 1px solid rgba(181,69,27,.35);
+  box-shadow:
+    0 40px 80px rgba(0,0,0,.55),
+    0 0 0 1px rgba(181,69,27,.08),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  width: 100%;
+}
+
+.pg-hdr {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .8rem 1.2rem;
+  background: rgba(181,69,27,.1);
+  border-bottom: 1px solid rgba(181,69,27,.18);
+}
+.pg-live {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+  animation: pgLive 2.2s ease-in-out infinite;
+}
+@keyframes pgLive {
+  0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.5); }
+  50%     { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+}
+.pg-hdr-title {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  letter-spacing: .16em;
+  color: rgba(245,240,232,.6);
+  text-transform: uppercase;
+  flex: 1;
+}
+.pg-hdr-badge {
+  font-family: var(--font-mono);
+  font-size: .58rem;
+  letter-spacing: .07em;
+  color: rgba(181,69,27,.9);
+}
+
+.pg-body {
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pg-field { display: flex; flex-direction: column; gap: .4rem; }
+
+.pg-lbl {
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: rgba(245,240,232,.45);
+}
+.pg-lbl .opt { text-transform: none; letter-spacing: 0; opacity: .7; }
+
+.pg-inp {
+  width: 100%;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(245,240,232,.1);
+  color: var(--off-white);
+  font-family: var(--font-mono);
+  font-size: max(16px, .8rem);
+  padding: .58rem .8rem;
+  outline: none;
+  transition: border-color 180ms ease-out;
+}
+.pg-inp:focus { border-color: rgba(181,69,27,.55); }
+.pg-inp::placeholder { color: rgba(245,240,232,.28); }
+
+.pg-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.pg-chip {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .05em;
+  padding: .28rem .6rem;
+  border: 1px solid rgba(245,240,232,.15);
+  background: transparent;
+  color: rgba(245,240,232,.45);
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out, transform 100ms ease-out;
+  white-space: nowrap;
+}
+.pg-chip:hover  { border-color: rgba(181,69,27,.4); color: var(--off-white); }
+.pg-chip.on     { background: rgba(181,69,27,.22); border-color: rgba(181,69,27,.55); color: var(--off-white); }
+.pg-chip:active { transform: scale(0.96); }
+
+.pg-issue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .55rem;
+  width: 100%;
+  padding: .8rem;
+  background: var(--clay);
+  color: var(--off-white);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 200ms ease-out, transform 150ms ease-out, opacity 200ms ease;
+}
+.pg-issue:hover  { background: var(--clay-light); }
+.pg-issue:active { transform: scale(0.97); }
+.pg-issue.busy   { opacity: .55; pointer-events: none; }
+
+/* Token area — transitions from hidden to visible */
+.pg-token-area {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height .5s var(--ease-out), opacity .4s ease-out;
+}
+.pg-token-area.show {
+  max-height: 260px;
+  opacity: 1;
+}
+
+.pg-tok-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .5rem;
+}
+.pg-tok-lbl {
+  font-family: var(--font-mono);
+  font-size: .58rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: rgba(245,240,232,.38);
+}
+.pg-copy {
+  font-family: var(--font-mono);
+  font-size: .58rem;
+  letter-spacing: .1em;
+  padding: .18rem .5rem;
+  border: 1px solid rgba(245,240,232,.18);
+  background: transparent;
+  color: rgba(245,240,232,.45);
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+.pg-copy:hover  { color: var(--off-white); border-color: rgba(245,240,232,.4); }
+.pg-copy:active { transform: scale(0.96); }
+
+.pg-tok-box {
+  font-family: var(--font-mono);
+  font-size: .64rem;
+  line-height: 1.55;
+  word-break: break-all;
+  background: rgba(0,0,0,.22);
+  border: 1px solid rgba(245,240,232,.06);
+  padding: .75rem .85rem;
+  max-height: 110px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(181,69,27,.4) transparent;
+}
+.jwt-h   { color: rgba(245,240,232,.42); }
+.jwt-dot { color: var(--clay); font-weight: 600; }
+.jwt-p   { color: rgba(245,240,232,.88); }
+.jwt-s   { color: rgba(245,240,232,.32); }
+.jwt-p.tampered { color: #e0442e; text-decoration: line-through; }
+
+.pg-tok-btns {
+  display: flex;
+  gap: .55rem;
+  margin-top: .65rem;
+}
+.pg-verify, .pg-tamper {
+  flex: 1;
+  padding: .5rem;
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .07em;
+  cursor: pointer;
+  border: 1px solid;
+  background: transparent;
+  transition: background 150ms ease, transform 100ms ease;
+  border-radius: 2px;
+}
+.pg-verify         { color: #22c55e; border-color: rgba(34,197,94,.35); }
+.pg-verify:hover   { background: rgba(34,197,94,.08); }
+.pg-tamper         { color: #f59e0b; border-color: rgba(245,158,11,.35); }
+.pg-tamper:hover   { background: rgba(245,158,11,.08); }
+.pg-verify:active, .pg-tamper:active { transform: scale(0.97); }
+
+/* Result panel */
+.pg-result {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height .4s var(--ease-out), opacity .3s ease;
+}
+.pg-result.show { max-height: 240px; opacity: 1; }
+
+.pg-result-inner {
+  padding: .75rem .85rem;
+  border-left: 2px solid;
+  margin-top: .6rem;
+}
+.pg-result.ok  .pg-result-inner { border-color:#22c55e; background:rgba(34,197,94,.06); }
+.pg-result.err .pg-result-inner { border-color:#e0442e; background:rgba(224,68,46,.06); }
+
+.pg-result-status {
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  letter-spacing: .07em;
+  font-weight: 600;
+  margin-bottom: .45rem;
+}
+.pg-result.ok  .pg-result-status { color: #22c55e; }
+.pg-result.err .pg-result-status { color: #e0442e; }
+
+.pg-result-row {
+  display: flex;
+  gap: .55rem;
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  padding: .12rem 0;
+  color: rgba(245,240,232,.7);
+}
+.pg-rk { opacity: .48; min-width: 70px; text-transform: uppercase; letter-spacing: .05em; }
+.pg-rv { color: var(--clay); word-break: break-word; }
+
+/* ============================================================
+   BUTTONS — shared
+   ============================================================ */
+.btn {
+  font-family: var(--font-mono);
+  font-size: .83rem;
+  letter-spacing: .06em;
+  padding: .95rem 1.65rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: background .2s ease, color .2s ease, transform .15s ease;
+}
+.btn:active          { transform: scale(0.97); }
+.btn-clay            { background: var(--clay); color: var(--off-white); }
+.btn-clay:hover      { background: var(--clay-light); }
+.btn-ghost           { background: transparent; color: var(--off-white); border-color: rgba(245,240,232,.42); }
+.btn-ghost:hover     { border-color: var(--off-white); }
+.btn-light           { background: var(--off-white); color: var(--clay); }
+.btn-light-navy      { background: var(--off-white); color: var(--navy); }
+.btn-navy            { background: var(--navy); color: var(--off-white); }
+.btn-navy:hover      { background: #13233f; }
+.btn-outline-navy    { background: transparent; color: var(--navy); border-color: var(--navy); }
+.btn-outline-navy:hover { background: var(--navy); color: var(--off-white); }
 
 /* ============================================================
    STATISTICS — warm gray
    ============================================================ */
-.stats{ background:var(--warm-gray); color:var(--navy); }
-.stats .rule{
-  height:1px; width:100%;
-  background:var(--clay);
-  margin-bottom:5rem;
-  transform-origin:left;
+.stats { background: var(--warm-gray); color: var(--navy); }
+.stats .rule {
+  height: 1px; width: 100%;
+  background: var(--clay);
+  margin-bottom: 4.5rem;
+  transform-origin: left;
 }
-.stats-grid{
-  display:grid;
-  grid-template-columns:repeat(4, 1fr);
-  gap:2.5rem;
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 2.5rem;
 }
-.stat .num{
-  font-weight:800;
-  font-size:clamp(3rem, 7.5vw, 7.5rem);
-  line-height:0.9;
-  letter-spacing:-0.04em;
-  color:var(--clay);
+.stat .num {
+  font-weight: 800;
+  font-size: clamp(3rem,7.5vw,7.5rem);
+  line-height: .9;
+  letter-spacing: -0.04em;
+  color: var(--clay);
 }
-.stat .lab{
-  margin-top:1.4rem;
-  font-family:'Geist Mono', monospace;
-  font-size:0.72rem;
-  letter-spacing:0.04em;
-  text-transform:uppercase;
-  line-height:1.5;
-  color:var(--navy);
-  max-width:26ch;
+.stat .lab {
+  margin-top: 1.2rem;
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  line-height: 1.55;
+  color: var(--navy);
+  max-width: 26ch;
 }
-.stats .sources{
-  margin-top:3rem;
-  text-align:right;
-  font-family:'Geist Mono', monospace;
-  font-size:0.66rem;
-  letter-spacing:0.04em;
-  color:rgba(10,22,40,0.5);
+.stats .sources {
+  margin-top: 2.8rem;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: .64rem;
+  color: rgba(10,22,40,.45);
 }
-.stats .summary{
-  margin-top:4.5rem;
-  text-align:center;
-  font-size:clamp(1.1rem,1.8vw,1.5rem);
-  line-height:1.5;
-  max-width:50ch;
-  margin-left:auto; margin-right:auto;
-  color:var(--navy);
-}
-
-/* ============================================================
-   PROBLEM — dark
-   ============================================================ */
-.problem{ background:var(--clay); }
-.problem .sec-num{ color:var(--off-white); }   /* terracotta-on-terracotta would vanish */
-.problem-grid{
-  display:grid;
-  grid-template-columns:1.25fr 1fr;
-  gap:6vw;
-  align-items:center;
-}
-.problem h2{
-  font-weight:800;
-  font-size:clamp(2.4rem,6vw,6rem);
-  line-height:0.96;
-  letter-spacing:-0.03em;
-}
-.problem h2 .white{ color:var(--off-white); display:block; }
-.problem h2 .clay{ color:var(--off-white); display:block; margin-top:0.3em; }
-.problem .body{
-  font-size:1.15rem;
-  line-height:1.7;
-  color:rgba(245,240,232,0.75);
-  max-width:40ch;
+.stats .summary {
+  margin-top: 4rem;
+  text-align: center;
+  font-size: clamp(1.05rem,1.7vw,1.4rem);
+  line-height: 1.55;
+  max-width: 50ch;
+  margin-left: auto; margin-right: auto;
+  color: var(--navy);
 }
 
 /* ============================================================
-   HOW IT WORKS — navy, full-width interactive animation
+   PROBLEM — terracotta
    ============================================================ */
-.how{ background:var(--navy); color:var(--off-white); align-items:center; text-align:center; }
-.how .sec-num{ color:var(--clay-light); }
-.how-eyebrow{ color:var(--clay-light); margin-bottom:3.4rem; }
-
-.htw-stage{
-  position:relative;
-  width:min(900px, 92vw);
-  height:300px;
-  margin:0 auto;
+.problem { background: var(--clay); }
+.problem .sec-num { color: var(--off-white); }
+.problem-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 6vw;
+  align-items: center;
 }
-
-/* ---- the agent: a glowing terracotta circle that travels right ---- */
-.htw-agent{
-  position:absolute;
-  top:50%; left:30%;            /* left = base for reduced-motion; keyframes drive it otherwise */
-  width:72px; height:72px;      /* generous hit-area so the moving target is catchable */
-  margin:-36px 0 0 -36px;
-  z-index:6;
-  animation:htwAgent 4s linear infinite;
+.problem h2 {
+  font-weight: 800;
+  font-size: clamp(2.4rem,6vw,5.8rem);
+  line-height: .95;
+  letter-spacing: -0.03em;
+  color: var(--off-white);
 }
-.htw-agent-core{
-  position:absolute;
-  top:50%; left:50%;
-  width:26px; height:26px;
-  margin:-13px 0 0 -13px;
-  border-radius:50%;
-  background:radial-gradient(circle at 35% 30%, #e89066, var(--clay) 72%);
-  box-shadow:0 0 18px 3px rgba(216,106,63,0.6);
-  animation:htwGlow 1.8s ease-in-out infinite;
+.problem .body {
+  font-size: 1.12rem;
+  line-height: 1.72;
+  color: rgba(245,240,232,.76);
+  max-width: 40ch;
 }
-.htw-agent-label{
-  position:absolute;
-  top:calc(50% + 21px);
-  left:50%;
-  transform:translateX(-50%);
-  font-family:'Geist Mono', monospace;
-  font-size:0.55rem;
-  letter-spacing:0.18em;
-  color:rgba(245,240,232,0.7);
-  white-space:nowrap;
-  pointer-events:none;
-}
-@keyframes htwGlow{
-  0%,100%{ box-shadow:0 0 16px 2px rgba(216,106,63,0.55); }
-  50%    { box-shadow:0 0 28px 6px rgba(216,106,63,0.9); }
-}
-@keyframes htwAgent{
-  0%   { left:8%;  opacity:0; }
-  6%   { left:8%;  opacity:1; }
-  30%  { left:52%; opacity:1; }   /* arrives, stopped by the barrier */
-  62%  { left:52%; opacity:1; }   /* waits: rejected, presents passport, approved, door opens */
-  82%  { left:90%; opacity:1; }   /* passes through the open server */
-  90%  { left:95%; opacity:0; }   /* exits and fades */
-  100% { left:8%;  opacity:0; }   /* reset off-screen for a seamless loop */
-}
-
-/* ---- the invisible barrier: only flickers into view when it blocks ---- */
-.htw-barrier{
-  position:absolute;
-  top:50%; left:60%;
-  width:2px; height:120px;
-  margin-top:-60px;
-  background:linear-gradient(to bottom, transparent, #e0442e, transparent);
-  box-shadow:0 0 12px rgba(224,68,46,0.7);
-  opacity:0;
-  z-index:4;
-  animation:htwBarrier 4s linear infinite;
-}
-@keyframes htwBarrier{
-  0%,24%{ opacity:0; }
-  30%   { opacity:0.95; }
-  50%   { opacity:0.95; }
-  58%   { opacity:0; }
-  100%  { opacity:0; }
-}
-
-/* ---- the reject / approve markers ---- */
-.htw-mark{
-  position:absolute;
-  top:50%; left:60%;
-  margin-top:-46px;
-  transform:translate(-50%,0);
-  font-family:'Geist Mono', monospace;
-  font-weight:700;
-  font-size:1.4rem;
-  z-index:7;
-  opacity:0;
-}
-.htw-reject{ color:#e0442e; animation:htwReject 4s linear infinite; }
-.htw-approve{ color:#33c06a; animation:htwApprove 4s linear infinite; }
-@keyframes htwReject{
-  0%,26%{ opacity:0; transform:translate(-50%,0) scale(.4); }
-  31%   { opacity:1; transform:translate(-50%,0) scale(1.15); }
-  40%   { opacity:1; transform:translate(-50%,0) scale(1); }
-  50%   { opacity:0; transform:translate(-50%,0) scale(1); }
-  100%  { opacity:0; transform:translate(-50%,0) scale(.4); }
-}
-@keyframes htwApprove{
-  0%,50%{ opacity:0; transform:translate(-50%,0) scale(.4); }
-  56%   { opacity:1; transform:translate(-50%,0) scale(1.2); }
-  64%   { opacity:1; transform:translate(-50%,0) scale(1); }
-  82%   { opacity:0; transform:translate(-50%,0) scale(1); }
-  100%  { opacity:0; transform:translate(-50%,0) scale(.4); }
-}
-
-/* ---- the passport that slides up from below ---- */
-.htw-passport{
-  position:absolute;
-  left:52%; bottom:12%;
-  transform:translate(-50%,40px);
-  background:var(--off-white);
-  color:var(--navy);
-  font-family:'Geist Mono', monospace;
-  font-size:0.62rem;
-  letter-spacing:0.12em;
-  padding:0.5rem 0.85rem;
-  border-radius:3px;
-  box-shadow:0 12px 32px rgba(0,0,0,0.45);
-  white-space:nowrap;
-  opacity:0;
-  z-index:5;
-  animation:htwPass 4s linear infinite;
-}
-@keyframes htwPass{
-  0%,32%{ opacity:0; transform:translate(-50%,40px); }
-  44%   { opacity:1; transform:translate(-50%,0); }
-  62%   { opacity:1; transform:translate(-50%,0); }
-  72%   { opacity:0; transform:translate(-50%,-12px); }
-  100%  { opacity:0; transform:translate(-50%,40px); }
-}
-
-/* ---- the server / API: a rectangle that splits open ---- */
-.htw-server{
-  position:absolute;
-  top:50%; left:80%;
-  width:120px; height:130px;
-  margin:-65px 0 0 -60px;
-  z-index:3;
-}
-.htw-server-top,
-.htw-server-bottom{
-  position:absolute;
-  left:0; width:100%;
-  height:64px;
-  background:#0f2138;
-  border:1px solid rgba(245,240,232,0.18);
-}
-.htw-server-top{ top:0; border-bottom:none; animation:htwServerTop 4s linear infinite; }
-.htw-server-bottom{ bottom:0; border-top:none; animation:htwServerBottom 4s linear infinite; }
-.htw-server-label{
-  position:absolute;
-  top:50%; left:50%;
-  transform:translate(-50%,-50%);
-  font-family:'Geist Mono', monospace;
-  font-size:0.62rem;
-  letter-spacing:0.2em;
-  color:rgba(245,240,232,0.85);
-  z-index:1;
-}
-@keyframes htwServerTop{
-  0%,56%{ transform:translateY(0); }
-  64%   { transform:translateY(-16px); }
-  82%   { transform:translateY(-16px); }
-  90%   { transform:translateY(0); }
-  100%  { transform:translateY(0); }
-}
-@keyframes htwServerBottom{
-  0%,56%{ transform:translateY(0); }
-  64%   { transform:translateY(16px); }
-  82%   { transform:translateY(16px); }
-  90%   { transform:translateY(0); }
-  100%  { transform:translateY(0); }
-}
-
-/* ---- hover tooltip on the agent (also pauses the loop) ---- */
-.htw-tip{
-  position:absolute;
-  bottom:calc(100% + 6px);
-  left:50%;
-  transform:translateX(-50%) translateY(6px);
-  width:208px;
-  background:var(--off-white);
-  color:var(--navy);
-  text-align:left;
-  padding:0.85rem 0.95rem;
-  border-radius:4px;
-  box-shadow:0 18px 44px rgba(0,0,0,0.5);
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .25s ease, transform .25s ease;
-  z-index:20;
-}
-.htw-stage.paused .htw-tip{ opacity:1; transform:translateX(-50%) translateY(0); }
-.htw-tip-title{
-  font-family:'Geist Mono', monospace;
-  font-size:0.6rem;
-  letter-spacing:0.18em;
-  color:var(--clay);
-  margin-bottom:0.55rem;
-}
-.htw-tip-row{
-  display:flex;
-  justify-content:space-between;
-  gap:1rem;
-  font-family:'Geist Mono', monospace;
-  font-size:0.6rem;
-  padding:0.14rem 0;
-}
-.htw-tip-row span{ opacity:0.55; text-transform:uppercase; letter-spacing:0.08em; }
-.htw-tip-row b{ color:var(--clay); font-weight:600; }
-.htw-tip-ok{
-  margin-top:0.55rem;
-  font-family:'Geist Mono', monospace;
-  font-size:0.6rem;
-  color:#1f7a3d;
-  font-weight:600;
-}
-
-/* hovering the agent freezes the choreography so the target is catchable */
-.htw-stage.paused .htw-agent,
-.htw-stage.paused .htw-barrier,
-.htw-stage.paused .htw-reject,
-.htw-stage.paused .htw-approve,
-.htw-stage.paused .htw-passport,
-.htw-stage.paused .htw-server-top,
-.htw-stage.paused .htw-server-bottom{
-  animation-play-state:paused;
-}
-
-/* ---- the three captions beneath the animation ---- */
-.how-steps{
-  margin-top:3.4rem;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-wrap:wrap;
-  gap:0.9rem;
-  font-family:'Geist Mono', monospace;
-  font-size:0.72rem;
-  letter-spacing:0.14em;
-  color:rgba(245,240,232,0.75);
-}
-.how-steps .dot{ color:var(--clay-light); }
 
 /* ============================================================
-   PASSPORT — dark, CSS card with 3D tilt
+   HOW IT WORKS — navy, Merkle tree
    ============================================================ */
-.passport{
-  background:var(--warm-gray);
-  align-items:center;
-  text-align:center;
-  perspective:1400px;
+.how {
+  background: var(--navy);
+  color: var(--off-white);
+  align-items: center;
+  text-align: center;
 }
-.pp-label{
-  color:var(--navy);
-  opacity:0.9;
-  margin-bottom:3.5rem;
-  font-size:clamp(1.7rem,3.6vw,3rem);   /* override the tiny eyebrow size */
-  letter-spacing:0.03em;
-  line-height:1.1;
+.how .sec-num  { color: var(--clay-light); }
+.how-eyebrow   { color: var(--clay-light); margin-bottom: 2.6rem; }
+
+/* Merkle tree container */
+.merkle-wrap {
+  position: relative;
+  width: min(860px, 92vw);
+  height: 400px;
+  margin: 0 auto;
 }
-.pp-scene{ perspective:1400px; }
-.card{
-  width:min(560px, 86vw);
-  margin:0 auto;
-  background:var(--off-white);
-  border:1px solid var(--navy);
-  color:var(--navy);
-  text-align:left;
-  box-shadow:0 30px 60px rgba(10,22,40,0.18);   /* navy-tinted, card sits on paper now */
-  transform-style:preserve-3d;
-  transition:transform .15s ease-out;
-  will-change:transform;
+#merkle-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  display: block;
 }
-.card .top{
-  background:var(--clay);
-  padding:0.85rem 1.4rem;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+#merkle-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
 }
-.card .top .t{
-  font-family:'Geist Mono', monospace;
-  font-size:0.78rem;
-  letter-spacing:0.18em;
-  text-transform:uppercase;
-  color:var(--off-white);
+#merkle-labels .ml-lbl {
+  position: absolute;
+  top: 0; left: 0;
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  letter-spacing: .1em;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity .5s ease, color .4s ease;
+  text-shadow: 0 0 10px rgba(181,69,27,.55);
 }
-.card .top .seal{
-  font-family:'Geist Mono', monospace;
-  font-size:0.66rem;
-  letter-spacing:0.12em;
-  color:rgba(245,240,232,0.85);
+
+/* Static / reduced-motion fallback */
+.merkle-static {
+  display: none;
+  width: min(700px,90vw);
+  margin: 0 auto;
+  opacity: .8;
 }
-.card .hr{ height:1px; background:rgba(10,22,40,0.15); }
-.card .fields{ padding:1.7rem 1.4rem 1.2rem; }
-.card .row{
-  display:grid;
-  grid-template-columns:130px 1fr;
-  gap:1rem;
-  padding:0.5rem 0;
-  font-family:'Geist Mono', monospace;
-  font-size:0.74rem;
-  align-items:baseline;
+
+.merkle-controls {
+  margin-top: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .8rem;
+  flex-wrap: wrap;
 }
-.card .row .k{
-  color:var(--navy);
-  letter-spacing:0.08em;
-  text-transform:uppercase;
-  opacity:0.65;
+.merkle-btn {
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .1em;
+  padding: .5rem 1rem;
+  background: transparent;
+  border: 1px solid rgba(245,240,232,.25);
+  color: rgba(245,240,232,.7);
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease, transform .12s ease;
+  text-transform: uppercase;
 }
-.card .row .v{
-  color:var(--clay);
-  letter-spacing:0.02em;
-  word-break:break-word;
+.merkle-btn:hover  { border-color: var(--clay); color: var(--off-white); }
+.merkle-btn:active { transform: scale(0.97); }
+.merkle-btn-warn   { border-color: rgba(245,158,11,.35); color: #f59e0b; }
+.merkle-btn-warn:hover { border-color: #f59e0b; }
+
+.merkle-status {
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .1em;
+  color: rgba(245,240,232,.5);
+  min-width: 160px;
+  text-align: center;
 }
+.merkle-status.ms-ok  { color: #22c55e; }
+.merkle-status.ms-err { color: #e0442e; }
+
+.how-steps {
+  margin-top: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: .8rem;
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .14em;
+  color: rgba(245,240,232,.65);
+}
+.how-steps .dot { color: var(--clay-light); }
+
+/* ============================================================
+   PASSPORT — warm gray, 3D tilt card
+   ============================================================ */
+.passport {
+  background: var(--warm-gray);
+  align-items: center;
+  text-align: center;
+  perspective: 1400px;
+}
+.pp-label {
+  color: var(--navy);
+  opacity: .9;
+  margin-bottom: 3.2rem;
+  font-size: clamp(1.5rem,3vw,2.6rem);
+  letter-spacing: .03em;
+  line-height: 1.1;
+}
+.pp-scene { perspective: 1400px; }
+.card {
+  width: min(560px,86vw);
+  margin: 0 auto;
+  background: var(--off-white);
+  border: 1px solid var(--navy);
+  color: var(--navy);
+  text-align: left;
+  box-shadow: 0 28px 56px rgba(10,22,40,.16);
+  transform-style: preserve-3d;
+  transition: transform .15s ease-out;
+  will-change: transform;
+}
+.card .top {
+  background: var(--clay);
+  padding: .82rem 1.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card .top .t   { font-family:var(--font-mono); font-size:.76rem; letter-spacing:.18em; text-transform:uppercase; color:var(--off-white); }
+.card .top .seal{ font-family:var(--font-mono); font-size:.64rem; letter-spacing:.12em; color:rgba(245,240,232,.85); }
+.card .hr       { height:1px; background:rgba(10,22,40,.15); }
+.card .fields   { padding:1.6rem 1.35rem 1.1rem; }
+.card .row      { display:grid; grid-template-columns:130px 1fr; gap:.9rem; padding:.48rem 0; font-family:var(--font-mono); font-size:.72rem; align-items:baseline; }
+.card .row .k   { color:var(--navy); letter-spacing:.08em; text-transform:uppercase; opacity:.6; }
+.card .row .v   { color:var(--clay); letter-spacing:.02em; word-break:break-word; }
 .card .row .v.ok{ color:#1f7a3d; font-weight:600; }
-.card .foot{
-  padding:1rem 1.4rem 1.3rem;
-  border-top:1px solid rgba(10,22,40,0.12);
-}
-.card .foot .hash{
-  font-family:'Geist Mono', monospace;
-  font-size:0.6rem;
-  letter-spacing:0.04em;
-  color:var(--clay);
-  opacity:0.7;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
+.card .foot     { padding:.95rem 1.35rem 1.2rem; border-top:1px solid rgba(10,22,40,.12); }
+.card .foot .hash { font-family:var(--font-mono); font-size:.58rem; letter-spacing:.04em; color:var(--clay); opacity:.65; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* ============================================================
    STAKES — terracotta
    ============================================================ */
-.stakes{
-  background:var(--clay);
-  color:var(--off-white);
-  text-align:center;
-  align-items:center;
+.stakes {
+  background: var(--clay);
+  color: var(--off-white);
+  text-align: center;
+  align-items: center;
 }
-.stakes h2{
-  font-weight:700;
-  font-size:clamp(2rem,4.5vw,4.2rem);
-  line-height:1.05;
-  letter-spacing:-0.025em;
-  max-width:18ch;
+.stakes h2 {
+  font-weight: 700;
+  font-size: clamp(2rem,4.5vw,4rem);
+  line-height: 1.06;
+  letter-spacing: -0.025em;
+  max-width: 18ch;
 }
-.stakes .sub{
-  margin-top:2rem;
-  font-size:clamp(1.3rem,2.4vw,2rem);
-  font-weight:500;
-  color:rgba(245,240,232,0.85);
+.stakes .sub {
+  margin-top: 1.8rem;
+  font-size: clamp(1.2rem,2.2vw,1.85rem);
+  font-weight: 500;
+  color: rgba(245,240,232,.85);
 }
-.stakes .src{
-  margin-top:2.4rem;
-  font-family:'Geist Mono', monospace;
-  font-size:0.68rem;
-  letter-spacing:0.06em;
-  color:rgba(245,240,232,0.65);
-}
-.stakes .cta{ margin-top:3.4rem; }
+.stakes .src  { margin-top:2.2rem; font-family:var(--font-mono); font-size:.66rem; letter-spacing:.06em; color:rgba(245,240,232,.6); }
+.stakes .cta  { margin-top:3.2rem; }
 
 /* ============================================================
    INTEGRATIONS — warm gray
    ============================================================ */
-.integ{ background:var(--warm-gray); color:var(--navy); }
-.integ-grid{
-  display:grid;
-  grid-template-columns:1fr 1.2fr;
-  gap:6vw;
-  align-items:center;
+.integ { background: var(--warm-gray); color: var(--navy); }
+.integ-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 6vw;
+  align-items: center;
 }
-.integ h2{
-  font-weight:700;
-  font-size:clamp(2.4rem,5vw,4.6rem);
-  line-height:0.98;
-  letter-spacing:-0.03em;
-  color:var(--navy);
+.integ h2 {
+  font-weight: 700;
+  font-size: clamp(2.2rem,4.8vw,4.4rem);
+  line-height: .98;
+  letter-spacing: -0.03em;
+  color: var(--navy);
 }
-.code-card{
-  background:var(--navy);
-  border:1px solid rgba(181,69,27,0.4);
-  padding:2rem 1.8rem;
-  overflow-x:auto;
+.code-card {
+  background: var(--navy);
+  border: 1px solid rgba(181,69,27,.35);
+  padding: 1.85rem 1.7rem;
+  overflow-x: auto;
 }
-.code-card pre{
-  font-family:'Geist Mono', monospace;
-  font-size:0.86rem;
-  line-height:1.9;
-  color:var(--off-white);
-  white-space:pre;
+.code-card pre { font-family:var(--font-mono); font-size:.84rem; line-height:1.95; color:var(--off-white); white-space:pre; }
+.code-card .kw  { color: var(--clay-light); }
+.code-card .str { color: var(--clay-light); }
+.code-card .mut { color: rgba(245,240,232,.52); }
+.integ .stack {
+  margin-top: 1.8rem;
+  font-family: var(--font-mono);
+  font-size: .76rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--navy);
 }
-.code-card .kw{ color:var(--clay-light); }
-.code-card .str{ color:var(--clay-light); }
-.code-card .mut{ color:rgba(245,240,232,0.55); }
-.integ .stack{
-  margin-top:2rem;
-  font-family:'Geist Mono', monospace;
-  font-size:0.78rem;
-  letter-spacing:0.08em;
-  text-transform:uppercase;
-  color:var(--navy);
-}
-.integ .stack span{ opacity:0.55; }
+.integ .stack span { opacity: .5; }
 
 /* ============================================================
-   EU AI ACT — dark
+   PRICING — warm gray
    ============================================================ */
-.euact{ background:var(--warm-gray); }
-.euact-grid{
-  display:grid;
-  grid-template-columns:1.3fr 1fr;
-  gap:6vw;
-  align-items:center;
+.pricing { background: var(--warm-gray); color: var(--navy); }
+.pricing h2 {
+  font-weight: 800;
+  font-size: clamp(2rem,4.5vw,2.8rem);
+  letter-spacing: -0.03em;
+  color: var(--navy);
+  text-align: center;
 }
-.euact .eyebrow{ color:var(--navy); opacity:0.7; margin-bottom:1.6rem; }
-.euact h2{
-  font-weight:800;
-  font-size:clamp(2.4rem,6vw,5.5rem);
-  line-height:0.96;
-  letter-spacing:-0.03em;
-  color:var(--navy);
+.price-grid {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 2rem;
+  max-width: 1060px;
+  margin: 3.5rem auto 0;
+  align-items: stretch;
 }
-.euact .body{
-  margin-top:2rem;
-  font-size:1.15rem;
-  line-height:1.7;
-  color:var(--ink-body);
-  max-width:44ch;
+.price-card {
+  background: var(--off-white);
+  border: 1px solid rgba(10,22,40,.1);
+  padding: 2.4rem 1.85rem;
+  display: flex;
+  flex-direction: column;
+  transition: transform .2s var(--ease-out), box-shadow .2s var(--ease-out);
 }
-.timeline{
-  border-left:1px solid rgba(10,22,40,0.2);
-  padding-left:2rem;
+@media (hover: hover) and (pointer: fine) {
+  .price-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(10,22,40,.1);
+  }
 }
-.timeline .tl-item{ position:relative; padding:1rem 0; }
-.timeline .tl-item .pt{
-  position:absolute;
-  left:-2.55rem; top:1.35rem;
-  width:11px; height:11px;
-  border-radius:50%;
-  background:var(--clay);
-  box-shadow:0 0 0 5px rgba(181,69,27,0.18);
+.price-card.dev    { border-top: 4px solid var(--clay); }
+.price-card.ent    { border-top: 4px solid var(--navy); }
+.price-card.startup {
+  background: var(--clay);
+  color: var(--off-white);
+  transform: scale(1.04);
+  box-shadow: 0 28px 56px rgba(181,69,27,.26);
+  z-index: 1;
 }
-.timeline .tl-item .date{
-  font-family:'Geist Mono', monospace;
-  font-size:0.8rem;
-  letter-spacing:0.06em;
-  color:var(--clay-light);
+@media (hover: hover) and (pointer: fine) {
+  .price-card.startup:hover { transform: scale(1.04) translateY(-5px); }
 }
-.timeline .tl-item .ev{
-  margin-top:0.4rem;
-  font-size:1.05rem;
-  color:var(--navy);
+
+.price-card .tier  { font-family:var(--font-mono); font-size:.7rem; letter-spacing:.18em; color:var(--clay); }
+.price-card.startup .tier { color:var(--off-white); opacity:.85; }
+.price-card .price { margin-top:1.3rem; font-weight:800; font-size:2.5rem; letter-spacing:-0.02em; line-height:1; color:var(--navy); }
+.price-card.startup .price { color:var(--off-white); }
+.price-card .price .per { font-weight:400; font-size:.95rem; letter-spacing:0; opacity:.6; }
+.price-card .features { list-style:none; margin:1.8rem 0 0; padding:0; flex:1 1 auto; }
+.price-card .features li { position:relative; padding:.5rem 0 .5rem 1.35rem; font-size:.9rem; line-height:1.4; color:var(--ink-body); border-bottom:1px solid rgba(10,22,40,.07); }
+.price-card .features li::before { content:''; position:absolute; left:0; top:.9rem; width:7px; height:7px; border-radius:50%; background:var(--clay); }
+.price-card .features li .mono   { font-family:var(--font-mono); font-size:.78rem; }
+.price-card.startup .features li { color:rgba(245,240,232,.92); border-bottom-color:rgba(245,240,232,.18); }
+.price-card.startup .features li::before { background:var(--off-white); }
+.price-btn { width:100%; text-align:center; margin-top:1.8rem; }
+
+/* ============================================================
+   SECURITY — terracotta
+   ============================================================ */
+.security { background: var(--clay); color: var(--off-white); }
+.security h2 {
+  font-weight: 800;
+  font-size: clamp(2rem,4.5vw,2.8rem);
+  letter-spacing: -0.03em;
+  color: var(--off-white);
+  max-width: 18ch;
 }
-.timeline .tl-item.muted .pt{
-  background:transparent;
-  border:1px solid rgba(10,22,40,0.3);
-  box-shadow:none;
+.sec-grid {
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+  gap: 2.8rem 4rem;
+  max-width: 1000px;
+  margin-top: 3.8rem;
 }
+.sec-item { transition: transform .2s var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .sec-item:hover { transform: translateX(6px); }
+}
+.sec-item .lab {
+  font-family: var(--font-mono);
+  font-size: .83rem;
+  letter-spacing: .16em;
+  color: var(--off-white);
+}
+.sec-item .lab::after {
+  content: '';
+  display: block;
+  width: 34px; height: 2px;
+  background: rgba(245,240,232,.45);
+  margin: .85rem 0;
+}
+.sec-item p { font-size:.98rem; line-height:1.65; color:rgba(245,240,232,.83); max-width:40ch; }
+.sec-foot { margin-top:3.2rem; font-family:var(--font-mono); font-size:.7rem; letter-spacing:.06em; color:rgba(245,240,232,.65); }
+
+/* ============================================================
+   EU AI ACT — warm gray
+   ============================================================ */
+.euact { background: var(--warm-gray); }
+.euact-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 6vw;
+  align-items: center;
+}
+.euact .eyebrow { color:var(--navy); opacity:.65; margin-bottom:1.4rem; }
+.euact h2 {
+  font-weight: 800;
+  font-size: clamp(2.2rem,5.5vw,5.2rem);
+  line-height: .95;
+  letter-spacing: -0.03em;
+  color: var(--navy);
+}
+.euact .body { margin-top:1.85rem; font-size:1.1rem; line-height:1.72; color:var(--ink-body); max-width:44ch; }
+.timeline { border-left:1px solid rgba(10,22,40,.2); padding-left:2rem; }
+.timeline .tl-item { position:relative; padding:.95rem 0; }
+.timeline .tl-item .pt { position:absolute; left:-2.55rem; top:1.3rem; width:11px; height:11px; border-radius:50%; background:var(--clay); box-shadow:0 0 0 5px rgba(181,69,27,.18); }
+.timeline .tl-item .date { font-family:var(--font-mono); font-size:.78rem; letter-spacing:.06em; color:var(--clay-light); }
+.timeline .tl-item .ev { margin-top:.35rem; font-size:1.02rem; color:var(--navy); }
+.timeline .tl-item.muted .pt  { background:transparent; border:1px solid rgba(10,22,40,.3); box-shadow:none; }
 .timeline .tl-item.muted .date,
-.timeline .tl-item.muted .ev{ opacity:0.45; }
+.timeline .tl-item.muted .ev  { opacity:.42; }
 
 /* ============================================================
    FINAL CTA — terracotta
    ============================================================ */
-.final{
-  background:var(--clay);
-  color:var(--off-white);
-  text-align:center;
-  align-items:center;
+.final {
+  background: var(--clay);
+  color: var(--off-white);
+  text-align: center;
+  align-items: center;
 }
-.final h2{
-  font-weight:800;
-  font-size:clamp(2.6rem,7vw,7rem);
-  line-height:0.95;
-  letter-spacing:-0.035em;
+.final h2 {
+  font-weight: 800;
+  font-size: clamp(2.4rem,6.5vw,6.5rem);
+  line-height: .95;
+  letter-spacing: -0.035em;
 }
-.final .copy-wrap{ margin-top:3rem; position:relative; }
-.final .copied{
-  margin-top:1.1rem;
-  font-family:'Geist Mono', monospace;
-  font-size:0.8rem;
-  letter-spacing:0.1em;
+.final .copy-wrap { margin-top:2.8rem; position:relative; }
+.final .copied {
+  margin-top:1rem;
+  font-family:var(--font-mono);
+  font-size:.78rem;
+  letter-spacing:.1em;
   color:var(--off-white);
   opacity:0;
   transition:opacity .35s ease;
 }
-.final .copied.show{ opacity:0.9; }
-.final .fine{
-  margin-top:2rem;
-  font-size:0.95rem;
-  color:rgba(245,240,232,0.8);
-}
+.final .copied.show { opacity:.9; }
+.final .fine  { margin-top:1.8rem; font-size:.92rem; color:rgba(245,240,232,.78); }
 
 /* ============================================================
-   FOOTER — navy
+   CONTACT — warm gray
    ============================================================ */
-footer{
-  background:var(--warm-gray);
+.contact { background:var(--warm-gray); color:var(--navy); text-align:center; align-items:center; }
+.contact h2 {
+  font-weight:800;
+  font-size:clamp(2.2rem,5.5vw,4.2rem);
+  line-height:1.02;
+  letter-spacing:-0.03em;
   color:var(--navy);
-  position:relative;
-  z-index:2;
+  max-width:20ch;
 }
-footer .rule{ height:1px; background:var(--clay); }
-footer .inner{
+.contact-actions { margin-top:2.8rem; display:flex; gap:.9rem; justify-content:center; flex-wrap:wrap; }
+.contact-fine { margin-top:1.8rem; font-family:var(--font-mono); font-size:.76rem; letter-spacing:.08em; color:var(--ink-body); }
+
+/* ============================================================
+   FOOTER — warm gray
+   ============================================================ */
+footer { background:var(--warm-gray); color:var(--navy); position:relative; z-index:2; }
+footer .rule { height:1px; background:var(--clay); }
+footer .inner {
   display:grid;
   grid-template-columns:1fr auto 1fr;
   align-items:center;
   gap:2rem;
-  padding:3rem 7vw;
+  padding:2.8rem 7vw;
 }
-footer .f-logo{ display:flex; align-items:center; gap:12px; }
-footer .f-logo svg{ display:block; }
-footer .f-logo .word{ font-weight:600; font-size:1.05rem; letter-spacing:0.08em; line-height:1; transform:translateY(1px); color:var(--navy); }
-footer .f-logo line{ stroke:var(--clay); stroke-width:2; }
-footer .links{
-  text-align:center;
-  font-family:'Geist Mono', monospace;
-  font-size:0.8rem;
-  letter-spacing:0.06em;
-}
-footer .links a{ color:var(--navy); text-decoration:none; opacity:0.85; }
-footer .links a:hover{ color:var(--clay); opacity:1; }
-footer .built{
-  text-align:right;
-  font-family:'Geist Mono', monospace;
-  font-size:0.78rem;
-  letter-spacing:0.06em;
-  color:var(--ink-body);
-}
-
-/* ============================================================
-   PRICING — off-white, three cards
-   ============================================================ */
-.pricing{ background:var(--warm-gray); color:var(--navy); }
-.pricing h2{
-  font-weight:800;
-  font-size:clamp(2.2rem,5vw,2.9rem);
-  letter-spacing:-0.03em;
-  color:var(--navy);
-  text-align:center;
-}
-.price-grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:2rem;
-  width:100%;
-  max-width:1080px;
-  margin:4rem auto 0;
-  align-items:stretch;
-}
-.price-card{
-  background:var(--off-white);
-  border:1px solid rgba(10,22,40,0.1);
-  padding:2.6rem 2rem;
-  display:flex;
-  flex-direction:column;
-}
-.price-card.dev{ border-top:4px solid var(--clay); }
-.price-card.ent{ border-top:4px solid var(--navy); }
-.price-card.startup{
-  background:var(--clay);
-  color:var(--off-white);
-  transform:scale(1.05);
-  box-shadow:0 30px 60px rgba(181,69,27,0.28);
-  z-index:1;
-}
-.price-card .tier{
-  font-family:'Geist Mono', monospace;
-  font-size:0.72rem;
-  letter-spacing:0.18em;
-  color:var(--clay);
-}
-.price-card.startup .tier{ color:var(--off-white); opacity:0.85; }
-.price-card .price{
-  margin-top:1.4rem;
-  font-weight:800;
-  font-size:2.6rem;
-  letter-spacing:-0.02em;
-  line-height:1;
-  color:var(--navy);
-}
-.price-card.startup .price{ color:var(--off-white); }
-.price-card .price .per{
-  font-weight:400;
-  font-size:1rem;
-  letter-spacing:0;
-  opacity:0.6;
-}
-.price-card .features{
-  list-style:none;
-  margin:2rem 0 0;
-  padding:0;
-  flex:1 1 auto;
-}
-.price-card .features li{
-  position:relative;
-  padding:0.55rem 0 0.55rem 1.4rem;
-  font-size:0.92rem;
-  line-height:1.4;
-  color:var(--ink-body);
-  border-bottom:1px solid rgba(10,22,40,0.08);
-}
-.price-card .features li::before{
-  content:'';
-  position:absolute;
-  left:0; top:0.92rem;
-  width:7px; height:7px;
-  border-radius:50%;
-  background:var(--clay);
-}
-.price-card .features li .mono{ font-family:'Geist Mono', monospace; font-size:0.8rem; }
-.price-card.startup .features li{
-  color:rgba(245,240,232,0.92);
-  border-bottom-color:rgba(245,240,232,0.2);
-}
-.price-card.startup .features li::before{ background:var(--off-white); }
-.price-btn{ width:100%; text-align:center; margin-top:2rem; }
-
-/* ============================================================
-   SECURITY — terracotta, 2x2 grid
-   ============================================================ */
-.security{ background:var(--clay); color:var(--off-white); }
-.security h2{
-  font-weight:800;
-  font-size:clamp(2.2rem,5vw,2.9rem);
-  letter-spacing:-0.03em;
-  color:var(--off-white);
-  max-width:18ch;
-}
-.sec-grid{
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:3rem 4rem;
-  max-width:1000px;
-  margin-top:4rem;
-}
-.sec-item .lab{
-  font-family:'Geist Mono', monospace;
-  font-size:0.85rem;
-  letter-spacing:0.16em;
-  color:var(--off-white);
-}
-.sec-item .lab::after{
-  content:'';
-  display:block;
-  width:34px; height:2px;
-  background:rgba(245,240,232,0.5);
-  margin:0.9rem 0;
-}
-.sec-item p{
-  font-size:1.02rem;
-  line-height:1.6;
-  color:rgba(245,240,232,0.85);
-  max-width:40ch;
-}
-.sec-foot{
-  margin-top:3.5rem;
-  font-family:'Geist Mono', monospace;
-  font-size:0.72rem;
-  letter-spacing:0.06em;
-  color:rgba(245,240,232,0.7);
-}
-
-/* ============================================================
-   CONTACT — off-white, closing call
-   ============================================================ */
-.contact{ background:var(--warm-gray); color:var(--navy); text-align:center; align-items:center; }
-.contact h2{
-  font-weight:800;
-  font-size:clamp(2.4rem,6vw,4.5rem);
-  line-height:1.02;
-  letter-spacing:-0.03em;
-  color:var(--navy);
-  max-width:18ch;
-}
-.contact-actions{
-  margin-top:3rem;
-  display:flex;
-  gap:1rem;
-  justify-content:center;
-  flex-wrap:wrap;
-}
-.contact-fine{
-  margin-top:2rem;
-  font-family:'Geist Mono', monospace;
-  font-size:0.78rem;
-  letter-spacing:0.08em;
-  color:var(--ink-body);
-}
-
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
-@media (max-width:900px){
-  .stats-grid{ grid-template-columns:repeat(2,1fr); gap:3rem 2rem; }
-  .problem-grid, .integ-grid, .euact-grid{ grid-template-columns:1fr; gap:3rem; }
-  .timeline{ margin-left:0.5rem; }
-  .price-grid{ grid-template-columns:1fr; gap:2rem; max-width:460px; }
-  .price-card.startup{ transform:none; }
-  .sec-grid{ grid-template-columns:1fr; gap:2.5rem; }
-  footer .inner{ grid-template-columns:1fr; text-align:center; gap:1.5rem; }
-  footer .f-logo, footer .built, footer .links{ text-align:center; justify-content:center; }
-}
-@media (max-width:760px){
-  .nav-link{ display:none; }
-}
-@media (max-width:560px){
-  .stats-grid{ grid-template-columns:1fr; }
-  .section{ padding:11vh 7vw; }
-  .hero .actions{ flex-direction:column; align-items:flex-start; }
-  .htw-stage{ height:260px; }
-}
-
-/* ============================================================
-   REDUCED MOTION
-   ============================================================ */
-@media (prefers-reduced-motion:reduce){
-  *{ animation:none !important; }
-  .r{ opacity:1 !important; transform:none !important; transition:none !important; }
-  .card{ transition:none !important; }
-  html{ scroll-behavior:auto; }
-}
+footer .f-logo { display:flex; align-items:center; gap:11px; }
+footer .f-logo svg { display:block; }
+footer .f-logo .word { font-weight:700; font-size:1rem; letter-spacing:.08em; line-height:1; transform:translateY(1px); color:var(--navy); }
+footer .f-logo line { stroke:var(--clay); stroke-width:2; }
+footer .links { text-align:center; font-family:var(--font-mono); font-size:.78rem; letter-spacing:.06em; }
+footer .links a { color:var(--navy); text-decoration:none; opacity:.82; }
+footer .links a:hover { color:var(--clay); opacity:1; }
+footer .built { text-align:right; font-family:var(--font-mono); font-size:.76rem; letter-spacing:.06em; color:var(--ink-body); }
 
 /* ============================================================
    SMOOTH SCROLL WRAPPER
    ============================================================ */
-#smooth-wrapper{
-  position:fixed;
-  top:0; left:0;
-  width:100%;
-  will-change:transform;
-}
+#smooth-wrapper { position:fixed; top:0; left:0; width:100%; will-change:transform; }
 
 /* ============================================================
    CUSTOM CURSOR
    ============================================================ */
-#vane-cursor{
-  position:fixed;
-  top:0; left:0;
+#vane-cursor {
+  position:fixed; top:0; left:0;
   width:8px; height:8px;
   margin:-4px 0 0 -4px;
   background:var(--clay);
@@ -1084,15 +1258,56 @@ footer .built{
   z-index:9999;
   will-change:transform;
   display:none;
-  transition:width .25s ease, height .25s ease, margin .25s ease;
+  transition:width .22s ease, height .22s ease, margin .22s ease;
 }
-body.has-custom-cursor #vane-cursor{ display:block; }
-body.has-custom-cursor,
-body.has-custom-cursor a,
-body.has-custom-cursor button{ cursor:none !important; }
-#vane-cursor.big{
-  width:24px; height:24px;
-  margin:-12px 0 0 -12px;
+body.has-cursor #vane-cursor { display:block; }
+body.has-cursor,
+body.has-cursor a,
+body.has-cursor button { cursor:none !important; }
+#vane-cursor.big { width:22px; height:22px; margin:-11px 0 0 -11px; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width:1000px) {
+  .hero-layout { flex-direction:column; padding-top:clamp(90px,13vh,130px); padding-bottom:8vh; gap:2.5rem; }
+  .hero-pg     { width:min(480px,94vw); }
+}
+@media (max-width:900px) {
+  .stats-grid         { grid-template-columns:repeat(2,1fr); gap:2.5rem 2rem; }
+  .problem-grid,
+  .integ-grid,
+  .euact-grid         { grid-template-columns:1fr; gap:3rem; }
+  .timeline           { margin-left:.4rem; }
+  .price-grid         { grid-template-columns:1fr; gap:2rem; max-width:440px; }
+  .price-card.startup { transform:none; }
+  .sec-grid           { grid-template-columns:1fr; gap:2.2rem; }
+  footer .inner       { grid-template-columns:1fr; text-align:center; gap:1.3rem; }
+  footer .f-logo,
+  footer .built,
+  footer .links       { justify-content:center; text-align:center; }
+}
+@media (max-width:560px) {
+  .stats-grid            { grid-template-columns:1fr; }
+  .section               { padding:10vh 6vw; }
+  .hero-copy .actions    { flex-direction:column; align-items:flex-start; }
+  .merkle-wrap           { height:300px; }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion:reduce) {
+  * { animation:none !important; }
+  .r { opacity:1 !important; transform:none !important; transition:none !important; }
+  .card { transition:none !important; }
+  html { scroll-behavior:auto; }
+  .pg-token-area,
+  .pg-result { transition:none !important; max-height:none !important; opacity:1 !important; }
+  /* Show static Merkle tree, hide canvas */
+  .merkle-wrap #merkle-canvas { display:none; }
+  .merkle-wrap #merkle-labels { display:none; }
+  .merkle-static { display:block; }
 }
 </style>
 </head>
@@ -1103,44 +1318,185 @@ body.has-custom-cursor button{ cursor:none !important; }
 <!-- ===================== LOGO ===================== -->
 <a class="logo on-terra" href="#top" aria-label="Vane home">
   <svg class="mark" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
-    <line x1="11" y1="2" x2="11" y2="20" />
-    <line x1="2" y1="11" x2="20" y2="11" />
-    <!-- arrowheads: right + up -->
-    <line x1="20" y1="11" x2="16" y2="8" />
+    <line x1="11" y1="2"  x2="11" y2="20" />
+    <line x1="2"  y1="11" x2="20" y2="11" />
+    <line x1="20" y1="11" x2="16" y2="8"  />
     <line x1="20" y1="11" x2="16" y2="14" />
-    <line x1="11" y1="2" x2="8" y2="6" />
-    <line x1="11" y1="2" x2="14" y2="6" />
+    <line x1="11" y1="2"  x2="8"  y2="6"  />
+    <line x1="11" y1="2"  x2="14" y2="6"  />
   </svg>
   <span class="word">VANE</span>
 </a>
 
 <!-- ===================== NAV ===================== -->
 <nav class="nav on-terra" aria-label="Primary">
-  <a class="nav-link" href="https://docs.vane.build">Docs</a>
-  <a class="nav-link" href="#pricing">Pricing</a>
-  <a class="nav-link" href="#security">Security</a>
-  <a class="nav-link" href="mailto:pablo@vane.build">Contact</a>
-  <a class="nav-cta" href="#start">Start building</a>
+  <ul class="nav-menu">
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Product <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="#how-it-works">How It Works</a>
+        <a role="menuitem" href="#passport">Agent Passports</a>
+        <a role="menuitem" href="#attestation">Attestation</a>
+        <a role="menuitem" href="#code">SDK</a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Security <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="#security">Cryptography</a>
+        <a role="menuitem" href="#security">Merkle Tree</a>
+        <a role="menuitem" href="#eu-act">EU AI Act</a>
+        <a role="menuitem" href="#security">SOC 2</a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Developers <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://npmjs.com/package/@vane.build/sdk" target="_blank" rel="noopener noreferrer">npm Package <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://github.com/pabloantoniotadeo84-boop/counsel" target="_blank" rel="noopener noreferrer">GitHub <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">SDK Reference <span class="ext" aria-hidden="true">↗</span></a>
+      </div>
+    </li>
+    <li class="nav-item">
+      <a class="nav-trigger" href="#pricing">Pricing</a>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Company <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="#footer">Our Story</a>
+        <a role="menuitem" href="#contact">Contact</a>
+      </div>
+    </li>
+  </ul>
+
+  <div class="nav-actions">
+    <a class="nav-demo" href="#contact">Book a demo</a>
+    <a class="nav-cta"  href="#pricing">Start building</a>
+  </div>
+
+  <button class="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-mobile">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<!-- ===================== MOBILE NAV PANEL ===================== -->
+<div class="nav-mobile" id="nav-mobile">
+  <div class="mob-group">
+    <div class="mob-head">Product</div>
+    <a href="#how-it-works">How It Works</a>
+    <a href="#passport">Agent Passports</a>
+    <a href="#attestation">Attestation</a>
+    <a href="#code">SDK</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Security</div>
+    <a href="#security">Cryptography</a>
+    <a href="#security">Merkle Tree</a>
+    <a href="#eu-act">EU AI Act</a>
+    <a href="#security">SOC 2</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Developers</div>
+    <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation ↗</a>
+    <a href="https://npmjs.com/package/@vane.build/sdk" target="_blank" rel="noopener noreferrer">npm Package ↗</a>
+    <a href="https://github.com/pabloantoniotadeo84-boop/counsel" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+    <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">SDK Reference ↗</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Pricing</div>
+    <a href="#pricing">Pricing</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Company</div>
+    <a href="#footer">Our Story</a>
+    <a href="#contact">Contact</a>
+  </div>
+  <div class="mob-actions">
+    <a class="nav-demo" href="#contact">Book a demo</a>
+    <a class="nav-cta"  href="#pricing">Start building</a>
+  </div>
+</div>
 
 <div id="smooth-wrapper">
 
 <!-- ===================== HERO ===================== -->
 <section class="hero" id="top" data-theme="terra">
-  <canvas id="particles"></canvas>
-  <div class="hero-inner">
-    <div class="eyebrow">AGENT IDENTITY INFRASTRUCTURE</div>
-    <h1>
-      <span class="line1">Give your agents</span>
-      <span class="line2">identity.</span>
-    </h1>
-    <p class="lede">Cryptographic passports for AI agents. Verifiable by anyone. Trusted everywhere.</p>
-    <div class="actions">
-      <a class="btn btn-light-navy" href="#start">Start building</a>
-      <a class="btn btn-ghost" href="https://docs.vane.build">Read the docs →</a>
+  <div class="hero-layout">
+
+    <!-- LEFT: copy -->
+    <div class="hero-copy">
+      <div class="eyebrow">Agent Identity Infrastructure</div>
+      <h1>
+        <span class="line1">Give your</span>
+        <span class="line2">agents</span>
+        <span class="line2">identity.</span>
+      </h1>
+      <p class="lede">Cryptographic passports for AI agents. Ed25519-signed, Merkle-attested. Verifiable by anyone.</p>
+      <div class="actions">
+        <a class="btn btn-light-navy" href="#start">Start building</a>
+        <a class="btn btn-ghost" href="https://docs.vane.build">Read the docs →</a>
+      </div>
+    </div>
+
+    <!-- RIGHT: live playground -->
+    <div class="hero-pg" aria-label="Live Passport Playground">
+      <div class="pg-card">
+        <div class="pg-hdr">
+          <span class="pg-live" aria-hidden="true"></span>
+          <span class="pg-hdr-title">Live Passport Playground</span>
+          <span class="pg-hdr-badge">Ed25519 · In-browser</span>
+        </div>
+        <div class="pg-body">
+          <!-- Agent name -->
+          <div class="pg-field">
+            <label class="pg-lbl" for="pg-agent">Agent name</label>
+            <input class="pg-inp" id="pg-agent" type="text" value="billing-agent-001" spellcheck="false" autocomplete="off">
+          </div>
+          <!-- Scopes -->
+          <div class="pg-field">
+            <span class="pg-lbl">Scopes</span>
+            <div class="pg-chips" id="pg-chips" role="group" aria-label="Scope toggles">
+              <button class="pg-chip on" data-scope="attest:write"     type="button">attest:write</button>
+              <button class="pg-chip on" data-scope="financial:read"   type="button">financial:read</button>
+              <button class="pg-chip on" data-scope="tool:*"           type="button">tool:*</button>
+              <button class="pg-chip"    data-scope="data:read"        type="button">data:read</button>
+              <button class="pg-chip"    data-scope="webhook:trigger"  type="button">webhook:trigger</button>
+              <button class="pg-chip"    data-scope="admin:agents"     type="button">admin:agents</button>
+            </div>
+          </div>
+          <!-- Delegation -->
+          <div class="pg-field">
+            <label class="pg-lbl" for="pg-deleg">Delegation chain <span class="opt">(optional)</span></label>
+            <input class="pg-inp" id="pg-deleg" type="text" placeholder="e.g. CFO → Engineering Lead" autocomplete="off">
+          </div>
+          <!-- Issue button -->
+          <button class="pg-issue" id="pg-issue" type="button">
+            <span aria-hidden="true">⚡</span>
+            <span id="pg-issue-txt">Issue Passport</span>
+          </button>
+
+          <!-- Token area (hidden until issued) -->
+          <div class="pg-token-area" id="pg-token-area" aria-live="polite">
+            <div class="pg-tok-bar">
+              <span class="pg-tok-lbl">Signed Token</span>
+              <button class="pg-copy" id="pg-tok-copy" type="button">Copy</button>
+            </div>
+            <div class="pg-tok-box" id="pg-tok-box" aria-label="JWT token"></div>
+            <div class="pg-tok-btns">
+              <button class="pg-verify" id="pg-verify" type="button">✓ Verify</button>
+              <button class="pg-tamper" id="pg-tamper" type="button">⚠ Tamper Demo</button>
+            </div>
+          </div>
+
+          <!-- Result -->
+          <div class="pg-result" id="pg-result" role="status" aria-live="polite"></div>
+        </div>
+      </div>
     </div>
   </div>
-  <div class="scroll-ind">
+
+  <div class="scroll-ind" aria-hidden="true">
     <div class="track"><span class="dot"></span></div>
     <span class="label">SCROLL</span>
   </div>
@@ -1176,9 +1532,9 @@ body.has-custom-cursor button{ cursor:none !important; }
   <span class="sec-num">//01</span>
   <div class="problem-grid">
     <h2>
-      <span class="white r">When your agent</span>
-      <span class="white r">calls Stripe —</span>
-      <span class="clay r">Stripe has no idea who sent it.</span>
+      <span class="r">When your agent</span>
+      <span class="r">calls Stripe —</span>
+      <span class="r" style="opacity:0;margin-top:.25em;display:block;font-style:italic;">Stripe has no idea who sent&nbsp;it.</span>
     </h2>
     <p class="body r">
       An API key proves nothing. It tells you that someone has a string of characters.
@@ -1190,53 +1546,66 @@ body.has-custom-cursor button{ cursor:none !important; }
 </section>
 
 <!-- ===================== HOW IT WORKS //02 ===================== -->
-<section class="section how" data-theme="terra" data-reveal>
+<section class="section how" id="how-it-works" data-theme="terra" data-reveal>
   <span class="sec-num">//02</span>
-  <div class="how-eyebrow eyebrow r">HOW IT WORKS</div>
+  <div class="how-eyebrow eyebrow r">How It Works</div>
 
-  <div class="htw-stage r">
-    <!-- the agent -->
-    <div class="htw-agent">
-      <div class="htw-agent-core"></div>
-      <span class="htw-agent-label">AGENT</span>
-      <div class="htw-tip" role="tooltip">
-        <div class="htw-tip-title">VANE PASSPORT</div>
-        <div class="htw-tip-row"><span>agent</span><b>billing-agent-001</b></div>
-        <div class="htw-tip-row"><span>org</span><b>acme</b></div>
-        <div class="htw-tip-row"><span>scopes</span><b>attest:write</b></div>
-        <div class="htw-tip-ok">✓ Ed25519 verified</div>
-      </div>
-    </div>
+  <!-- Three.js Merkle tree visualization -->
+  <div class="merkle-wrap r" id="attestation" aria-label="Self-building Merkle attestation tree">
+    <canvas id="merkle-canvas"></canvas>
+    <div id="merkle-labels" aria-hidden="true"></div>
 
-    <!-- the barrier and its verdict markers -->
-    <div class="htw-barrier"></div>
-    <div class="htw-mark htw-reject" aria-hidden="true">✕</div>
-    <div class="htw-mark htw-approve" aria-hidden="true">✓</div>
-
-    <!-- the passport that slides up -->
-    <div class="htw-passport" aria-hidden="true">VANE PASSPORT&nbsp;✓</div>
-
-    <!-- the server / API that splits open -->
-    <div class="htw-server">
-      <div class="htw-server-top"></div>
-      <div class="htw-server-bottom"></div>
-      <span class="htw-server-label">API</span>
+    <!-- Reduced-motion / no-JS static fallback -->
+    <div class="merkle-static" role="img" aria-label="Merkle tree: 4 leaf nodes each with a hash, combining into 2 parent nodes, then a single root hash">
+      <svg viewBox="-300 -170 600 360" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
+        <!-- Edges -->
+        <line x1="-220" y1="-100" x2="-140" y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
+        <line x1="-60"  y1="-100" x2="-140" y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
+        <line x1="60"   y1="-100" x2="140"  y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
+        <line x1="220"  y1="-100" x2="140"  y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
+        <line x1="-140" y1="-10"  x2="0"    y2="120" stroke="rgba(245,240,232,.3)"  stroke-width="1.5"/>
+        <line x1="140"  y1="-10"  x2="0"    y2="120" stroke="rgba(245,240,232,.3)"  stroke-width="1.5"/>
+        <!-- Leaves -->
+        <circle cx="-220" cy="-100" r="14" fill="#b5451b" opacity=".9"/>
+        <circle cx="-60"  cy="-100" r="14" fill="#b5451b" opacity=".9"/>
+        <circle cx="60"   cy="-100" r="14" fill="#b5451b" opacity=".9"/>
+        <circle cx="220"  cy="-100" r="14" fill="#b5451b" opacity=".9"/>
+        <!-- Internal -->
+        <circle cx="-140" cy="-10"  r="17" fill="#9a3716"/>
+        <circle cx="140"  cy="-10"  r="17" fill="#9a3716"/>
+        <!-- Root -->
+        <circle cx="0"    cy="120"  r="22" fill="#f5f0e8" opacity=".9"/>
+        <!-- Labels -->
+        <text x="-220" y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">3f7a</text>
+        <text x="-60"  y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">c912</text>
+        <text x="60"   y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">8b4e</text>
+        <text x="220"  y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">d71f</text>
+        <text x="-140" y="8"   text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">a3c4</text>
+        <text x="140"  y="8"   text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">9e2b</text>
+        <text x="0"    y="140" text-anchor="middle" font-family="monospace" font-size="10" fill="#0a1628">e5f6</text>
+      </svg>
     </div>
   </div>
 
+  <div class="merkle-controls r">
+    <button class="merkle-btn"      id="merkle-add"    type="button">+ Add Record</button>
+    <button class="merkle-btn merkle-btn-warn" id="merkle-tamper-btn" type="button">⚠ Tamper Demo</button>
+    <div    class="merkle-status"   id="merkle-status" aria-live="polite"></div>
+  </div>
+
   <div class="how-steps r">
-    <span>REGISTER YOUR AGENT</span>
+    <span>Register your agent</span>
     <span class="dot">·</span>
-    <span>ISSUE A PASSPORT</span>
+    <span>Issue a Passport</span>
     <span class="dot">·</span>
-    <span>EVERY ACTION ATTESTED</span>
+    <span>Every action attested</span>
   </div>
 </section>
 
 <!-- ===================== PASSPORT //03 ===================== -->
-<section class="section passport" data-theme="paper" data-reveal>
+<section class="section passport" id="passport" data-theme="paper" data-reveal>
   <span class="sec-num">//03</span>
-  <div class="pp-label eyebrow r">ONE PASSPORT. EVERYTHING PROVEN.</div>
+  <div class="pp-label eyebrow r">One Passport. Everything Proven.</div>
   <div class="pp-scene r">
     <div class="card" id="passport-card">
       <div class="top">
@@ -1270,7 +1639,7 @@ body.has-custom-cursor button{ cursor:none !important; }
 </section>
 
 <!-- ===================== INTEGRATIONS //04 ===================== -->
-<section class="section integ" data-theme="paper" data-reveal>
+<section class="section integ" id="code" data-theme="paper" data-reveal>
   <span class="sec-num">//04</span>
   <div class="integ-grid">
     <h2 class="r">Three lines of code.</h2>
@@ -1290,7 +1659,7 @@ body.has-custom-cursor button{ cursor:none !important; }
   <h2 class="r">Simple pricing.</h2>
   <div class="price-grid">
     <div class="price-card dev r">
-      <div class="tier">DEVELOPER</div>
+      <div class="tier">Developer</div>
       <div class="price">Free<span class="per"> forever</span></div>
       <ul class="features">
         <li>10,000 attestations / month</li>
@@ -1301,7 +1670,7 @@ body.has-custom-cursor button{ cursor:none !important; }
       <a class="btn price-btn btn-clay" href="https://docs.vane.build">Start free</a>
     </div>
     <div class="price-card startup r">
-      <div class="tier">STARTUP</div>
+      <div class="tier">Startup</div>
       <div class="price">$99<span class="per"> / month</span></div>
       <ul class="features">
         <li>500,000 attestations / month</li>
@@ -1313,7 +1682,7 @@ body.has-custom-cursor button{ cursor:none !important; }
       <a class="btn price-btn btn-light" href="https://docs.vane.build">Start trial</a>
     </div>
     <div class="price-card ent r">
-      <div class="tier">ENTERPRISE</div>
+      <div class="tier">Enterprise</div>
       <div class="price">Custom<span class="per"> pricing</span></div>
       <ul class="features">
         <li>Unlimited attestations</li>
@@ -1353,11 +1722,11 @@ body.has-custom-cursor button{ cursor:none !important; }
 </section>
 
 <!-- ===================== EU AI ACT //05 ===================== -->
-<section class="section euact" data-theme="paper" data-reveal>
+<section class="section euact" id="eu-act" data-theme="paper" data-reveal>
   <span class="sec-num">//05</span>
   <div class="euact-grid">
     <div>
-      <div class="eyebrow r">IN FORCE AUGUST 2026</div>
+      <div class="eyebrow r">In force August 2026</div>
       <h2 class="r">Regulators are watching.</h2>
       <p class="body r">
         The EU AI Act requires verifiable runtime proof that AI governance held at the
@@ -1397,24 +1766,24 @@ body.has-custom-cursor button{ cursor:none !important; }
 <section class="section contact" id="contact" data-theme="paper" data-reveal>
   <h2 class="r">Ready to give your agents identity?</h2>
   <div class="contact-actions r">
-    <a class="btn btn-clay" href="https://docs.vane.build">Start building</a>
+    <a class="btn btn-clay"         href="https://docs.vane.build">Start building</a>
     <a class="btn btn-outline-navy" href="mailto:pablo@vane.build">Talk to us</a>
   </div>
   <p class="contact-fine r">Response within 24 hours.</p>
 </section>
 
 <!-- ===================== FOOTER ===================== -->
-<footer data-theme="paper">
+<footer id="footer" data-theme="paper">
   <div class="rule"></div>
   <div class="inner">
     <div class="f-logo">
       <svg width="20" height="20" viewBox="0 0 22 22" aria-hidden="true">
-        <line x1="11" y1="2" x2="11" y2="20" />
-        <line x1="2" y1="11" x2="20" y2="11" />
-        <line x1="20" y1="11" x2="16" y2="8" />
+        <line x1="11" y1="2"  x2="11" y2="20" />
+        <line x1="2"  y1="11" x2="20" y2="11" />
+        <line x1="20" y1="11" x2="16" y2="8"  />
         <line x1="20" y1="11" x2="16" y2="14" />
-        <line x1="11" y1="2" x2="8" y2="6" />
-        <line x1="11" y1="2" x2="14" y2="6" />
+        <line x1="11" y1="2"  x2="8"  y2="6"  />
+        <line x1="11" y1="2"  x2="14" y2="6"  />
       </svg>
       <span class="word">VANE</span>
     </div>
@@ -1429,393 +1798,667 @@ body.has-custom-cursor button{ cursor:none !important; }
 </footer>
 </div><!-- /#smooth-wrapper -->
 
-<!-- ===================== THREE.JS ===================== -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- ===================== PLAYGROUND — real Ed25519 ===================== -->
+<script type="module">
+import {
+  generateKeyPair, buildPassportClaims, signPassport,
+  verifyPassport, tamperToken, decodePayload
+} from './passport-crypto.js';
+
+const $ = id => document.getElementById(id);
+let currentKp = null, currentToken = null, isTampered = false;
+
+/* Scope chip toggle */
+document.querySelectorAll('.pg-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    chip.classList.toggle('on');
+    chip.setAttribute('aria-pressed', chip.classList.contains('on'));
+  });
+});
+
+/* Issue passport */
+$('pg-issue').addEventListener('click', async () => {
+  const agentName = $('pg-agent').value.trim() || 'demo-agent';
+  const scopes    = [...document.querySelectorAll('.pg-chip.on')].map(c => c.dataset.scope);
+  if (!scopes.length) scopes.push('attest:write');
+  const delegation = $('pg-deleg').value.trim() || undefined;
+
+  /* Loading state */
+  const btn = $('pg-issue');
+  const lbl = $('pg-issue-txt');
+  btn.classList.add('busy');
+  lbl.textContent = 'Generating keys…';
+
+  try {
+    /* brief pause so user sees the "real crypto" moment */
+    currentKp    = await generateKeyPair();
+    lbl.textContent = 'Signing…';
+    await new Promise(r => setTimeout(r, 220));
+
+    const claims   = buildPassportClaims({ agentName, scopes, delegation, companyId: 'demo' });
+    currentToken   = await signPassport(claims, currentKp.privateKey);
+    isTampered     = false;
+
+    renderToken(currentToken, false);
+    showTokenArea();
+    hideResult();
+  } catch (e) {
+    showResult(false, 'Crypto error: ' + e.message);
+  } finally {
+    btn.classList.remove('busy');
+    lbl.textContent = 'Issue Passport';
+  }
+});
+
+/* Render token in colored segments */
+function renderToken(token, tampered) {
+  const box = $('pg-tok-box');
+  const [h, p, s] = token.split('.');
+  box.innerHTML =
+    `<span class="jwt-h">${h}</span>` +
+    `<span class="jwt-dot">.</span>` +
+    `<span class="jwt-p${tampered ? ' tampered' : ''}">${p}</span>` +
+    `<span class="jwt-dot">.</span>` +
+    `<span class="jwt-s">${s}</span>`;
+}
+
+function showTokenArea() {
+  $('pg-token-area').classList.add('show');
+}
+
+/* Verify */
+$('pg-verify').addEventListener('click', async () => {
+  if (!currentToken || !currentKp) return;
+  const token = isTampered ? tamperToken(currentToken) : currentToken;
+  const result = await verifyPassport(token, currentKp.publicKey);
+  if (result.valid) {
+    const c = result.claims;
+    const rows = [
+      ['agent',  c.vane?.agentId  || '—'],
+      ['org',    c.vane?.org      || '—'],
+      ['scopes', (c.vane?.scopes || []).join(', ')],
+      ['exp',    new Date(c.exp * 1000).toISOString().replace('T',' ').slice(0,19) + 'Z'],
+    ];
+    showResult(true, '✓ Ed25519 signature valid', rows);
+  } else {
+    showResult(false, '✕ Signature verification failed', [['reason', result.error || 'invalid']]);
+  }
+});
+
+/* Tamper demo */
+$('pg-tamper').addEventListener('click', async () => {
+  if (!currentToken || !currentKp) return;
+  isTampered = !isTampered;
+  renderToken(currentToken, isTampered);
+  $('pg-tamper').textContent = isTampered ? '↩ Restore' : '⚠ Tamper Demo';
+  hideResult();
+
+  if (isTampered) {
+    /* auto-verify after a beat so user sees the effect */
+    await new Promise(r => setTimeout(r, 350));
+    const tampered = tamperToken(currentToken);
+    const result   = await verifyPassport(tampered, currentKp.publicKey);
+    showResult(false, '✕ Payload was tampered — signature invalid', [['details', 'one byte flipped in the payload segment']]);
+  }
+});
+
+/* Copy token */
+$('pg-tok-copy').addEventListener('click', async () => {
+  if (!currentToken) return;
+  try { await navigator.clipboard.writeText(currentToken); }
+  catch (_) {
+    const ta = document.createElement('textarea');
+    ta.value = currentToken; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  }
+  const btn = $('pg-tok-copy');
+  btn.textContent = 'Copied ✓';
+  setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+});
+
+function showResult(ok, status, rows = []) {
+  const el = $('pg-result');
+  el.className = 'pg-result show ' + (ok ? 'ok' : 'err');
+  el.innerHTML = `<div class="pg-result-inner">
+    <div class="pg-result-status">${status}</div>
+    ${rows.map(([k,v]) => `<div class="pg-result-row"><span class="pg-rk">${k}</span><span class="pg-rv">${v}</span></div>`).join('')}
+  </div>`;
+}
+function hideResult() {
+  const el = $('pg-result');
+  el.className = 'pg-result';
+  el.innerHTML = '';
+}
+</script>
+
+<!-- ===================== THREE.JS MERKLE TREE — lazy-loaded ===================== -->
 <script>
 (function(){
-  "use strict";
+  'use strict';
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return;
 
-  /* ── shared lerped scroll position (written by smooth-scroll loop, read by THREE) ── */
+  const canvas = document.getElementById('merkle-canvas');
+  if (!canvas) return;
+
+  /* Load Three.js only when the How It Works section is near-visible */
+  let threeLoaded = false;
+  const merkleObs = new IntersectionObserver(entries => {
+    if (!entries[0].isIntersecting || threeLoaded) return;
+    threeLoaded = true;
+    merkleObs.disconnect();
+
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    s.onload = () => initMerkle();
+    document.head.appendChild(s);
+  }, { rootMargin: '300px' });
+  merkleObs.observe(canvas);
+
+  function initMerkle() {
+    if (typeof THREE === 'undefined') return;
+
+    const labelsEl = document.getElementById('merkle-labels');
+    const statusEl = document.getElementById('merkle-status');
+
+    /* ── Scene ─────────────────────────────────────────── */
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+
+    /* Orthographic camera — frustum half-height 170 world units */
+    const FRUST = 170;
+    let aspect  = canvas.clientWidth / (canvas.clientHeight || 400);
+    const camera = new THREE.OrthographicCamera(
+      -FRUST * aspect, FRUST * aspect,
+       FRUST, -FRUST, 1, 1000
+    );
+    camera.position.set(0, 0, 500);
+
+    /* Lights */
+    scene.add(new THREE.AmbientLight(0xffeedd, 0.9));
+    const key = new THREE.DirectionalLight(0xffffff, 0.4);
+    key.position.set(100, 200, 300); scene.add(key);
+
+    /* ── Node definitions ────────────────────────────── */
+    const HASHES = { 0:'3f7a', 1:'c912', 2:'8b4e', 3:'d71f', 4:'a3c4', 5:'9e2b', 6:'e5f6' };
+    const COL_EMPTY  = new THREE.Color(0x0d1f35);
+    const COL_ACTIVE = new THREE.Color(0xb5451b);
+    const COL_ROOT   = new THREE.Color(0xede8e0);
+    const COL_TAMPER = new THREE.Color(0xe0442e);
+
+    const nodeDefs = [
+      { id:0, x:-220, y:-100, r:14, parentId:4 },
+      { id:1, x:-60,  y:-100, r:14, parentId:4 },
+      { id:2, x: 60,  y:-100, r:14, parentId:5 },
+      { id:3, x: 220, y:-100, r:14, parentId:5 },
+      { id:4, x:-140, y:  0,  r:17, parentId:6, childIds:[0,1] },
+      { id:5, x: 140, y:  0,  r:17, parentId:6, childIds:[2,3] },
+      { id:6, x:  0,  y: 130, r:22, parentId:null, childIds:[4,5] },
+    ];
+
+    const nodes = nodeDefs.map(def => {
+      const geo = new THREE.SphereGeometry(def.r, 32, 32);
+      const mat = new THREE.MeshStandardMaterial({
+        color: COL_EMPTY, emissive: COL_EMPTY,
+        emissiveIntensity: 0.25, roughness: 0.35, metalness: 0.1,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(def.x, def.y, 0);
+      mesh.scale.setScalar(0.25);
+      scene.add(mesh);
+
+      /* HTML label */
+      const lbl = document.createElement('div');
+      lbl.className = 'ml-lbl';
+      lbl.style.opacity = '0';
+      labelsEl && labelsEl.appendChild(lbl);
+
+      return { ...def, mesh, mat, lbl, curScale: 0.25, targScale: 0.25, state: 'empty' };
+    });
+
+    /* ── Edge lines ───────────────────────────────────── */
+    const edgePairs = [[0,4],[1,4],[2,5],[3,5],[4,6],[5,6]];
+    const edges = edgePairs.map(([childId, parentId]) => {
+      const c = nodes[childId], p = nodes[parentId];
+      const pts = [new THREE.Vector3(c.x,c.y,0), new THREE.Vector3(p.x,p.y,0)];
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const mat = new THREE.LineBasicMaterial({ color:0x1a3856, opacity:0.2, transparent:true });
+      const line = new THREE.Line(geo, mat);
+      scene.add(line);
+      return { line, mat, childId, parentId, flash: 0 };
+    });
+
+    /* ── Glow lights pool ─────────────────────────────── */
+    const glows = [];
+    function addGlow(node, hexColor, intensity = 50) {
+      const light = new THREE.PointLight(hexColor, intensity, 250);
+      light.position.set(node.x, node.y, 30);
+      scene.add(light);
+      glows.push(light);
+    }
+
+    /* ── Activation ───────────────────────────────────── */
+    function activateNode(id, color, flash = true) {
+      const n = nodes[id];
+      n.state     = 'active';
+      n.targScale = 1.0;
+      n.mat.color.set(color);
+      n.mat.emissive.set(color);
+      n.mat.emissiveIntensity = 1.3;
+      n.lbl.textContent  = HASHES[id];
+      n.lbl.style.opacity = '1';
+      n.lbl.style.color  = '#' + color.getHexString();
+      if (flash) addGlow(n, color.getHex(), 60);
+      edges.forEach(e => { if(e.childId===id||e.parentId===id){ e.mat.opacity=0.75; e.flash=1.5; } });
+    }
+    function tamperNode(id) {
+      const n = nodes[id];
+      n.state = 'tampered';
+      n.mat.color.set(COL_TAMPER);
+      n.mat.emissive.set(COL_TAMPER);
+      n.mat.emissiveIntensity = 1.6;
+      n.lbl.style.color = '#e0442e';
+      n.lbl.textContent = id === 6 ? 'INVALID' : (HASHES[id] + '!');
+      edges.forEach(e => { if(e.childId===id||e.parentId===id){ e.mat.color.set(COL_TAMPER); e.mat.opacity=0.7; } });
+    }
+    function resetAll() {
+      nodes.forEach(n => {
+        n.state = 'empty'; n.targScale = 0.25;
+        n.mat.color.set(COL_EMPTY); n.mat.emissive.set(COL_EMPTY); n.mat.emissiveIntensity = 0.25;
+        n.lbl.style.opacity = '0';
+      });
+      edges.forEach(e => { e.mat.color.set(new THREE.Color(0x1a3856)); e.mat.opacity = 0.2; e.flash = 0; });
+    }
+    function setStatus(text, type) {
+      if (!statusEl) return;
+      statusEl.textContent  = text;
+      statusEl.className    = 'merkle-status' + (type ? ' ms-' + type : '');
+    }
+
+    /* ── Animation timeline ───────────────────────────── */
+    let clock = 0, lastTs = null;
+    const triggered = new Set();
+
+    const buildTimeline = () => [
+      { t:1.2,  fn:()=> activateNode(0, COL_ACTIVE) },
+      { t:2.8,  fn:()=> activateNode(1, COL_ACTIVE) },
+      { t:3.4,  fn:()=> activateNode(4, new THREE.Color(0x9a3716)) },
+      { t:4.8,  fn:()=> activateNode(2, COL_ACTIVE) },
+      { t:6.2,  fn:()=> activateNode(3, COL_ACTIVE) },
+      { t:6.8,  fn:()=> activateNode(5, new THREE.Color(0x9a3716)) },
+      { t:7.4,  fn:()=> { activateNode(6, COL_ROOT); setStatus('Chain valid ✓', 'ok'); }},
+      { t:11.5, fn:()=> { tamperNode(1); }},
+      { t:12.1, fn:()=> { tamperNode(4); }},
+      { t:12.7, fn:()=> { tamperNode(6); setStatus('CHAIN BROKEN', 'err'); }},
+      { t:16.0, fn:()=> { resetAll(); setStatus(''); clock = 0; triggered.clear(); }},
+    ];
+
+    let timeline = buildTimeline();
+
+    /* ── Manual controls ──────────────────────────────── */
+    let manualLeaf = 0;
+    document.getElementById('merkle-add')?.addEventListener('click', () => {
+      const leaves = [0,1,2,3].filter(i => nodes[i].state === 'empty');
+      if (!leaves.length) return;
+      activateNode(leaves[0], COL_ACTIVE);
+      if ([0,1].every(i => nodes[i].state === 'active') && nodes[4].state === 'empty') {
+        setTimeout(()=> activateNode(4, new THREE.Color(0x9a3716)), 400);
+      }
+      if ([2,3].every(i => nodes[i].state === 'active') && nodes[5].state === 'empty') {
+        setTimeout(()=> activateNode(5, new THREE.Color(0x9a3716)), 400);
+      }
+      if ([4,5].every(i => nodes[i].state !== 'empty') && nodes[6].state === 'empty') {
+        setTimeout(()=> { activateNode(6, COL_ROOT); setStatus('Chain valid ✓', 'ok'); }, 800);
+      }
+    });
+
+    document.getElementById('merkle-tamper-btn')?.addEventListener('click', () => {
+      const active = [0,1,2,3].find(i => nodes[i].state === 'active');
+      if (active === undefined) return;
+      tamperNode(active);
+      const parent = nodes[active].parentId;
+      if (parent != null) {
+        setTimeout(()=> tamperNode(parent), 450);
+        setTimeout(()=> { tamperNode(6); setStatus('CHAIN BROKEN', 'err'); }, 900);
+      }
+    });
+
+    /* ── Render loop ──────────────────────────────────── */
+    function render(ts) {
+      requestAnimationFrame(render);
+      if (lastTs === null) lastTs = ts;
+      const dt = Math.min((ts - lastTs) / 1000, 0.05);
+      lastTs   = ts;
+      clock   += dt;
+
+      /* Timeline */
+      timeline.forEach(ev => {
+        const k = ev.t.toString();
+        if (!triggered.has(k) && clock >= ev.t) { triggered.add(k); ev.fn(); }
+      });
+
+      /* Scale lerp */
+      nodes.forEach(n => {
+        if (Math.abs(n.curScale - n.targScale) > 0.001) {
+          n.curScale += (n.targScale - n.curScale) * 0.1;
+          n.mesh.scale.setScalar(n.curScale);
+        }
+      });
+
+      /* Glow decay */
+      for (let i = glows.length - 1; i >= 0; i--) {
+        glows[i].intensity *= 0.93;
+        if (glows[i].intensity < 0.3) { scene.remove(glows[i]); glows.splice(i, 1); }
+      }
+
+      /* Edge flash decay */
+      edges.forEach(e => {
+        if (e.flash > 0) {
+          e.flash -= dt * 0.7;
+          if (e.flash <= 0 && e.mat.opacity > 0.35) e.mat.opacity = 0.3;
+        }
+      });
+
+      /* HTML label positions via projection */
+      nodes.forEach(n => {
+        if (parseFloat(n.lbl.style.opacity) > 0) {
+          const v = new THREE.Vector3(n.x, n.y - n.r - 8, 0).project(camera);
+          const x = (v.x * 0.5 + 0.5) * canvas.clientWidth;
+          const y = (v.y * -0.5 + 0.5) * canvas.clientHeight;
+          n.lbl.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+        }
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    /* ── Resize ───────────────────────────────────────── */
+    function onResize() {
+      const w = canvas.clientWidth, h = canvas.clientHeight || 400;
+      renderer.setSize(w, h, false);
+      aspect = w / h;
+      camera.left  = -FRUST * aspect; camera.right = FRUST * aspect;
+      camera.updateProjectionMatrix();
+    }
+    onResize();
+    window.addEventListener('resize', onResize);
+
+    requestAnimationFrame(render);
+  }
+})();
+</script>
+
+<!-- ===================== MAIN SCRIPT ===================== -->
+<script>
+(function(){
+  'use strict';
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let smoothY = 0;
 
-  /* ── passport timestamps ──────────────────────────────────────────────── */
+  /* ── Passport timestamps ──────────────────────────── */
   (function(){
-    const now = new Date();
-    const exp = new Date(now.getTime() + 60*60*1000);
-    const iso = d => d.toISOString().replace('T',' ').slice(0,19) + 'Z';
+    const now = new Date(), exp = new Date(now.getTime() + 3600000);
+    const iso = d => d.toISOString().replace('T',' ').slice(0,19)+'Z';
     const i = document.getElementById('pp-issued');
     const e = document.getElementById('pp-expires');
     if(i) i.textContent = iso(now);
     if(e) e.textContent = iso(exp);
   })();
 
-  /* ── THREE.js particle field ──────────────────────────────────────────── */
+  /* ── Smooth scroll + parallax ─────────────────────── */
   (function(){
-    const canvas = document.getElementById('particles');
-    if(!canvas || typeof THREE === 'undefined') return;
+    const wrapper   = document.getElementById('smooth-wrapper');
+    const heroInner = document.querySelector('.hero-layout');
+    const ppScene   = document.querySelector('.pp-scene');
+    const ppSection = document.querySelector('.passport');
+    if (!wrapper) return;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-    const threeScene = new THREE.Scene();
-    const CAM_Z = 400;
-    const camera = new THREE.PerspectiveCamera(70, 1, 1, 2000);
-    camera.position.z = CAM_Z;
-
-    const tex = (function(){
-      const c = document.createElement('canvas');
-      c.width = c.height = 64;
-      const ctx = c.getContext('2d');
-      const g = ctx.createRadialGradient(32,32,0,32,32,32);
-      g.addColorStop(0,   'rgba(255,250,242,1)');
-      g.addColorStop(0.25,'rgba(250,240,225,0.85)');
-      g.addColorStop(0.55,'rgba(245,230,210,0.3)');
-      g.addColorStop(1,   'rgba(245,230,210,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(0,0,64,64);
-      const t = new THREE.Texture(c);
-      t.needsUpdate = true;
-      return t;
-    })();
-
-    const PALETTE = [
-      new THREE.Color('#f5f0e8'),
-      new THREE.Color('#ede8e0'),
-      new THREE.Color('#f7ecd9'),
-      new THREE.Color('#f0d9b8')
-    ];
-
-    const N = 2000;
-    let W = 600, H = 500;
-    const DEPTH = 160;
-
-    const positions = new Float32Array(N*3);
-    const colors    = new Float32Array(N*3);
-    const base      = new Float32Array(N*3);
-    const vel       = new Float32Array(N*2);
-    const off       = new Float32Array(N*2);
-
-    function computeExtents(){
-      const aspect = canvas.clientWidth / canvas.clientHeight;
-      const vFov = 70 * Math.PI/180;
-      const planeH = 2 * Math.tan(vFov/2) * CAM_Z;
-      const planeW = planeH * aspect;
-      H = planeH/2 * 1.15;
-      W = planeW/2 * 1.15;
-    }
-    computeExtents();
-
-    for(let i=0;i<N;i++){
-      const bx = (Math.random()*2-1)*W;
-      const by = (Math.random()*2-1)*H;
-      const bz = (Math.random()*2-1)*DEPTH;
-      base[i*3]=bx; base[i*3+1]=by; base[i*3+2]=bz;
-      positions[i*3]=bx; positions[i*3+1]=by; positions[i*3+2]=bz;
-      vel[i*2]   = (Math.random()*2-1)*0.18;
-      vel[i*2+1] = 0.12 + Math.random()*0.30;
-      const col = PALETTE[(Math.random()*PALETTE.length)|0].clone();
-      const bright = 0.16 + Math.random()*0.42;
-      colors[i*3]   = col.r * bright;
-      colors[i*3+1] = col.g * bright;
-      colors[i*3+2] = col.b * bright;
-    }
-
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
-    geo.setAttribute('color',    new THREE.BufferAttribute(colors,3));
-
-    const mat = new THREE.PointsMaterial({
-      size:6, map:tex, vertexColors:true,
-      transparent:true, depthWrite:false,
-      blending:THREE.AdditiveBlending, sizeAttenuation:true
-    });
-
-    const points = new THREE.Points(geo, mat);
-    threeScene.add(points);
-
-    const mouseNDC  = new THREE.Vector2(-2,-2);
-    const ray       = new THREE.Raycaster();
-    const rayPlane  = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
-    const mouseWorld= new THREE.Vector3(99999,99999,0);
-    let hasMouse    = false;
-
-    window.addEventListener('mousemove', e=>{
-      mouseNDC.x =  (e.clientX / window.innerWidth)*2  - 1;
-      mouseNDC.y = -(e.clientY / window.innerHeight)*2 + 1;
-      hasMouse = true;
-    }, { passive:true });
-    window.addEventListener('mouseleave', ()=>{ hasMouse = false; });
-
-    const R = 95, R2 = R*R, PUSH = 7;
-
-    function worldPerPx(){
-      const planeH = 2 * Math.tan(35 * Math.PI/180) * CAM_Z;
-      return planeH / window.innerHeight;
-    }
-
-    function resize(){
-      const w = window.innerWidth, h = window.innerHeight;
-      renderer.setSize(w, h, false);
-      camera.aspect = w/h;
-      camera.updateProjectionMatrix();
-      computeExtents();
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    const posAttr = geo.attributes.position;
-
-    function step(){
-      /* canvas parallax at 0.4x: camera drifts UP in world space so particles
-         appear to translate down 0.6× relative to content, netting 0.4× movement */
-      if(!reduceMotion){
-        camera.position.y = smoothY * 0.6 * worldPerPx();
-      }
-
-      if(hasMouse){
-        ray.setFromCamera(mouseNDC, camera);
-        ray.ray.intersectPlane(rayPlane, mouseWorld);
-      } else {
-        mouseWorld.set(99999,99999,0);
-      }
-
-      for(let i=0;i<N;i++){
-        const ix=i*3, iy=i*3+1, iz=i*3+2, ox=i*2, oy=i*2+1;
-        base[ix] += vel[ox];
-        base[iy] += vel[oy];
-        if(base[iy] >  H) base[iy] -= 2*H;
-        if(base[ix] >  W) base[ix] -= 2*W;
-        else if(base[ix] < -W) base[ix] += 2*W;
-        off[ox] *= 0.90; off[oy] *= 0.90;
-        const cx = base[ix]+off[ox], cy = base[iy]+off[oy];
-        const dx = cx-mouseWorld.x, dy = cy-mouseWorld.y;
-        const d2 = dx*dx+dy*dy;
-        if(d2 < R2 && d2 > 0.5){
-          const d = Math.sqrt(d2), f = (1-d/R)*PUSH;
-          off[ox] += (dx/d)*f; off[oy] += (dy/d)*f;
-        }
-        positions[ix] = base[ix]+off[ox];
-        positions[iy] = base[iy]+off[oy];
-        positions[iz] = base[iz];
-      }
-      posAttr.needsUpdate = true;
-      points.rotation.z += 0.0004;
-    }
-
-    if(reduceMotion){
-      renderer.render(threeScene, camera);
-    } else {
-      function loop(){
-        requestAnimationFrame(loop);
-        if(smoothY >= window.innerHeight * 1.1) return; // pause when hero off-screen
-        step();
-        renderer.render(threeScene, camera);
-      }
-      loop();
-    }
-  })();
-
-  /* ── smooth scroll + parallax ─────────────────────────────────────────── */
-  (function(){
-    const wrapper      = document.getElementById('smooth-wrapper');
-    const heroInner    = document.querySelector('.hero-inner');
-    const statNums     = document.querySelectorAll('.stat .num');
-    const statsSection = document.querySelector('.stats');
-    const ppScene      = document.querySelector('.pp-scene');
-    const ppSection    = document.querySelector('.passport');
-
-    /* Make body scrollable so window.scrollY works */
-    function setBodyHeight(){
-      document.body.style.height = wrapper.scrollHeight + 'px';
-    }
-    setBodyHeight();
-    window.addEventListener('resize', setBodyHeight);
-    if(typeof ResizeObserver !== 'undefined'){
-      new ResizeObserver(setBodyHeight).observe(wrapper);
-    }
-
+    function setH(){ document.body.style.height = wrapper.scrollHeight + 'px'; }
+    setH();
+    window.addEventListener('resize', setH);
+    if(typeof ResizeObserver!=='undefined') new ResizeObserver(setH).observe(wrapper);
     if(reduceMotion) return;
-
-    function rafLoop(){
-      requestAnimationFrame(rafLoop);
-
-      /* lerp toward native scroll target */
-      smoothY += (window.scrollY - smoothY) * 0.08;
-
-      /* whole-page weighted scroll */
-      wrapper.style.transform = `translateY(${-smoothY}px)`;
-
-      /* hero headline at 0.85× — translateY pushes it down so it moves slower */
-      if(heroInner){
-        heroInner.style.transform = `translateY(${smoothY * 0.15}px)`;
-      }
-
-      /* stat numbers at 0.95× (relative to their section) */
-      if(statsSection && statNums.length){
-        const rel = smoothY - statsSection.offsetTop;
-        statNums.forEach(n => { n.style.transform = `translateY(${rel * 0.05}px)`; });
-      }
-
-      /* passport scene at 0.9× + up to 2° rotation */
-      if(ppScene && ppSection){
-        const rel = smoothY - ppSection.offsetTop;
-        const rot = Math.max(-2, Math.min(2, rel * 0.004));
-        ppScene.style.transform = `translateY(${rel * 0.1}px) rotate(${rot}deg)`;
-      }
-    }
-    rafLoop();
-  })();
-
-  /* ── custom cursor ────────────────────────────────────────────────────── */
-  (function(){
-    if(reduceMotion) return;
-    if(window.matchMedia('(hover: none)').matches) return;
-    const el = document.getElementById('vane-cursor');
-    if(!el) return;
-
-    document.body.classList.add('has-custom-cursor');
-    let cx = -200, cy = -200, mx = -200, my = -200;
-
-    window.addEventListener('mousemove', e=>{ mx = e.clientX; my = e.clientY; }, { passive:true });
-
-    document.querySelectorAll('.btn, button, .nav a').forEach(b=>{
-      b.addEventListener('mouseenter', ()=> el.classList.add('big'),    { passive:true });
-      b.addEventListener('mouseleave', ()=> el.classList.remove('big'), { passive:true });
-    });
 
     function loop(){
       requestAnimationFrame(loop);
-      cx += (mx - cx) * 0.15;
-      cy += (my - cy) * 0.15;
-      el.style.transform = `translate(${cx}px, ${cy}px)`;
+      smoothY += (window.scrollY - smoothY) * 0.08;
+      wrapper.style.transform = `translateY(${-smoothY}px)`;
+      if(heroInner) heroInner.style.transform = `translateY(${smoothY * 0.12}px)`;
+      if(ppScene && ppSection){
+        const rel = smoothY - ppSection.offsetTop;
+        ppScene.style.transform = `translateY(${rel * 0.1}px) rotate(${Math.max(-2,Math.min(2,rel*.004))}deg)`;
+      }
     }
     loop();
   })();
 
-  /* ── reveal on scroll ─────────────────────────────────────────────────── */
+  /* ── Custom cursor ────────────────────────────────── */
+  (function(){
+    if(reduceMotion || window.matchMedia('(hover:none)').matches) return;
+    const el = document.getElementById('vane-cursor');
+    if(!el) return;
+    document.body.classList.add('has-cursor');
+    let cx=-200,cy=-200,mx=-200,my=-200;
+    window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;},{passive:true});
+    document.querySelectorAll('.btn,button,.nav a,.pg-chip,.pg-issue').forEach(b=>{
+      b.addEventListener('mouseenter',()=>el.classList.add('big'),{passive:true});
+      b.addEventListener('mouseleave',()=>el.classList.remove('big'),{passive:true});
+    });
+    (function tick(){ requestAnimationFrame(tick); cx+=(mx-cx)*.15; cy+=(my-cy)*.15; el.style.transform=`translate(${cx}px,${cy}px)`; })();
+  })();
+
+  /* ── Reveal on scroll ─────────────────────────────── */
   (function(){
     const groups = document.querySelectorAll('[data-reveal]');
     if(reduceMotion){ groups.forEach(g=>g.classList.add('in')); return; }
     const io = new IntersectionObserver(entries=>{
       entries.forEach(e=>{
         if(e.isIntersecting){
-          e.target.querySelectorAll('.r').forEach((it,i)=>{
-            it.style.transitionDelay = (i * 0.12) + 's';
-          });
+          e.target.querySelectorAll('.r').forEach((it,i)=>{ it.style.transitionDelay=(i*.1)+'s'; });
           e.target.classList.add('in');
           io.unobserve(e.target);
         }
       });
-    }, { threshold: 0.18 });
+    },{threshold:.16});
     groups.forEach(g=>io.observe(g));
   })();
 
-  /* ── stat counters ────────────────────────────────────────────────────── */
+  /* ── Stat counters ────────────────────────────────── */
   (function(){
     const counters = document.querySelectorAll('.count');
     function animate(el){
       const target = parseFloat(el.dataset.target);
-      const prefix = el.dataset.prefix || '';
-      const suffix = el.dataset.suffix || '';
-      if(reduceMotion){ el.textContent = prefix+target+suffix; return; }
-      const dur = 1600, start = performance.now();
-      function tick(now){
-        const p = Math.min((now-start)/dur, 1);
-        const val = Math.round(target * (1 - Math.pow(1-p, 3)));
-        el.textContent = prefix + val.toLocaleString('en-US') + suffix;
-        if(p < 1) requestAnimationFrame(tick);
-      }
-      requestAnimationFrame(tick);
+      const prefix = el.dataset.prefix||'', suffix=el.dataset.suffix||'';
+      if(reduceMotion){ el.textContent=prefix+target+suffix; return; }
+      const dur=1600, start=performance.now();
+      (function tick(now){
+        const p=Math.min((now-start)/dur,1);
+        el.textContent=prefix+Math.round(target*(1-Math.pow(1-p,3))).toLocaleString('en-US')+suffix;
+        if(p<1) requestAnimationFrame(tick);
+      })(performance.now());
     }
-    const io = new IntersectionObserver(entries=>{
-      entries.forEach(e=>{
-        if(e.isIntersecting){ animate(e.target); io.unobserve(e.target); }
-      });
-    }, { threshold: 0.5 });
+    const io=new IntersectionObserver(entries=>{
+      entries.forEach(e=>{ if(e.isIntersecting){animate(e.target);io.unobserve(e.target);} });
+    },{threshold:.5});
     counters.forEach(c=>io.observe(c));
   })();
 
-  /* ── passport 3D tilt (on .card, separate from .pp-scene parallax) ───── */
+  /* ── Passport 3D tilt ─────────────────────────────── */
   (function(){
     const card = document.getElementById('passport-card');
-    if(!card || reduceMotion) return;
-    const MAX = 10;
-    const passSection = card.closest('.passport');
+    if(!card||reduceMotion) return;
+    const MAX=10, sec=card.closest('.passport');
     function onMove(e){
-      const r  = card.getBoundingClientRect();
-      const dx = (e.clientX - (r.left + r.width/2))  / (r.width/2);
-      const dy = (e.clientY - (r.top  + r.height/2)) / (r.height/2);
-      const ry = Math.max(-1,Math.min(1,dx)) * MAX;
-      const rx = Math.max(-1,Math.min(1,dy)) * -MAX;
-      card.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+      const r=card.getBoundingClientRect();
+      const dx=(e.clientX-(r.left+r.width/2))/(r.width/2);
+      const dy=(e.clientY-(r.top+r.height/2))/(r.height/2);
+      card.style.transform=`rotateX(${Math.max(-1,Math.min(1,dy))*-MAX}deg) rotateY(${Math.max(-1,Math.min(1,dx))*MAX}deg)`;
     }
-    function reset(){ card.style.transform = 'rotateX(0) rotateY(0)'; }
-    (passSection||document).addEventListener('mousemove', onMove, { passive:true });
-    (passSection||document).addEventListener('mouseleave', reset);
+    function reset(){ card.style.transform='rotateX(0) rotateY(0)'; }
+    (sec||document).addEventListener('mousemove',onMove,{passive:true});
+    (sec||document).addEventListener('mouseleave',reset);
   })();
 
-  /* ── copy to clipboard ────────────────────────────────────────────────── */
+  /* ── Copy npm install ─────────────────────────────── */
   (function(){
-    const btn = document.getElementById('copy-btn');
-    const msg = document.getElementById('copied-msg');
+    const btn=document.getElementById('copy-btn');
+    const msg=document.getElementById('copied-msg');
     if(!btn) return;
-    btn.addEventListener('click', async ()=>{
-      const text = 'npm install @vane.build/sdk';
-      try{ await navigator.clipboard.writeText(text); }
+    btn.addEventListener('click',async()=>{
+      try{ await navigator.clipboard.writeText('npm install @vane.build/sdk'); }
       catch(_){
-        const ta = document.createElement('textarea');
-        ta.value = text; document.body.appendChild(ta);
-        ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        const ta=document.createElement('textarea');
+        ta.value='npm install @vane.build/sdk';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
       }
       msg.classList.add('show');
       clearTimeout(btn._t);
-      btn._t = setTimeout(()=> msg.classList.remove('show'), 2000);
+      btn._t=setTimeout(()=>msg.classList.remove('show'),2000);
     });
   })();
 
-  /* ── logo + nav color follow active section ───────────────────────────── */
+  /* ── Logo + nav follow active section ────────────── */
   (function(){
-    const logo     = document.querySelector('.logo');
-    const nav      = document.querySelector('.nav');
-    const sections = document.querySelectorAll('[data-theme]');
-    if(!logo || !sections.length) return;
-    const io = new IntersectionObserver(entries=>{
+    const logo=document.querySelector('.logo');
+    const nav=document.querySelector('.nav');
+    const sections=document.querySelectorAll('[data-theme]');
+    if(!logo||!sections.length) return;
+    const io=new IntersectionObserver(entries=>{
       entries.forEach(e=>{
-        if(e.isIntersecting && e.intersectionRatio > 0.5){
-          const terra = e.target.getAttribute('data-theme') === 'terra';
-          logo.classList.toggle('on-terra', terra);
-          if(nav) nav.classList.toggle('on-terra', terra);
+        if(e.isIntersecting&&e.intersectionRatio>0.5){
+          const t=e.target.getAttribute('data-theme')==='terra';
+          logo.classList.toggle('on-terra',t);
+          if(nav) nav.classList.toggle('on-terra',t);
         }
       });
-    }, { threshold:[0.5] });
+    },{threshold:[.5]});
     sections.forEach(s=>io.observe(s));
   })();
 
-  /* ── smooth anchor scrolling (rides the weighted-scroll lerp) ─────────── */
+  /* ── Smooth anchor scrolling ──────────────────────── */
   (function(){
     document.querySelectorAll('a[href^="#"]').forEach(a=>{
-      a.addEventListener('click', e=>{
-        const id = a.getAttribute('href').slice(1);
+      a.addEventListener('click',e=>{
+        const id=a.getAttribute('href').slice(1);
         if(!id) return;
-        const target = document.getElementById(id);
+        const target=document.getElementById(id);
         if(!target) return;
         e.preventDefault();
-        window.scrollTo(0, target.offsetTop);   // rafLoop lerps the wrapper toward it
+        window.scrollTo(0,target.offsetTop);
       });
     });
   })();
 
-  /* ── how-it-works: pause the loop + reveal tooltip while hovering agent ── */
-  (function(){
-    const stage = document.querySelector('.htw-stage');
-    if(!stage) return;
-    const agent = stage.querySelector('.htw-agent');
-    if(!agent) return;
-    agent.addEventListener('mouseenter', ()=> stage.classList.add('paused'),    { passive:true });
-    agent.addEventListener('mouseleave', ()=> stage.classList.remove('paused'), { passive:true });
-  })();
+})();
+</script>
 
+<!-- ===================== NAV — dropdowns, hamburger, scroll state ===================== -->
+<script>
+(function(){
+  'use strict';
+  const nav    = document.querySelector('.nav');
+  const burger = document.querySelector('.nav-burger');
+  const mobile = document.getElementById('nav-mobile');
+  const items  = Array.from(document.querySelectorAll('.nav-item.has-dropdown'));
+  if(!nav) return;
+
+  const NAV_H = 84;   /* matches the fixed nav-bar height */
+
+  /* ── Dropdown toggle (click / keyboard / touch) ─────── */
+  function closeDropdowns(except){
+    items.forEach(it=>{
+      if(it===except) return;
+      it.classList.remove('open');
+      const t=it.querySelector('.nav-trigger');
+      if(t) t.setAttribute('aria-expanded','false');
+    });
+  }
+  items.forEach(it=>{
+    const trigger=it.querySelector('.nav-trigger');
+    if(!trigger) return;
+    trigger.addEventListener('click',e=>{
+      e.preventDefault();
+      const willOpen=!it.classList.contains('open');
+      closeDropdowns(it);
+      it.classList.toggle('open',willOpen);
+      trigger.setAttribute('aria-expanded',String(willOpen));
+    });
+  });
+
+  /* ── Hamburger / mobile panel ───────────────────────── */
+  function closeMobile(){
+    if(!mobile||!burger) return;
+    mobile.classList.remove('open');
+    burger.classList.remove('open');
+    burger.setAttribute('aria-expanded','false');
+    burger.setAttribute('aria-label','Open menu');
+  }
+  function openMobile(){
+    if(!mobile||!burger) return;
+    mobile.classList.add('open');
+    burger.classList.add('open');
+    burger.setAttribute('aria-expanded','true');
+    burger.setAttribute('aria-label','Close menu');
+  }
+  if(burger){
+    burger.addEventListener('click',()=>{
+      mobile.classList.contains('open') ? closeMobile() : openMobile();
+    });
+  }
+  window.addEventListener('resize',()=>{ if(window.innerWidth>900) closeMobile(); });
+
+  /* ── In-page smooth scroll for nav links ────────────────
+     Runs in the CAPTURE phase so it executes before the page's
+     generic anchor handler. Using getBoundingClientRect keeps it
+     correct for NESTED targets too (e.g. #attestation lives inside
+     the #how-it-works section, so its offsetTop is relative to the
+     section — the legacy handler would mis-scroll it). It also
+     offsets the fixed bar so targets aren't hidden beneath it. */
+  function scrollToEl(el){
+    const y = Math.max(0, el.getBoundingClientRect().top + window.scrollY - NAV_H);
+    window.scrollTo(0, y);   /* the smooth-wrapper lerps the visual motion */
+  }
+  function onNavLink(e){
+    const a = e.target.closest('a');
+    if(!a) return;                       /* dropdown trigger buttons handled above */
+    closeDropdowns(null);
+    closeMobile();
+    const href = a.getAttribute('href') || '';
+    if(href.charAt(0) === '#'){
+      const target = document.getElementById(href.slice(1));
+      if(target){
+        e.preventDefault();
+        e.stopImmediatePropagation();    /* suppress the legacy offsetTop handler */
+        scrollToEl(target);
+      }
+    }
+    /* external links (target="_blank") fall through to default navigation */
+  }
+  nav.addEventListener('click', onNavLink, true);
+  if(mobile) mobile.addEventListener('click', onNavLink, true);
+
+  /* ── Outside click + Escape close ───────────────────── */
+  document.addEventListener('click',e=>{
+    if(!e.target.closest('.nav-item.has-dropdown')) closeDropdowns(null);
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ closeDropdowns(null); closeMobile(); }
+  });
+
+  /* ── Scrolled state: more opaque past 50px ──────────── */
+  let ticking=false;
+  function onScroll(){
+    if(ticking) return;
+    ticking=true;
+    requestAnimationFrame(()=>{
+      nav.classList.toggle('scrolled',window.scrollY>50);
+      ticking=false;
+    });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  onScroll();
 })();
 </script>
 </body>
