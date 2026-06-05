@@ -23,9 +23,6 @@
 <!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-<!-- Cal.com inline embed -->
-<script src="https://cal.com/embed.js"></script>
-
 <!-- Fonts — Bricolage Grotesque (variable grotesque) + Geist Mono -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -2382,23 +2379,46 @@ function hideResult() {
 
 <!-- ===================== CAL.COM INIT ===================== -->
 <script>
-(function(){
-  function initCal(){
-    if(typeof Cal === 'undefined') return;
-    Cal("inline", {
-      elementOrSelector: "#cal-booking",
-      calLink: "pablo-gonzalez-g12ly2/vane-demo",
-      layout: "month_view"
-    });
-  }
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', initCal);
-  } else {
-    initCal();
-  }
-  /* retry once in case embed.js finishes after DOMContentLoaded */
-  window.addEventListener('load', initCal);
-})();
+(function (C, A, L) {
+  let p = function (a, ar) { a.q.push(ar); };
+  let d = C.document;
+  C.Cal = C.Cal || function () {
+    let cal = C.Cal;
+    let ar = arguments;
+    if (!cal.loaded) {
+      cal.ns = {};
+      cal.q = cal.q || [];
+      d.head.appendChild(d.createElement("script")).src = A;
+      cal.loaded = true;
+    }
+    if (ar[0] === L) {
+      const api = function () { p(api, arguments); };
+      const namespace = ar[1];
+      api.q = [];
+      if (typeof namespace === "string") {
+        cal.ns[namespace] = cal.ns[namespace] || api;
+        p(cal.ns[namespace], ar);
+        p(cal, [L, api]);
+      } else {
+        p(cal, ar);
+      }
+      return;
+    }
+    p(cal, ar);
+  };
+})(window, "https://app.cal.com/embed/embed.js", "init");
+
+Cal("init", { origin: "https://cal.com" });
+Cal("inline", {
+  elementOrSelector: "#cal-booking",
+  calLink: "pablo-gonzalez-g12ly2/vane-demo",
+  layout: "month_view"
+});
+Cal("ui", {
+  theme: "light",
+  styles: { branding: { brandColor: "#b5451b" } },
+  hideEventTypeDetails: false,
+});
 </script>
 
 <!-- ===================== NAV — dropdowns, hamburger, scroll state ===================== -->
