@@ -187,8 +187,7 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
       return { valid: false, error: 'Use verifyAsync for cross-org tokens', code: 'CROSS_ORG_NOT_ACCEPTED' };
     }
     const result = verifyPassport(token, vanePublicKey, verifyOpts);
-    if (!result.valid) return result;
-    return { ...result, tokenType: 'passport' };
+    return result;
   }
 
   /**
@@ -213,9 +212,7 @@ export function createVaneMiddleware(opts: VaneMiddlewareOptions) {
       return verifyCrossOrgToken(token, originPublicKey, { ...verifyOpts, expectedTargetOrg });
     }
 
-    const result = verifyPassport(token, vanePublicKey, verifyOpts);
-    if (!result.valid) return result;
-    return { ...result, tokenType: 'passport' };
+    return verifyPassport(token, vanePublicKey, verifyOpts);
   }
 
   /**

@@ -234,7 +234,7 @@ function verifyPassportImpl(
     scopeGranted = scopes[0];
   }
 
-  return { valid: true, claims: rawClaims as unknown as VanePassportClaims, scopeGranted };
+  return { valid: true, claims: rawClaims as unknown as VanePassportClaims, scopeGranted, tokenType: 'passport' as const };
 }
 
 /**

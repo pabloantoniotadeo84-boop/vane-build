@@ -1,6 +1,6 @@
 {
   "name": "@vane.build/langchain",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "LangChain callback handler that attests every tool call and LLM call to Vane",
   "type": "module",
   "main": "./dist/index.js",

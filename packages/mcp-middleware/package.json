@@ -1,6 +1,6 @@
 {
   "name": "@vane.build/mcp-middleware",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Drop-in MCP middleware for offline Vane Agent Passport verification",
   "type": "module",
   "main": "./dist/index.js",
