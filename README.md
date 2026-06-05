@@ -223,6 +223,7 @@ More detail: [docs.vane.build/eu-ai-act](https://docs.vane.build/eu-ai-act)
 - [GitHub](https://github.com/vane-build/vane)
 - [vane.build](https://vane.build)
 - hello@vane.build
+- [Book a demo](https://cal.com/pablo-gonzalez-gl12ly2/vane-demo)
 
 ---
 

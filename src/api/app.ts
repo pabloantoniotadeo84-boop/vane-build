@@ -200,6 +200,35 @@ app.get('/', async (c) => {
   return c.html(html);
 });
 
+// ── Static assets from public/ ────────────────────────────────────────────────
+
+const PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../public');
+
+const STATIC_MIME: Record<string, string> = {
+  js:   'application/javascript',
+  css:  'text/css',
+  png:  'image/png',
+  svg:  'image/svg+xml',
+  json: 'application/json',
+  ico:  'image/x-icon',
+  webp: 'image/webp',
+};
+
+app.get('/:filename', async (c) => {
+  const filename = c.req.param('filename');
+  if (filename.includes('..')) return c.json({ error: 'Not Found' }, 404);
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  const contentType = STATIC_MIME[ext] ?? 'application/octet-stream';
+  try {
+    const data = await readFile(resolve(PUBLIC_DIR, filename));
+    c.header('Content-Type', contentType);
+    c.header('Cache-Control', 'public, max-age=3600');
+    return c.body(data);
+  } catch {
+    return c.json({ error: 'Not Found' }, 404);
+  }
+});
+
 // ── Auth middleware ───────────────────────────────────────────────────────────
 // Resolution order:
 //   1. mTLS client certificate CN → companyId (when VANE_MTLS_CA_CERT is set)

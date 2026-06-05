@@ -23,6 +23,9 @@
 <!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
+<!-- Cal.com inline embed -->
+<script src="https://cal.com/embed.js"></script>
+
 <!-- Fonts — Bricolage Grotesque (variable grotesque) + Geist Mono -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1207,7 +1210,7 @@ body {
 /* ============================================================
    CONTACT — warm gray
    ============================================================ */
-.contact { background:var(--warm-gray); color:var(--navy); text-align:center; align-items:center; }
+.contact { background:var(--warm-gray); color:var(--navy); }
 .contact h2 {
   font-weight:800;
   font-size:clamp(2.2rem,5.5vw,4.2rem);
@@ -1216,8 +1219,17 @@ body {
   color:var(--navy);
   max-width:20ch;
 }
-.contact-actions { margin-top:2.8rem; display:flex; gap:.9rem; justify-content:center; flex-wrap:wrap; }
+.contact-grid { display:grid; grid-template-columns:1fr 1.4fr; gap:5vw; align-items:start; width:100%; }
+.contact-actions { margin-top:2.8rem; display:flex; gap:.9rem; flex-wrap:wrap; }
 .contact-fine { margin-top:1.8rem; font-family:var(--font-mono); font-size:.76rem; letter-spacing:.08em; color:var(--ink-body); }
+.contact-book { margin-top:.9rem; font-family:var(--font-mono); font-size:.7rem; letter-spacing:.04em; color:var(--ink-body); line-height:1.55; }
+.contact-book a { color:var(--clay); text-decoration:none; }
+.contact-book a:hover { text-decoration:underline; }
+.cal-wrap { border:1px solid var(--navy); background:var(--off-white); min-height:600px; overflow:hidden; }
+#cal-booking { min-height:600px; width:100%; }
+.price-demo-link { margin-top:1rem; font-family:var(--font-mono); font-size:.68rem; letter-spacing:.03em; color:var(--ink-body); line-height:1.55; text-align:center; }
+.price-demo-link a { color:var(--clay); text-decoration:none; }
+.price-demo-link a:hover { text-decoration:underline; }
 
 /* ============================================================
    FOOTER — warm gray
@@ -1282,6 +1294,9 @@ body.has-cursor button { cursor:none !important; }
   .price-grid         { grid-template-columns:1fr; gap:2rem; max-width:440px; }
   .price-card.startup { transform:none; }
   .sec-grid           { grid-template-columns:1fr; gap:2.2rem; }
+  .contact-grid       { grid-template-columns:1fr; gap:3rem; }
+  .contact-grid .contact-left { text-align:center; }
+  .contact-grid .contact-actions { justify-content:center; }
   footer .inner       { grid-template-columns:1fr; text-align:center; gap:1.3rem; }
   footer .f-logo,
   footer .built,
@@ -1693,6 +1708,7 @@ body.has-cursor button { cursor:none !important; }
         <li>On-premise option</li>
       </ul>
       <a class="btn price-btn btn-navy" href="mailto:pablo@vane.build">Contact us</a>
+      <p class="price-demo-link">Or book a 30-minute demo directly:<br><a href="https://cal.com/pablo-gonzalez-gl12ly2/vane-demo" target="_blank" rel="noopener noreferrer">cal.com/pablo-gonzalez-gl12ly2/vane-demo →</a></p>
     </div>
   </div>
 </section>
@@ -1764,12 +1780,22 @@ body.has-cursor button { cursor:none !important; }
 
 <!-- ===================== CONTACT ===================== -->
 <section class="section contact" id="contact" data-theme="paper" data-reveal>
-  <h2 class="r">Ready to give your agents identity?</h2>
-  <div class="contact-actions r">
-    <a class="btn btn-clay"         href="https://docs.vane.build">Start building</a>
-    <a class="btn btn-outline-navy" href="mailto:pablo@vane.build">Talk to us</a>
+  <div class="contact-grid">
+    <div class="contact-left r">
+      <h2>Ready to give your agents identity?</h2>
+      <div class="contact-actions">
+        <a class="btn btn-clay"         href="https://docs.vane.build">Start building</a>
+        <a class="btn btn-outline-navy" href="mailto:pablo@vane.build">Talk to us</a>
+      </div>
+      <p class="contact-fine">pablo@vane.build &middot; Response within 24 hours.</p>
+      <p class="contact-book">Or book a 30-minute demo directly:<br><a href="https://cal.com/pablo-gonzalez-gl12ly2/vane-demo" target="_blank" rel="noopener noreferrer">cal.com/pablo-gonzalez-gl12ly2/vane-demo →</a></p>
+    </div>
+    <div class="r">
+      <div class="cal-wrap">
+        <div id="cal-booking" data-cal-link="pablo-gonzalez-gl12ly2/vane-demo" data-cal-config='{"layout":"month_view"}'></div>
+      </div>
+    </div>
   </div>
-  <p class="contact-fine r">Response within 24 hours.</p>
 </section>
 
 <!-- ===================== FOOTER ===================== -->
@@ -2351,6 +2377,27 @@ function hideResult() {
     });
   })();
 
+})();
+</script>
+
+<!-- ===================== CAL.COM INIT ===================== -->
+<script>
+(function(){
+  function initCal(){
+    if(typeof Cal === 'undefined') return;
+    Cal("inline", {
+      elementOrSelector: "#cal-booking",
+      calLink: "pablo-gonzalez-gl12ly2/vane-demo",
+      layout: "month_view"
+    });
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initCal);
+  } else {
+    initCal();
+  }
+  /* retry once in case embed.js finishes after DOMContentLoaded */
+  window.addEventListener('load', initCal);
 })();
 </script>
 
