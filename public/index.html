@@ -1254,7 +1254,12 @@ footer .built { text-align:right; font-family:var(--font-mono); font-size:.76rem
 /* ============================================================
    SMOOTH SCROLL WRAPPER
    ============================================================ */
-#smooth-wrapper { position:fixed; top:0; left:0; width:100%; will-change:transform; }
+/* The fixed positioning + JS transform is a desktop-only smooth-scroll effect.
+   It is activated (via the body.smooth-scroll class) only on fine-pointer
+   devices, because a position:fixed wrapper has no native touch scrolling — on
+   touch devices this would lock the whole page. See the smooth-scroll script.
+   Without the class the wrapper stays in normal flow and scrolls natively. */
+body.smooth-scroll #smooth-wrapper { position:fixed; top:0; left:0; width:100%; will-change:transform; }
 
 /* ============================================================
    CUSTOM CURSOR
@@ -2218,11 +2223,21 @@ function hideResult() {
     const ppSection = document.querySelector('.passport');
     if (!wrapper) return;
 
+    /* The smooth-scroll effect fixes #smooth-wrapper in place and drives it with
+       a JS transform. A position:fixed element cannot be scrolled by touch, so on
+       touch / coarse-pointer devices this technique leaves the page completely
+       unscrollable. Enable it only on fine-pointer (mouse) devices, and never
+       under reduced motion. Otherwise the wrapper stays in normal document flow
+       and the browser handles scrolling natively. */
+    const canSmooth = !reduceMotion && window.matchMedia('(pointer: fine)').matches;
+    if(!canSmooth) return;
+
+    document.body.classList.add('smooth-scroll');
+
     function setH(){ document.body.style.height = wrapper.scrollHeight + 'px'; }
     setH();
     window.addEventListener('resize', setH);
     if(typeof ResizeObserver!=='undefined') new ResizeObserver(setH).observe(wrapper);
-    if(reduceMotion) return;
 
     function loop(){
       requestAnimationFrame(loop);
