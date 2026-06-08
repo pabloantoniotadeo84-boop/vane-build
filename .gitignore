@@ -34,3 +34,18 @@ next-env.d.ts
 *.db
 *.sqlite
 *.sqlite3
+
+# Cryptographic keys (non-pem formats)
+*.key
+*.p12
+*.pfx
+
+# SQLite WAL mode auxiliary files
+*.db-shm
+*.db-wal
+
+# Test coverage output
+coverage/
+
+# Railway CLI
+.railway/
