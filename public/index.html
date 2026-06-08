@@ -1317,6 +1317,81 @@ body.has-cursor button { cursor:none !important; }
 }
 
 /* ============================================================
+   MOBILE — comprehensive pass
+   These blocks come after the legacy 1000/900/560 queries so they
+   win the cascade on equal specificity. Desktop styles untouched.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Section rhythm */
+  .section { padding: 8vh 6vw; }
+  .sec-num { top: 8vh; left: 6vw; }
+
+  /* HERO */
+  .hero-layout         { padding-left: 6vw; padding-right: 6vw; }
+  .hero-copy h1        { font-size: clamp(2.6rem, 13vw, 3.5rem); }
+  .hero-copy p.lede    { font-size: clamp(1rem, 4vw, 1.25rem); max-width: 100%; }
+  .hero-copy .actions  { flex-direction: column; align-items: stretch; gap: .8rem; }
+  .hero-copy .actions .btn {
+    width: 100%;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* THREE.JS MERKLE — hide the heavy 3D canvas, show the static SVG.
+     The JS also early-returns on mobile so Three.js never loads. */
+  .merkle-wrap                { height: auto; }
+  .merkle-wrap #merkle-canvas,
+  .merkle-wrap #merkle-labels { display: none; }
+  .merkle-static              { display: block; }
+  .merkle-controls            { margin-top: 2rem; }
+
+  /* CODE SNIPPET — never overflow horizontally */
+  .code-card     { padding: 1.4rem 1.2rem; }
+  .code-card pre { white-space: pre-wrap; word-break: break-word; font-size: .8rem; }
+
+  /* CAL.COM EMBED */
+  .cal-wrap, #cal-booking { min-height: 500px; }
+
+  /* TOUCH TARGETS — Apple 44px minimum */
+  .merkle-btn,
+  .pg-verify, .pg-tamper, .pg-copy {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pg-issue                   { min-height: 52px; }
+  .pg-chip                    { min-height: 40px; display: inline-flex; align-items: center; }
+  .nav-mobile a               { min-height: 44px; display: flex; align-items: center; }
+  .nav-mobile .mob-actions a  { min-height: 48px; justify-content: center; }
+  footer .links a             { display: inline-block; padding: .5rem .35rem; }
+}
+
+/* Coarse pointer (touch) — kill the passport parallax/tilt entirely */
+@media (pointer: coarse) {
+  .card { transform: none !important; }
+}
+
+@media (max-width: 480px) {
+  .section          { padding: 7vh 6vw; }
+  .hero-copy h1     { font-size: clamp(2.2rem, 12.5vw, 3rem); }
+  .hero-copy p.lede { font-size: 1.02rem; }
+
+  /* Passport card — tighten field rows so values don't crush */
+  .card .row    { grid-template-columns: 92px 1fr; gap: .7rem; }
+  .card .fields { padding: 1.3rem 1.1rem .9rem; }
+  .card .top    { padding: .75rem 1.1rem; }
+
+  /* Stats — single column already; cap the number scale */
+  .stat .num    { font-size: clamp(3rem, 18vw, 5rem); }
+
+  /* Pricing — let the single column use full width */
+  .price-grid   { max-width: 100%; }
+}
+
+/* ============================================================
    REDUCED MOTION
    ============================================================ */
 @media (prefers-reduced-motion:reduce) {
@@ -1946,6 +2021,11 @@ function hideResult() {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduceMotion) return;
 
+  /* Mobile: the CSS hides the canvas and shows the static SVG fallback,
+     so skip loading Three.js entirely — it's too heavy for phones. */
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  if (isMobile) return;
+
   const canvas = document.getElementById('merkle-canvas');
   if (!canvas) return;
 
@@ -2287,6 +2367,8 @@ function hideResult() {
   (function(){
     const card = document.getElementById('passport-card');
     if(!card||reduceMotion) return;
+    /* Skip tilt on touch / coarse-pointer devices (CSS also resets the transform) */
+    if(window.matchMedia('(pointer: coarse)').matches) return;
     const MAX=10, sec=card.closest('.passport');
     function onMove(e){
       const r=card.getBoundingClientRect();
