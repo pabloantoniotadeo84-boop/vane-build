@@ -968,6 +968,8 @@ body {
   text-align: left;
   box-shadow: 0 28px 56px rgba(10,22,40,.16);
   transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   transition: transform .15s ease-out;
   will-change: transform;
 }
@@ -1261,7 +1263,10 @@ footer .built { text-align:right; font-family:var(--font-mono); font-size:.76rem
   position:fixed; top:0; left:0;
   width:8px; height:8px;
   margin:-4px 0 0 -4px;
-  background:var(--clay);
+  background:#b5451b;
+  opacity:.9;
+  /* contrasting ring so the terracotta dot stays visible on terracotta sections */
+  box-shadow:0 0 0 1.5px rgba(245,240,232,.9);
   border-radius:50%;
   pointer-events:none;
   z-index:9999;
@@ -1358,7 +1363,6 @@ body.has-cursor button { cursor:none !important; }
         <a role="menuitem" href="#security">Cryptography</a>
         <a role="menuitem" href="#security">Merkle Tree</a>
         <a role="menuitem" href="#eu-act">EU AI Act</a>
-        <a role="menuitem" href="#security">SOC 2</a>
       </div>
     </li>
     <li class="nav-item has-dropdown">
@@ -1366,19 +1370,15 @@ body.has-cursor button { cursor:none !important; }
       <div class="nav-dropdown" role="menu">
         <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation <span class="ext" aria-hidden="true">↗</span></a>
         <a role="menuitem" href="https://npmjs.com/package/@vane.build/sdk" target="_blank" rel="noopener noreferrer">npm Package <span class="ext" aria-hidden="true">↗</span></a>
-        <a role="menuitem" href="https://github.com/pabloantoniotadeo84-boop/counsel" target="_blank" rel="noopener noreferrer">GitHub <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://github.com/vane-build/vane" target="_blank" rel="noopener noreferrer">GitHub <span class="ext" aria-hidden="true">↗</span></a>
         <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">SDK Reference <span class="ext" aria-hidden="true">↗</span></a>
       </div>
     </li>
     <li class="nav-item">
       <a class="nav-trigger" href="#pricing">Pricing</a>
     </li>
-    <li class="nav-item has-dropdown">
-      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Company <span class="caret" aria-hidden="true"></span></button>
-      <div class="nav-dropdown" role="menu">
-        <a role="menuitem" href="#footer">Our Story</a>
-        <a role="menuitem" href="#contact">Contact</a>
-      </div>
+    <li class="nav-item">
+      <a class="nav-trigger" href="#contact">Contact</a>
     </li>
   </ul>
 
@@ -1406,13 +1406,12 @@ body.has-cursor button { cursor:none !important; }
     <a href="#security">Cryptography</a>
     <a href="#security">Merkle Tree</a>
     <a href="#eu-act">EU AI Act</a>
-    <a href="#security">SOC 2</a>
   </div>
   <div class="mob-group">
     <div class="mob-head">Developers</div>
     <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation ↗</a>
     <a href="https://npmjs.com/package/@vane.build/sdk" target="_blank" rel="noopener noreferrer">npm Package ↗</a>
-    <a href="https://github.com/pabloantoniotadeo84-boop/counsel" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+    <a href="https://github.com/vane-build/vane" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
     <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">SDK Reference ↗</a>
   </div>
   <div class="mob-group">
@@ -1420,8 +1419,7 @@ body.has-cursor button { cursor:none !important; }
     <a href="#pricing">Pricing</a>
   </div>
   <div class="mob-group">
-    <div class="mob-head">Company</div>
-    <a href="#footer">Our Story</a>
+    <div class="mob-head">Contact</div>
     <a href="#contact">Contact</a>
   </div>
   <div class="mob-actions">
@@ -1512,31 +1510,6 @@ body.has-cursor button { cursor:none !important; }
     <div class="track"><span class="dot"></span></div>
     <span class="label">SCROLL</span>
   </div>
-</section>
-
-<!-- ===================== STATISTICS ===================== -->
-<section class="section stats" data-theme="paper" data-reveal>
-  <div class="rule r"></div>
-  <div class="stats-grid">
-    <div class="stat r">
-      <div class="num count" data-target="88" data-suffix="%">0%</div>
-      <div class="lab">of enterprises already breached by ungoverned agents</div>
-    </div>
-    <div class="stat r">
-      <div class="num count" data-target="97" data-suffix="%">0%</div>
-      <div class="lab">of breached organizations lacked AI access controls</div>
-    </div>
-    <div class="stat r">
-      <div class="num count" data-target="670" data-prefix="$" data-suffix="K">$0K</div>
-      <div class="lab">added to breach cost by shadow AI per incident</div>
-    </div>
-    <div class="stat r">
-      <div class="num count" data-target="2000" data-suffix="+">0+</div>
-      <div class="lab">AI legal claims projected by end of 2026 (Gartner)</div>
-    </div>
-  </div>
-  <div class="sources r">Sources: IBM Cost of a Data Breach 2025, Gartner 2026, CSA Research April 2026</div>
-  <p class="summary r">AI agents are already acting inside your infrastructure. The question is whether you know what they are doing.</p>
 </section>
 
 <!-- ===================== PROBLEM //01 ===================== -->
@@ -1679,7 +1652,7 @@ body.has-cursor button { cursor:none !important; }
         <li>Community support</li>
         <li><span class="mono">npm install @vane.build/sdk</span></li>
       </ul>
-      <a class="btn price-btn btn-clay" href="https://docs.vane.build">Start free</a>
+      <a class="btn price-btn btn-clay" href="#contact">Request Access</a>
     </div>
     <div class="price-card startup r">
       <div class="tier">Startup</div>
@@ -1689,9 +1662,9 @@ body.has-cursor button { cursor:none !important; }
         <li>Unlimited agents</li>
         <li>Webhook notifications</li>
         <li>Email support</li>
-        <li>14-day free trial</li>
+        <li>Trial available on request</li>
       </ul>
-      <a class="btn price-btn btn-light" href="https://docs.vane.build">Start trial</a>
+      <a class="btn price-btn btn-light" href="#contact">Request Access</a>
     </div>
     <div class="price-card ent r">
       <div class="tier">Enterprise</div>
@@ -1699,7 +1672,7 @@ body.has-cursor button { cursor:none !important; }
       <ul class="features">
         <li>Unlimited attestations</li>
         <li>SLA guarantees</li>
-        <li>SOC 2 report</li>
+        <li>Security documentation &amp; review</li>
         <li>Dedicated support</li>
         <li>Custom data retention</li>
         <li>On-premise option</li>
@@ -1731,7 +1704,7 @@ body.has-cursor button { cursor:none !important; }
       <p>Passports verify with only the CA public key. No network call to Vane required.</p>
     </div>
   </div>
-  <p class="sec-foot r">SOC 2 Type II audit in progress. Responsible disclosure: security@vane.build</p>
+  <p class="sec-foot r">Security documentation available on request. Responsible disclosure: security@vane.build</p>
 </section>
 
 <!-- ===================== EU AI ACT //05 ===================== -->
@@ -1739,24 +1712,31 @@ body.has-cursor button { cursor:none !important; }
   <span class="sec-num">//05</span>
   <div class="euact-grid">
     <div>
-      <div class="eyebrow r">In force August 2026</div>
+      <div class="eyebrow r">Regulatory deadline approaching</div>
       <h2 class="r">Regulators are watching.</h2>
       <p class="body r">
-        The EU AI Act requires verifiable runtime proof that AI governance held at the
-        moment of execution. Not logs. Not documentation. Proof. Vane produces that proof
-        on every agent action.
+        The EU AI Act requires deployers of high-risk AI systems to maintain tamper-evident
+        records of automated decisions — who authorized what, and when. Not screenshots. Not
+        hope. Cryptographic proof that the right agent did the right thing, with the right
+        authorization, at the right time. Vane produces that record on every action —
+        verifiable by anyone, with no trust in Vane's servers required.
       </p>
     </div>
     <div class="timeline r">
       <div class="tl-item muted">
         <span class="pt"></span>
-        <div class="date">Feb 2, 2025</div>
-        <div class="ev">Prohibited-practice rules apply</div>
+        <div class="date">Feb 2025</div>
+        <div class="ev">Prohibited AI practices banned</div>
       </div>
       <div class="tl-item">
         <span class="pt"></span>
-        <div class="date">Aug 2, 2026</div>
-        <div class="ev">Full enforcement begins</div>
+        <div class="date">Aug 2026</div>
+        <div class="ev">Transparency obligations begin</div>
+      </div>
+      <div class="tl-item">
+        <span class="pt"></span>
+        <div class="date">Dec 2027</div>
+        <div class="ev">High-risk AI compliance deadline</div>
       </div>
     </div>
   </div>
@@ -1781,7 +1761,7 @@ body.has-cursor button { cursor:none !important; }
     <div class="contact-left r">
       <h2>Ready to give your agents identity?</h2>
       <div class="contact-actions">
-        <a class="btn btn-clay"         href="https://docs.vane.build">Start building</a>
+        <a class="btn btn-clay"         href="#contact">Request Access</a>
         <a class="btn btn-outline-navy" href="mailto:pablo@vane.build">Talk to us</a>
       </div>
       <p class="contact-fine">pablo@vane.build &middot; Response within 24 hours.</p>
@@ -1812,7 +1792,7 @@ body.has-cursor button { cursor:none !important; }
     </div>
     <div class="links">
       <a href="https://docs.vane.build">docs.vane.build</a> ·
-      <a href="https://github.com/vane-build">GitHub</a> ·
+      <a href="https://github.com/vane-build/vane">GitHub</a> ·
       <a href="https://npmjs.com/package/@vane.build/sdk">npm</a> ·
       <a href="https://x.com/vane_build">@vane.build</a>
     </div>
@@ -2251,7 +2231,7 @@ function hideResult() {
       if(heroInner) heroInner.style.transform = `translateY(${smoothY * 0.12}px)`;
       if(ppScene && ppSection){
         const rel = smoothY - ppSection.offsetTop;
-        ppScene.style.transform = `translateY(${rel * 0.1}px) rotate(${Math.max(-2,Math.min(2,rel*.004))}deg)`;
+        ppScene.style.transform = `translateY(${rel * 0.1}px)`;
       }
     }
     loop();
@@ -2286,26 +2266,6 @@ function hideResult() {
       });
     },{threshold:.16});
     groups.forEach(g=>io.observe(g));
-  })();
-
-  /* ── Stat counters ────────────────────────────────── */
-  (function(){
-    const counters = document.querySelectorAll('.count');
-    function animate(el){
-      const target = parseFloat(el.dataset.target);
-      const prefix = el.dataset.prefix||'', suffix=el.dataset.suffix||'';
-      if(reduceMotion){ el.textContent=prefix+target+suffix; return; }
-      const dur=1600, start=performance.now();
-      (function tick(now){
-        const p=Math.min((now-start)/dur,1);
-        el.textContent=prefix+Math.round(target*(1-Math.pow(1-p,3))).toLocaleString('en-US')+suffix;
-        if(p<1) requestAnimationFrame(tick);
-      })(performance.now());
-    }
-    const io=new IntersectionObserver(entries=>{
-      entries.forEach(e=>{ if(e.isIntersecting){animate(e.target);io.unobserve(e.target);} });
-    },{threshold:.5});
-    counters.forEach(c=>io.observe(c));
   })();
 
   /* ── Passport 3D tilt ─────────────────────────────── */
