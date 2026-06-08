@@ -1252,14 +1252,15 @@ footer .links a:hover { color:var(--clay); opacity:1; }
 footer .built { text-align:right; font-family:var(--font-mono); font-size:.76rem; letter-spacing:.06em; color:var(--ink-body); }
 
 /* ============================================================
-   SMOOTH SCROLL WRAPPER
+   SMOOTH SCROLL — LENIS
    ============================================================ */
-/* The fixed positioning + JS transform is a desktop-only smooth-scroll effect.
-   It is activated (via the body.smooth-scroll class) only on fine-pointer
-   devices, because a position:fixed wrapper has no native touch scrolling — on
-   touch devices this would lock the whole page. See the smooth-scroll script.
-   Without the class the wrapper stays in normal flow and scrolls natively. */
-body.smooth-scroll #smooth-wrapper { position:fixed; top:0; left:0; width:100%; will-change:transform; }
+/* Smooth scrolling is handled by Lenis (init block just before </body>).
+   Lenis scrolls the window natively, so #smooth-wrapper stays in normal
+   document flow — no fixed positioning and no fake body height needed.
+   Lenis's stylesheet sets `.lenis.lenis-smooth iframe { pointer-events:none }`
+   so iframes don't swallow wheel events; re-enable it for the Cal.com booking
+   embed (a runtime-injected iframe) so the demo scheduler stays clickable. */
+.lenis.lenis-smooth #cal-booking iframe { pointer-events: auto; }
 
 /* ============================================================
    CUSTOM CURSOR
@@ -1407,6 +1408,9 @@ body.has-cursor button { cursor:none !important; }
   .merkle-static { display:block; }
 }
 </style>
+
+<!-- Lenis base stylesheet (v1.1.14 ships dist/lenis.css; dist/lenis.min.css does not exist) -->
+<link rel="stylesheet" href="https://unpkg.com/lenis@1.1.14/dist/lenis.css" />
 </head>
 <body>
 
@@ -2283,7 +2287,6 @@ function hideResult() {
 (function(){
   'use strict';
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let smoothY = 0;
 
   /* ── Passport timestamps ──────────────────────────── */
   (function(){
@@ -2296,71 +2299,9 @@ function hideResult() {
   })();
 
   /* ── Smooth scroll + parallax ─────────────────────── */
-  (function(){
-    const wrapper   = document.getElementById('smooth-wrapper');
-    const heroInner = document.querySelector('.hero-layout');
-    const ppScene   = document.querySelector('.pp-scene');
-    const ppSection = document.querySelector('.passport');
-    if (!wrapper) return;
-
-    /* The smooth-scroll effect fixes #smooth-wrapper in place and drives it with
-       a JS transform. A position:fixed element cannot be scrolled by touch, so on
-       touch / coarse-pointer devices this technique leaves the page completely
-       unscrollable. Enable it only on fine-pointer (mouse) devices, and never
-       under reduced motion. Otherwise the wrapper stays in normal document flow
-       and the browser handles scrolling natively. */
-    const canSmooth = !reduceMotion && window.matchMedia('(pointer: fine)').matches;
-    if(!canSmooth) return;
-
-    document.body.classList.add('smooth-scroll');
-
-    function setH(){ document.body.style.height = wrapper.scrollHeight + 'px'; }
-    setH();
-    window.addEventListener('resize', setH);
-    if(typeof ResizeObserver!=='undefined') new ResizeObserver(setH).observe(wrapper);
-
-    /* Lerp factor: how fast the wrapper catches up to the real scroll
-       position each frame. Lower = heavier/slower. 0.09 gives a weighted,
-       premium feel without sluggishness. */
-    const LERP  = 0.09;
-    /* Velocity momentum: track the per-frame scroll delta so that when the
-       user stops scrolling the wrapper coasts on its last velocity, decaying
-       by DECAY each frame until it drops below MIN_VELOCITY. This gives the
-       "heavy object slowing down" settle. */
-    const DECAY        = 0.85;
-    const MIN_VELOCITY = 0.1;
-    let lastScrollY = window.scrollY;
-    let velocity    = 0;
-
-    function loop(){
-      requestAnimationFrame(loop);
-      const target     = window.scrollY;
-      const inputDelta = target - lastScrollY;
-      lastScrollY = target;
-
-      if (Math.abs(inputDelta) > MIN_VELOCITY) {
-        /* Actively scrolling — record the input velocity and lerp toward it. */
-        velocity = inputDelta;
-        smoothY += (target - smoothY) * LERP;
-      } else if (Math.abs(velocity) >= MIN_VELOCITY) {
-        /* Released — coast on the decaying velocity while the lerp still
-           reels smoothY back to the true target, producing a settle. */
-        velocity *= DECAY;
-        smoothY += (target - smoothY) * LERP + velocity;
-      } else {
-        velocity = 0;
-        smoothY += (target - smoothY) * LERP;
-      }
-
-      wrapper.style.transform = `translateY(${-smoothY}px)`;
-      if(heroInner) heroInner.style.transform = `translateY(${smoothY * 0.12}px)`;
-      if(ppScene && ppSection){
-        const rel = smoothY - ppSection.offsetTop;
-        ppScene.style.transform = `translateY(${rel * 0.1}px)`;
-      }
-    }
-    loop();
-  })();
+  /* Now handled by Lenis — see the init block just before </body>. The old
+     custom rAF lerp + fixed-#smooth-wrapper transform has been removed in
+     favor of the library; the parallax was ported into that same block. */
 
   /* ── Custom cursor ────────────────────────────────── */
   (function(){
@@ -2572,7 +2513,7 @@ Cal("ui", {
      offsets the fixed bar so targets aren't hidden beneath it. */
   function scrollToEl(el){
     const y = Math.max(0, el.getBoundingClientRect().top + window.scrollY - NAV_H);
-    window.scrollTo(0, y);   /* the smooth-wrapper lerps the visual motion */
+    window.scrollTo(0, y);   /* native jump; Lenis adopts this scroll position */
   }
   function onNavLink(e){
     const a = e.target.closest('a');
@@ -2614,6 +2555,48 @@ Cal("ui", {
   window.addEventListener('scroll',onScroll,{passive:true});
   onScroll();
 })();
+</script>
+
+<!-- ===================== LENIS — smooth scroll ===================== -->
+<script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
+<script>
+  (function () {
+    /* Respect reduced-motion: skip smoothing + parallax, keep native scroll. */
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (typeof Lenis === 'undefined') return;
+
+    const lenis = new Lenis({
+      duration: 1.0,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      smoothTouch: false,
+    });
+
+    function raf(time) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+
+    /* ── Parallax — fine-pointer (mouse) only, mirroring the original effect.
+       Original multipliers preserved exactly (they reproduce the old
+       wrapper-compensation parallax 1:1):
+         .hero-layout → scroll * 0.12                       (absolute)
+         .pp-scene    → (scroll − passport.offsetTop) * 0.1 (relative to its section)
+       Selectors cached outside the listener so they aren't re-queried per event. */
+    if (window.matchMedia('(pointer: fine)').matches) {
+      const heroInner = document.querySelector('.hero-layout');
+      const ppScene   = document.querySelector('.pp-scene');
+      const ppSection = document.querySelector('.passport');
+
+      lenis.on('scroll', ({ scroll }) => {
+        if (heroInner) heroInner.style.transform = `translateY(${scroll * 0.12}px)`;
+        if (ppScene && ppSection) {
+          ppScene.style.transform = `translateY(${(scroll - ppSection.offsetTop) * 0.1}px)`;
+        }
+      });
+    }
+  })();
 </script>
 </body>
 </html>
