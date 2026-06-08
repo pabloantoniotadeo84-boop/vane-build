@@ -2319,9 +2319,39 @@ function hideResult() {
     window.addEventListener('resize', setH);
     if(typeof ResizeObserver!=='undefined') new ResizeObserver(setH).observe(wrapper);
 
+    /* Lerp factor: how fast the wrapper catches up to the real scroll
+       position each frame. Lower = heavier/slower. 0.09 gives a weighted,
+       premium feel without sluggishness. */
+    const LERP  = 0.09;
+    /* Velocity momentum: track the per-frame scroll delta so that when the
+       user stops scrolling the wrapper coasts on its last velocity, decaying
+       by DECAY each frame until it drops below MIN_VELOCITY. This gives the
+       "heavy object slowing down" settle. */
+    const DECAY        = 0.85;
+    const MIN_VELOCITY = 0.1;
+    let lastScrollY = window.scrollY;
+    let velocity    = 0;
+
     function loop(){
       requestAnimationFrame(loop);
-      smoothY += (window.scrollY - smoothY) * 0.08;
+      const target     = window.scrollY;
+      const inputDelta = target - lastScrollY;
+      lastScrollY = target;
+
+      if (Math.abs(inputDelta) > MIN_VELOCITY) {
+        /* Actively scrolling — record the input velocity and lerp toward it. */
+        velocity = inputDelta;
+        smoothY += (target - smoothY) * LERP;
+      } else if (Math.abs(velocity) >= MIN_VELOCITY) {
+        /* Released — coast on the decaying velocity while the lerp still
+           reels smoothY back to the true target, producing a settle. */
+        velocity *= DECAY;
+        smoothY += (target - smoothY) * LERP + velocity;
+      } else {
+        velocity = 0;
+        smoothY += (target - smoothY) * LERP;
+      }
+
       wrapper.style.transform = `translateY(${-smoothY}px)`;
       if(heroInner) heroInner.style.transform = `translateY(${smoothY * 0.12}px)`;
       if(ppScene && ppSection){
