@@ -841,7 +841,7 @@ body {
 }
 
 /* ============================================================
-   HOW IT WORKS — navy, Merkle tree
+   HOW IT WORKS — navy, identity graph
    ============================================================ */
 .how {
   background: var(--navy);
@@ -852,7 +852,9 @@ body {
 .how .sec-num  { color: var(--clay-light); }
 .how-eyebrow   { color: var(--clay-light); margin-bottom: 2.6rem; }
 
-/* Merkle tree container */
+/* Identity graph container — the canvas slot for the Three.js scene.
+   (.merkle-wrap / #merkle-canvas are the legacy slot names, kept so the
+   new scene inherits the exact same box and the #attestation anchor.) */
 .merkle-wrap {
   position: relative;
   width: min(860px, 92vw);
@@ -865,23 +867,6 @@ body {
   width: 100%; height: 100%;
   display: block;
 }
-#merkle-labels {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-#merkle-labels .ml-lbl {
-  position: absolute;
-  top: 0; left: 0;
-  font-family: var(--font-mono);
-  font-size: .6rem;
-  letter-spacing: .1em;
-  pointer-events: none;
-  white-space: nowrap;
-  transition: opacity .5s ease, color .4s ease;
-  text-shadow: 0 0 10px rgba(181,69,27,.55);
-}
 
 /* Static / reduced-motion fallback */
 .merkle-static {
@@ -890,42 +875,6 @@ body {
   margin: 0 auto;
   opacity: .8;
 }
-
-.merkle-controls {
-  margin-top: 1.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .8rem;
-  flex-wrap: wrap;
-}
-.merkle-btn {
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  letter-spacing: .1em;
-  padding: .5rem 1rem;
-  background: transparent;
-  border: 1px solid rgba(245,240,232,.25);
-  color: rgba(245,240,232,.7);
-  cursor: pointer;
-  transition: border-color .2s ease, color .2s ease, transform .12s ease;
-  text-transform: uppercase;
-}
-.merkle-btn:hover  { border-color: var(--clay); color: var(--off-white); }
-.merkle-btn:active { transform: scale(0.97); }
-.merkle-btn-warn   { border-color: rgba(245,158,11,.35); color: #f59e0b; }
-.merkle-btn-warn:hover { border-color: #f59e0b; }
-
-.merkle-status {
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  letter-spacing: .1em;
-  color: rgba(245,240,232,.5);
-  min-width: 160px;
-  text-align: center;
-}
-.merkle-status.ms-ok  { color: #22c55e; }
-.merkle-status.ms-err { color: #e0442e; }
 
 .how-steps {
   margin-top: 3rem;
@@ -1340,13 +1289,11 @@ body.has-cursor button { cursor:none !important; }
     justify-content: center;
   }
 
-  /* THREE.JS MERKLE — hide the heavy 3D canvas, show the static SVG.
-     The JS also early-returns on mobile so Three.js never loads. */
+  /* THREE.JS IDENTITY GRAPH — hide the heavy 3D canvas, show the static
+     SVG. The JS also early-returns on mobile so Three.js never loads. */
   .merkle-wrap                { height: auto; }
-  .merkle-wrap #merkle-canvas,
-  .merkle-wrap #merkle-labels { display: none; }
+  .merkle-wrap #merkle-canvas { display: none; }
   .merkle-static              { display: block; }
-  .merkle-controls            { margin-top: 2rem; }
 
   /* CODE SNIPPET — never overflow horizontally */
   .code-card     { padding: 1.4rem 1.2rem; }
@@ -1356,7 +1303,6 @@ body.has-cursor button { cursor:none !important; }
   .cal-wrap, #cal-booking { min-height: 500px; }
 
   /* TOUCH TARGETS — Apple 44px minimum */
-  .merkle-btn,
   .pg-verify, .pg-tamper, .pg-copy {
     min-height: 44px;
     display: inline-flex;
@@ -1402,9 +1348,8 @@ body.has-cursor button { cursor:none !important; }
   html { scroll-behavior:auto; }
   .pg-token-area,
   .pg-result { transition:none !important; max-height:none !important; opacity:1 !important; }
-  /* Show static Merkle tree, hide canvas */
+  /* Show static identity graph, hide canvas */
   .merkle-wrap #merkle-canvas { display:none; }
-  .merkle-wrap #merkle-labels { display:none; }
   .merkle-static { display:block; }
 }
 </style>
@@ -1621,47 +1566,70 @@ body.has-cursor button { cursor:none !important; }
   <span class="sec-num">//02</span>
   <div class="how-eyebrow eyebrow r">How It Works</div>
 
-  <!-- Three.js Merkle tree visualization -->
-  <div class="merkle-wrap r" id="attestation" aria-label="Self-building Merkle attestation tree">
+  <!-- Three.js identity graph visualization -->
+  <div class="merkle-wrap r" id="attestation" aria-label="Living identity graph: AI agents forming cryptographically verified trust connections">
     <canvas id="merkle-canvas"></canvas>
-    <div id="merkle-labels" aria-hidden="true"></div>
 
-    <!-- Reduced-motion / no-JS static fallback -->
-    <div class="merkle-static" role="img" aria-label="Merkle tree: 4 leaf nodes each with a hash, combining into 2 parent nodes, then a single root hash">
-      <svg viewBox="-300 -170 600 360" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
-        <!-- Edges -->
-        <line x1="-220" y1="-100" x2="-140" y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
-        <line x1="-60"  y1="-100" x2="-140" y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
-        <line x1="60"   y1="-100" x2="140"  y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
-        <line x1="220"  y1="-100" x2="140"  y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
-        <line x1="-140" y1="-10"  x2="0"    y2="120" stroke="rgba(245,240,232,.3)"  stroke-width="1.5"/>
-        <line x1="140"  y1="-10"  x2="0"    y2="120" stroke="rgba(245,240,232,.3)"  stroke-width="1.5"/>
-        <!-- Leaves -->
-        <circle cx="-220" cy="-100" r="14" fill="#b5451b" opacity=".9"/>
-        <circle cx="-60"  cy="-100" r="14" fill="#b5451b" opacity=".9"/>
-        <circle cx="60"   cy="-100" r="14" fill="#b5451b" opacity=".9"/>
-        <circle cx="220"  cy="-100" r="14" fill="#b5451b" opacity=".9"/>
-        <!-- Internal -->
-        <circle cx="-140" cy="-10"  r="17" fill="#9a3716"/>
-        <circle cx="140"  cy="-10"  r="17" fill="#9a3716"/>
-        <!-- Root -->
-        <circle cx="0"    cy="120"  r="22" fill="#f5f0e8" opacity=".9"/>
-        <!-- Labels -->
-        <text x="-220" y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">3f7a</text>
-        <text x="-60"  y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">c912</text>
-        <text x="60"   y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">8b4e</text>
-        <text x="220"  y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">d71f</text>
-        <text x="-140" y="8"   text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">a3c4</text>
-        <text x="140"  y="8"   text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">9e2b</text>
-        <text x="0"    y="140" text-anchor="middle" font-family="monospace" font-size="10" fill="#0a1628">e5f6</text>
+    <!-- Reduced-motion / no-JS / mobile static fallback -->
+    <div class="merkle-static" role="img" aria-label="Identity graph: AI agent nodes joined by verified attestation edges; gold nodes are high-trust verified issuers">
+      <svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
+        <rect x="0" y="0" width="600" height="280" rx="6" fill="#000000"/>
+        <!-- Ambient particles -->
+        <g fill="#1a2a4f">
+          <circle cx="48"  cy="38"  r="1.3"/><circle cx="120" cy="248" r="1.1"/>
+          <circle cx="210" cy="22"  r="1.2"/><circle cx="296" cy="262" r="1.3"/>
+          <circle cx="402" cy="30"  r="1.1"/><circle cx="486" cy="250" r="1.2"/>
+          <circle cx="560" cy="60"  r="1.3"/><circle cx="36"  cy="170" r="1.1"/>
+          <circle cx="572" cy="190" r="1.1"/><circle cx="330" cy="40"  r="1"/>
+        </g>
+        <!-- Attestation edges: standard, anchor↔standard, anchor↔anchor -->
+        <g stroke="#2a4a9f" stroke-opacity=".55" stroke-width="1.2">
+          <line x1="90"  y1="150" x2="150" y2="80"/>
+          <line x1="150" y1="80"  x2="235" y2="135"/>
+          <line x1="150" y1="80"  x2="230" y2="45"/>
+          <line x1="235" y1="135" x2="305" y2="190"/>
+          <line x1="230" y1="45"  x2="375" y2="60"/>
+          <line x1="305" y1="190" x2="390" y2="150"/>
+          <line x1="305" y1="190" x2="245" y2="225"/>
+          <line x1="315" y1="242" x2="245" y2="225"/>
+          <line x1="305" y1="190" x2="315" y2="242"/>
+          <line x1="390" y1="150" x2="455" y2="215"/>
+          <line x1="455" y1="215" x2="520" y2="160"/>
+          <line x1="90"  y1="150" x2="245" y2="225"/>
+        </g>
+        <g stroke="#4a5f9f" stroke-opacity=".65" stroke-width="1.2">
+          <line x1="90"  y1="150" x2="160" y2="205"/>
+          <line x1="160" y1="205" x2="235" y2="135"/>
+          <line x1="160" y1="205" x2="245" y2="225"/>
+          <line x1="235" y1="135" x2="300" y2="90"/>
+          <line x1="230" y1="45"  x2="300" y2="90"/>
+          <line x1="300" y1="90"  x2="305" y2="190"/>
+          <line x1="300" y1="90"  x2="375" y2="60"/>
+          <line x1="375" y1="60"  x2="450" y2="105"/>
+          <line x1="390" y1="150" x2="450" y2="105"/>
+          <line x1="450" y1="105" x2="520" y2="160"/>
+          <line x1="450" y1="105" x2="455" y2="215"/>
+        </g>
+        <g stroke="#8a6f20" stroke-opacity=".75" stroke-width="1.2">
+          <line x1="300" y1="90"  x2="450" y2="105"/>
+        </g>
+        <!-- Standard agent nodes -->
+        <g fill="#c8d8ff">
+          <circle cx="90"  cy="150" r="4"/><circle cx="150" cy="80"  r="4"/>
+          <circle cx="235" cy="135" r="4"/><circle cx="230" cy="45"  r="4"/>
+          <circle cx="305" cy="190" r="4"/><circle cx="315" cy="242" r="4"/>
+          <circle cx="375" cy="60"  r="4"/><circle cx="390" cy="150" r="4"/>
+          <circle cx="455" cy="215" r="4"/><circle cx="520" cy="160" r="4"/>
+          <circle cx="245" cy="225" r="4"/>
+        </g>
+        <!-- Gold anchor nodes — high-trust verified issuers -->
+        <g fill="#ffe5a0">
+          <circle cx="160" cy="205" r="5.5"/>
+          <circle cx="300" cy="90"  r="5.5"/>
+          <circle cx="450" cy="105" r="5.5"/>
+        </g>
       </svg>
     </div>
-  </div>
-
-  <div class="merkle-controls r">
-    <button class="merkle-btn"      id="merkle-add"    type="button">+ Add Record</button>
-    <button class="merkle-btn merkle-btn-warn" id="merkle-tamper-btn" type="button">⚠ Tamper Demo</button>
-    <div    class="merkle-status"   id="merkle-status" aria-live="polite"></div>
   </div>
 
   <div class="how-steps r">
@@ -2023,250 +1991,456 @@ function hideResult() {
 }
 </script>
 
-<!-- ===================== THREE.JS MERKLE TREE — lazy-loaded ===================== -->
+<!-- ===================== THE VANE SEAL — lazy-loaded Three.js r128 ===================== -->
 <script>
 (function(){
   'use strict';
+
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduceMotion) return;
+  const isMobile     = window.matchMedia('(pointer: coarse)').matches;
 
-  /* Mobile: the CSS hides the canvas and shows the static SVG fallback,
-     so skip loading Three.js entirely — it's too heavy for phones. */
-  const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  if (isMobile) return;
-
+  /* merkle-canvas / merkle-wrap are legacy slot ids kept for CSS inheritance */
   const canvas = document.getElementById('merkle-canvas');
   if (!canvas) return;
 
-  /* Load Three.js only when the How It Works section is near-visible */
+  /* Lazy-load Three.js only when the section nears the viewport */
   let threeLoaded = false;
-  const merkleObs = new IntersectionObserver(entries => {
+  const sealObserver = new IntersectionObserver(entries => {
     if (!entries[0].isIntersecting || threeLoaded) return;
     threeLoaded = true;
-    merkleObs.disconnect();
-
+    sealObserver.disconnect();
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-    s.onload = () => initMerkle();
+    s.onload = () => initVaneSeal();
     document.head.appendChild(s);
   }, { rootMargin: '300px' });
-  merkleObs.observe(canvas);
+  sealObserver.observe(canvas);
 
-  function initMerkle() {
+  /* ============================================================
+     THE VANE SEAL — cryptographic authentication sigil.
+     Three concentric rings rotate at different speeds in a black
+     void. At the absolute center: a pulsing point of terracotta
+     light. The Merkle root. The ground truth.
+     ============================================================ */
+  function initVaneSeal() {
     if (typeof THREE === 'undefined') return;
 
-    const labelsEl = document.getElementById('merkle-labels');
-    const statusEl = document.getElementById('merkle-status');
+    /* ── Quality tiers ────────────────────────────────── */
+    const OUTER_NODE_COUNT = isMobile ? 9   : 12;
+    const HELIX_POINTS     = isMobile ? 300 : 600;
+    const PARTICLE_COUNT   = isMobile ? 100 : 200;
 
-    /* ── Scene ─────────────────────────────────────────── */
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+    const easeOutQuart = t => 1 - Math.pow(1 - t, 4);
 
-    const scene = new THREE.Scene();
+    /* ── Renderer ─────────────────────────────────────── */
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = false;
+    renderer.setClearColor(0x000000, 1);
 
-    /* Orthographic camera — frustum half-height 170 world units */
-    const FRUST = 170;
-    let aspect  = canvas.clientWidth / (canvas.clientHeight || 400);
-    const camera = new THREE.OrthographicCamera(
-      -FRUST * aspect, FRUST * aspect,
-       FRUST, -FRUST, 1, 1000
+    const scene  = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+      60, canvas.clientWidth / (canvas.clientHeight || 400), 0.1, 200
     );
-    camera.position.set(0, 0, 500);
+    camera.position.set(0, 0, 38);
+    camera.lookAt(0, 0, 0);
 
-    /* Lights */
-    scene.add(new THREE.AmbientLight(0xffeedd, 0.9));
-    const key = new THREE.DirectionalLight(0xffffff, 0.4);
-    key.position.set(100, 200, 300); scene.add(key);
+    /* ── Lighting ─────────────────────────────────────── */
+    scene.add(new THREE.AmbientLight(0x050a1a, 0.5));
 
-    /* ── Node definitions ────────────────────────────── */
-    const HASHES = { 0:'3f7a', 1:'c912', 2:'8b4e', 3:'d71f', 4:'a3c4', 5:'9e2b', 6:'e5f6' };
-    const COL_EMPTY  = new THREE.Color(0x0d1f35);
-    const COL_ACTIVE = new THREE.Color(0xb5451b);
-    const COL_ROOT   = new THREE.Color(0xede8e0);
-    const COL_TAMPER = new THREE.Color(0xe0442e);
+    const rootLight = new THREE.PointLight(0xff6b35, 2.0, 60);   /* terracotta center — pulses */
+    scene.add(rootLight);
 
-    const nodeDefs = [
-      { id:0, x:-220, y:-100, r:14, parentId:4 },
-      { id:1, x:-60,  y:-100, r:14, parentId:4 },
-      { id:2, x: 60,  y:-100, r:14, parentId:5 },
-      { id:3, x: 220, y:-100, r:14, parentId:5 },
-      { id:4, x:-140, y:  0,  r:17, parentId:6, childIds:[0,1] },
-      { id:5, x: 140, y:  0,  r:17, parentId:6, childIds:[2,3] },
-      { id:6, x:  0,  y: 130, r:22, parentId:null, childIds:[4,5] },
-    ];
+    const keyLight = new THREE.PointLight(0xffffff, 0.8, 100);
+    keyLight.position.set(0, 30, 25);
+    scene.add(keyLight);
 
-    const nodes = nodeDefs.map(def => {
-      const geo = new THREE.SphereGeometry(def.r, 32, 32);
-      const mat = new THREE.MeshStandardMaterial({
-        color: COL_EMPTY, emissive: COL_EMPTY,
-        emissiveIntensity: 0.25, roughness: 0.35, metalness: 0.1,
+    const rimLight = new THREE.PointLight(0x1a3fbf, 0.55, 100);   /* deep blue rim */
+    rimLight.position.set(-50, -15, -20);
+    scene.add(rimLight);
+
+    /* ── Scene graph ──────────────────────────────────── */
+    /* pivot: slow Y rotation + X wobble + mouse parallax */
+    const pivot = new THREE.Group();
+    scene.add(pivot);
+
+    /* sealGroup: face-on with 15° coin-tilt (π/2 rotates XZ rings to face camera) */
+    const sealGroup = new THREE.Group();
+    sealGroup.rotation.x = Math.PI / 2 - 0.26;
+    pivot.add(sealGroup);
+
+    const outerRingGroup  = new THREE.Group();
+    const middleRingGroup = new THREE.Group();
+    const innerRingGroup  = new THREE.Group();
+    sealGroup.add(outerRingGroup);
+    sealGroup.add(middleRingGroup);
+    sealGroup.add(innerRingGroup);
+
+    /* Particles are scene children — not inside pivot — so deep space stays fixed */
+    const particlesGroup = new THREE.Group();
+    scene.add(particlesGroup);
+
+    /* ============================================================
+       RING 1 — AGENT RING (r=22)
+       12 agent nodes, curved inward-bowing arcs, faint halo torus.
+       Node i=0 is the gold ANCHOR node.
+       ============================================================ */
+    const outerNodeCount = OUTER_NODE_COUNT;
+    const outerRadius    = 22;
+    const outerNodes     = [];
+
+    const outerNodeGeo  = new THREE.SphereGeometry(0.55,  16, 16);
+    const anchorNodeGeo = new THREE.SphereGeometry(0.77, 16, 16);
+
+    for (let i = 0; i < outerNodeCount; i++) {
+      const angle    = (i / outerNodeCount) * Math.PI * 2;
+      const isAnchor = (i === 0);
+      const mat = new THREE.MeshStandardMaterial(
+        isAnchor
+          ? { color: 0xffe5a0, emissive: 0xbf9a20, emissiveIntensity: 0.8,  metalness: 0.5, roughness: 0.4 }
+          : { color: 0xc8dcff, emissive: 0x2040bf, emissiveIntensity: 0.55, metalness: 0.5, roughness: 0.4 }
+      );
+      const mesh = new THREE.Mesh(isAnchor ? anchorNodeGeo : outerNodeGeo, mat);
+      mesh.position.set(Math.cos(angle) * outerRadius, 0, Math.sin(angle) * outerRadius);
+      outerRingGroup.add(mesh);
+      outerNodes.push({ mesh, mat, isAnchor, angle });
+    }
+
+    /* Curved arcs: QuadraticBezierCurve3 with midpoint pulled inward to r=7 */
+    const outerArcMat = new THREE.LineBasicMaterial({ color: 0x3050af, transparent: true, opacity: 0.45 });
+    for (let i = 0; i < outerNodeCount; i++) {
+      const aAngle   = (i       / outerNodeCount) * Math.PI * 2;
+      const bAngle   = ((i + 1) / outerNodeCount) * Math.PI * 2;
+      const midAngle = (aAngle + bAngle) / 2;
+      const p0 = new THREE.Vector3(Math.cos(aAngle)   * outerRadius, 0, Math.sin(aAngle)   * outerRadius);
+      const p1 = new THREE.Vector3(Math.cos(midAngle) * 19.0,        0, Math.sin(midAngle) * 19.0);
+      const p2 = new THREE.Vector3(Math.cos(bAngle)   * outerRadius, 0, Math.sin(bAngle)   * outerRadius);
+      outerRingGroup.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(p0, p1, p2).getPoints(40)),
+        outerArcMat
+      ));
+    }
+
+    /* Faint outer boundary halo — torus rotated π/2 so it lies in XZ plane matching nodes */
+    const outerHaloGeo  = new THREE.TorusGeometry(23, 0.07, 8, 80);
+    const outerHaloMat  = new THREE.MeshBasicMaterial({ color: 0x1a2a6f, transparent: true, opacity: 0.3 });
+    const outerHaloMesh = new THREE.Mesh(outerHaloGeo, outerHaloMat);
+    outerHaloMesh.rotation.x = Math.PI / 2;
+    outerRingGroup.add(outerHaloMesh);
+
+    /* ============================================================
+       RING 2 — MERKLE RING (r=14)
+       20 Merkle nodes, alternating spoke brightness, connecting circle.
+       ============================================================ */
+    const merkleRadius    = 14;
+    const merkleNodeCount = 20;
+    const merkleNodeGeo   = new THREE.SphereGeometry(0.36, 12, 12);
+    const merkleNodeMat   = new THREE.MeshStandardMaterial({
+      color: 0xffe5a0, emissive: 0xbf9a20, emissiveIntensity: 0.7,
+    });
+    const spokeMat    = new THREE.LineBasicMaterial({ color: 0xbf9a20, transparent: true, opacity: 0.55 });
+    const spokeBrtMat = new THREE.LineBasicMaterial({ color: 0xbf9a20, transparent: true, opacity: 0.75 });
+
+    for (let i = 0; i < merkleNodeCount; i++) {
+      const angle = (i / merkleNodeCount) * Math.PI * 2;
+      const cx = Math.cos(angle), cz = Math.sin(angle);
+      const nodeMesh = new THREE.Mesh(merkleNodeGeo, merkleNodeMat);
+      nodeMesh.position.set(cx * merkleRadius, 0, cz * merkleRadius);
+      middleRingGroup.add(nodeMesh);
+      middleRingGroup.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(cx * 5, 0, cz * 5),
+          new THREE.Vector3(cx * merkleRadius, 0, cz * merkleRadius),
+        ]),
+        i % 2 === 0 ? spokeBrtMat : spokeMat
+      ));
+    }
+
+    const merkleCircleGeo  = new THREE.TorusGeometry(14, 0.08, 8, 60);
+    const merkleCircleMat  = new THREE.MeshBasicMaterial({ color: 0xbf9a20, transparent: true, opacity: 0.5 });
+    const merkleCircleMesh = new THREE.Mesh(merkleCircleGeo, merkleCircleMat);
+    merkleCircleMesh.rotation.x = Math.PI / 2;
+    middleRingGroup.add(merkleCircleMesh);
+
+    /* ============================================================
+       RING 3 — SIGNATURE HELIX
+       Ed25519 signature rendered as a helix wound 8× around a torus
+       of major radius 7. Drawn during entrance via drawRange.
+       ============================================================ */
+    const helixPts = [];
+    for (let j = 0; j <= HELIX_POINTS; j++) {
+      const t = (j / HELIX_POINTS) * Math.PI * 2;
+      helixPts.push(new THREE.Vector3(
+        (7 + 0.77 * Math.cos(8 * t)) * Math.cos(t),
+        0.77 * Math.sin(8 * t),
+        (7 + 0.77 * Math.cos(8 * t)) * Math.sin(t)
+      ));
+    }
+    const helixGeo     = new THREE.BufferGeometry().setFromPoints(helixPts);
+    helixGeo.setDrawRange(0, 0);
+    const helixMat     = new THREE.LineBasicMaterial({ color: 0xb5451b, transparent: true, opacity: 0.9 });
+    const helixHaloMat = new THREE.LineBasicMaterial({ color: 0xff6b35, transparent: true, opacity: 0.18 });
+    innerRingGroup.add(new THREE.Line(helixGeo, helixMat));
+    innerRingGroup.add(new THREE.Line(helixGeo, helixHaloMat));   /* glow pass, same geometry */
+
+    const helixChannelGeo  = new THREE.TorusGeometry(7, 0.04, 8, 60);
+    const helixChannelMat  = new THREE.MeshBasicMaterial({ color: 0xb5451b, transparent: true, opacity: 0.2 });
+    const helixChannelMesh = new THREE.Mesh(helixChannelGeo, helixChannelMat);
+    helixChannelMesh.rotation.x = Math.PI / 2;
+    innerRingGroup.add(helixChannelMesh);
+
+    /* ============================================================
+       CROSS-LINKS — 6 faint connectors, static in sealGroup.
+       Angular proximity determines which outer node each links to.
+       ============================================================ */
+    const crossLinkMat = new THREE.LineBasicMaterial({ color: 0x7a6f3f, transparent: true, opacity: 0.2 });
+    [0, 3, 6, 9, 12, 15].forEach(mi => {
+      const mAngle = (mi / merkleNodeCount) * Math.PI * 2;
+      let nearestAngle = 0, nearestDist = Infinity;
+      for (let oi = 0; oi < outerNodeCount; oi++) {
+        const oAngle = (oi / outerNodeCount) * Math.PI * 2;
+        const d = Math.min(Math.abs(mAngle - oAngle), Math.PI * 2 - Math.abs(mAngle - oAngle));
+        if (d < nearestDist) { nearestDist = d; nearestAngle = oAngle; }
+      }
+      sealGroup.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(Math.cos(mAngle)      * merkleRadius, 0, Math.sin(mAngle)      * merkleRadius),
+          new THREE.Vector3(Math.cos(nearestAngle) * outerRadius,  0, Math.sin(nearestAngle) * outerRadius),
+        ]),
+        crossLinkMat
+      ));
+    });
+
+    /* ============================================================
+       ROOT CORE — the Merkle root. Inner glow + outer halo.
+       Heartbeat: emissiveIntensity oscillates 2.5–4.8.
+       ============================================================ */
+    const rootCoreGeo  = new THREE.SphereGeometry(0.77, 16, 16);
+    const rootCoreMat  = new THREE.MeshStandardMaterial({
+      color: 0xff6b35, emissive: 0xff3a00, emissiveIntensity: 3.5,
+    });
+    const rootCoreMesh = new THREE.Mesh(rootCoreGeo, rootCoreMat);
+    sealGroup.add(rootCoreMesh);
+
+    const rootHaloGeo  = new THREE.SphereGeometry(1.5, 16, 16);
+    const rootHaloMat  = new THREE.MeshStandardMaterial({
+      color: 0xff3a00, emissive: 0xff3a00, emissiveIntensity: 1.0,
+      transparent: true, opacity: 0.18,
+    });
+    sealGroup.add(new THREE.Mesh(rootHaloGeo, rootHaloMat));
+
+    /* ============================================================
+       PARTICLE FIELD — 200 drifting points, r=24 void
+       ============================================================ */
+    const pCount   = PARTICLE_COUNT;
+    const pBasePos = new Float32Array(pCount * 3);
+    const pLivePos = new Float32Array(pCount * 3);
+    const pFreqs   = new Float32Array(pCount);
+    const pPhases  = new Float32Array(pCount);
+    for (let i = 0; i < pCount; i++) {
+      const u  = Math.random() * 2 - 1;
+      const az = Math.random() * Math.PI * 2;
+      const pl = Math.sqrt(Math.max(0, 1 - u * u));
+      const r  = 50 * Math.cbrt(Math.random());
+      pBasePos[i*3]     = Math.cos(az) * pl * r;
+      pBasePos[i*3 + 1] = u * r;
+      pBasePos[i*3 + 2] = Math.sin(az) * pl * r;
+      pFreqs[i]  = 0.4 + Math.random() * 1.1;
+      pPhases[i] = Math.random() * Math.PI * 2;
+    }
+    pLivePos.set(pBasePos);
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pLivePos, 3));
+    const pMat = new THREE.PointsMaterial({
+      color: 0x0a1020, size: 0.05, transparent: true, opacity: 0,
+      sizeAttenuation: true, depthWrite: false,
+    });
+    particlesGroup.add(new THREE.Points(pGeo, pMat));
+
+    /* ============================================================
+       MOUSE PARALLAX
+       ============================================================ */
+    const parallaxTarget  = { x: 0, y: 0 };
+    const parallaxCurrent = { x: 0, y: 0 };
+    function onMouseMove(e) {
+      if (isMobile) return;
+      parallaxTarget.y =  (e.clientX / window.innerWidth  * 2 - 1) * 0.08;
+      parallaxTarget.x = -(e.clientY / window.innerHeight * 2 - 1) * 0.05;
+    }
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
+
+    /* ============================================================
+       ATTESTATION SYSTEM
+       Fires first at 1400ms, then every 3000ms.
+       ============================================================ */
+    const attestations = [];
+    let nextAttestMs   = 1400;
+    const BEAM_SEGS    = 30;
+
+    function spawnAttestation(nowMs) {
+      /* Anchor node weighted 3× */
+      const pool = [];
+      for (let i = 0; i < outerNodeCount; i++) {
+        pool.push(i);
+        if (outerNodes[i].isAnchor) pool.push(i, i);
+      }
+      const idx      = pool[Math.floor(Math.random() * pool.length)];
+      const node     = outerNodes[idx];
+      const beamColor = node.isAnchor ? 0xffe5a0 : 0xb5451b;
+
+      /* Multi-point beam: node local position → (0,0,0), animated via drawRange */
+      const lp      = node.mesh.position;
+      const beamPts = [];
+      for (let k = 0; k <= BEAM_SEGS; k++) {
+        const t = k / BEAM_SEGS;
+        beamPts.push(new THREE.Vector3(lp.x * (1 - t), lp.y * (1 - t), lp.z * (1 - t)));
+      }
+      const beamGeo  = new THREE.BufferGeometry().setFromPoints(beamPts);
+      beamGeo.setDrawRange(0, 0);
+      const beamMat  = new THREE.LineBasicMaterial({ color: beamColor, transparent: true, opacity: 0.9 });
+      const beamLine = new THREE.Line(beamGeo, beamMat);
+      outerRingGroup.add(beamLine);   /* rotates with ring — beam tracks the node */
+
+      /* Ripple: flat ring at sealGroup origin, scales outward */
+      const rippleGeo  = new THREE.RingGeometry(0.8, 1.1, 32);
+      const rippleMat  = new THREE.MeshBasicMaterial({
+        color: beamColor, transparent: true, opacity: 0.6,
+        side: THREE.DoubleSide, depthWrite: false,
       });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(def.x, def.y, 0);
-      mesh.scale.setScalar(0.25);
-      scene.add(mesh);
+      const rippleMesh = new THREE.Mesh(rippleGeo, rippleMat);
+      rippleMesh.rotation.x = Math.PI / 2;   /* XY → XZ to match seal plane */
+      sealGroup.add(rippleMesh);
 
-      /* HTML label */
-      const lbl = document.createElement('div');
-      lbl.className = 'ml-lbl';
-      lbl.style.opacity = '0';
-      labelsEl && labelsEl.appendChild(lbl);
-
-      return { ...def, mesh, mat, lbl, curScale: 0.25, targScale: 0.25, state: 'empty' };
-    });
-
-    /* ── Edge lines ───────────────────────────────────── */
-    const edgePairs = [[0,4],[1,4],[2,5],[3,5],[4,6],[5,6]];
-    const edges = edgePairs.map(([childId, parentId]) => {
-      const c = nodes[childId], p = nodes[parentId];
-      const pts = [new THREE.Vector3(c.x,c.y,0), new THREE.Vector3(p.x,p.y,0)];
-      const geo = new THREE.BufferGeometry().setFromPoints(pts);
-      const mat = new THREE.LineBasicMaterial({ color:0x1a3856, opacity:0.2, transparent:true });
-      const line = new THREE.Line(geo, mat);
-      scene.add(line);
-      return { line, mat, childId, parentId, flash: 0 };
-    });
-
-    /* ── Glow lights pool ─────────────────────────────── */
-    const glows = [];
-    function addGlow(node, hexColor, intensity = 50) {
-      const light = new THREE.PointLight(hexColor, intensity, 250);
-      light.position.set(node.x, node.y, 30);
-      scene.add(light);
-      glows.push(light);
-    }
-
-    /* ── Activation ───────────────────────────────────── */
-    function activateNode(id, color, flash = true) {
-      const n = nodes[id];
-      n.state     = 'active';
-      n.targScale = 1.0;
-      n.mat.color.set(color);
-      n.mat.emissive.set(color);
-      n.mat.emissiveIntensity = 1.3;
-      n.lbl.textContent  = HASHES[id];
-      n.lbl.style.opacity = '1';
-      n.lbl.style.color  = '#' + color.getHexString();
-      if (flash) addGlow(n, color.getHex(), 60);
-      edges.forEach(e => { if(e.childId===id||e.parentId===id){ e.mat.opacity=0.75; e.flash=1.5; } });
-    }
-    function tamperNode(id) {
-      const n = nodes[id];
-      n.state = 'tampered';
-      n.mat.color.set(COL_TAMPER);
-      n.mat.emissive.set(COL_TAMPER);
-      n.mat.emissiveIntensity = 1.6;
-      n.lbl.style.color = '#e0442e';
-      n.lbl.textContent = id === 6 ? 'INVALID' : (HASHES[id] + '!');
-      edges.forEach(e => { if(e.childId===id||e.parentId===id){ e.mat.color.set(COL_TAMPER); e.mat.opacity=0.7; } });
-    }
-    function resetAll() {
-      nodes.forEach(n => {
-        n.state = 'empty'; n.targScale = 0.25;
-        n.mat.color.set(COL_EMPTY); n.mat.emissive.set(COL_EMPTY); n.mat.emissiveIntensity = 0.25;
-        n.lbl.style.opacity = '0';
+      attestations.push({
+        node, beamGeo, beamLine, beamMat,
+        rippleGeo, rippleMesh, rippleMat,
+        bornMs: nowMs, rootPulseAt: -1,
       });
-      edges.forEach(e => { e.mat.color.set(new THREE.Color(0x1a3856)); e.mat.opacity = 0.2; e.flash = 0; });
-    }
-    function setStatus(text, type) {
-      if (!statusEl) return;
-      statusEl.textContent  = text;
-      statusEl.className    = 'merkle-status' + (type ? ' ms-' + type : '');
     }
 
-    /* ── Animation timeline ───────────────────────────── */
-    let clock = 0, lastTs = null;
-    const triggered = new Set();
+    /* ============================================================
+       ANIMATION LOOP
+       ============================================================ */
+    let rafId        = 0;
+    let lastTs       = null;
+    let elapsedMs    = 0;
+    let entranceDone = false;
+    let basePivotZ   = 0;
 
-    const buildTimeline = () => [
-      { t:1.2,  fn:()=> activateNode(0, COL_ACTIVE) },
-      { t:2.8,  fn:()=> activateNode(1, COL_ACTIVE) },
-      { t:3.4,  fn:()=> activateNode(4, new THREE.Color(0x9a3716)) },
-      { t:4.8,  fn:()=> activateNode(2, COL_ACTIVE) },
-      { t:6.2,  fn:()=> activateNode(3, COL_ACTIVE) },
-      { t:6.8,  fn:()=> activateNode(5, new THREE.Color(0x9a3716)) },
-      { t:7.4,  fn:()=> { activateNode(6, COL_ROOT); setStatus('Chain valid ✓', 'ok'); }},
-      { t:11.5, fn:()=> { tamperNode(1); }},
-      { t:12.1, fn:()=> { tamperNode(4); }},
-      { t:12.7, fn:()=> { tamperNode(6); setStatus('CHAIN BROKEN', 'err'); }},
-      { t:16.0, fn:()=> { resetAll(); setStatus(''); clock = 0; triggered.clear(); }},
-    ];
+    const ENTRANCE_SCALE_MS    = 950;
+    const ENTRANCE_CAMERA_MS   = 1300;
+    const ENTRANCE_HELIX_MS    = 1000;
+    const ENTRANCE_PARTICLE_MS = 1500;
+    const HEARTBEAT_MS         = 2200;
 
-    let timeline = buildTimeline();
-
-    /* ── Manual controls ──────────────────────────────── */
-    let manualLeaf = 0;
-    document.getElementById('merkle-add')?.addEventListener('click', () => {
-      const leaves = [0,1,2,3].filter(i => nodes[i].state === 'empty');
-      if (!leaves.length) return;
-      activateNode(leaves[0], COL_ACTIVE);
-      if ([0,1].every(i => nodes[i].state === 'active') && nodes[4].state === 'empty') {
-        setTimeout(()=> activateNode(4, new THREE.Color(0x9a3716)), 400);
-      }
-      if ([2,3].every(i => nodes[i].state === 'active') && nodes[5].state === 'empty') {
-        setTimeout(()=> activateNode(5, new THREE.Color(0x9a3716)), 400);
-      }
-      if ([4,5].every(i => nodes[i].state !== 'empty') && nodes[6].state === 'empty') {
-        setTimeout(()=> { activateNode(6, COL_ROOT); setStatus('Chain valid ✓', 'ok'); }, 800);
-      }
-    });
-
-    document.getElementById('merkle-tamper-btn')?.addEventListener('click', () => {
-      const active = [0,1,2,3].find(i => nodes[i].state === 'active');
-      if (active === undefined) return;
-      tamperNode(active);
-      const parent = nodes[active].parentId;
-      if (parent != null) {
-        setTimeout(()=> tamperNode(parent), 450);
-        setTimeout(()=> { tamperNode(6); setStatus('CHAIN BROKEN', 'err'); }, 900);
-      }
-    });
-
-    /* ── Render loop ──────────────────────────────────── */
-    function render(ts) {
-      requestAnimationFrame(render);
+    function renderFrame(ts) {
+      rafId = requestAnimationFrame(renderFrame);
       if (lastTs === null) lastTs = ts;
-      const dt = Math.min((ts - lastTs) / 1000, 0.05);
-      lastTs   = ts;
-      clock   += dt;
+      const deltaMs = Math.min(ts - lastTs, 50);
+      lastTs = ts;
+      elapsedMs += deltaMs;
+      const elapsedSec = elapsedMs / 1000;
 
-      /* Timeline */
-      timeline.forEach(ev => {
-        const k = ev.t.toString();
-        if (!triggered.has(k) && clock >= ev.t) { triggered.add(k); ev.fn(); }
-      });
+      /* ── Entrance ─────────────────────────────────────── */
+      const scaleT = Math.min(elapsedMs / ENTRANCE_SCALE_MS, 1);
+      const camT   = Math.min(elapsedMs / ENTRANCE_CAMERA_MS, 1);
+      const helixT = Math.min(elapsedMs / ENTRANCE_HELIX_MS, 1);
+      const partT  = Math.min(elapsedMs / ENTRANCE_PARTICLE_MS, 1);
 
-      /* Scale lerp */
-      nodes.forEach(n => {
-        if (Math.abs(n.curScale - n.targScale) > 0.001) {
-          n.curScale += (n.targScale - n.curScale) * 0.1;
-          n.mesh.scale.setScalar(n.curScale);
-        }
-      });
+      pivot.scale.setScalar(easeOutCubic(scaleT));
+      camera.position.z = 38 + (22 - 38) * easeOutQuart(camT);
+      helixGeo.setDrawRange(0, Math.round(easeOutCubic(helixT) * (HELIX_POINTS + 1)));
+      pMat.opacity = 0.3 * easeOutCubic(partT);
 
-      /* Glow decay */
-      for (let i = glows.length - 1; i >= 0; i--) {
-        glows[i].intensity *= 0.93;
-        if (glows[i].intensity < 0.3) { scene.remove(glows[i]); glows.splice(i, 1); }
+      if (!entranceDone && scaleT >= 1 && camT >= 1) entranceDone = true;
+
+      /* ── Pause after entrance if prefers-reduced-motion ── */
+      if (reduceMotion && entranceDone) { renderer.render(scene, camera); return; }
+
+      /* ── Pivot: slow in-plane spin + parallax tilt ─────── */
+      basePivotZ += 0.0004;
+      parallaxCurrent.x += (parallaxTarget.x - parallaxCurrent.x) * 0.035;
+      parallaxCurrent.y += (parallaxTarget.y - parallaxCurrent.y) * 0.035;
+      pivot.rotation.z = basePivotZ;
+      pivot.rotation.x = Math.sin(elapsedMs * 0.0004) * 0.04 + parallaxCurrent.x;
+      pivot.rotation.y = parallaxCurrent.y;
+
+      /* ── Ring rotations (CW=neg, CCW=pos from camera view) */
+      outerRingGroup.rotation.y  -= 0.0009;   /* CW slow */
+      middleRingGroup.rotation.y += 0.0014;   /* CCW medium */
+      innerRingGroup.rotation.y  -= 0.0022;   /* CW fast */
+
+      /* ── Root heartbeat ───────────────────────────────── */
+      const heartT = Math.sin((elapsedMs / HEARTBEAT_MS) * Math.PI * 2) * 0.5 + 0.5;
+      rootCoreMat.emissiveIntensity = 2.5 + heartT * (4.8 - 2.5);
+      rootLight.intensity           = 1.5 + heartT * (2.8 - 1.5);
+
+      /* ── Attestation system ───────────────────────────── */
+      if (entranceDone && elapsedMs >= nextAttestMs) {
+        spawnAttestation(elapsedMs);
+        nextAttestMs = elapsedMs + 3000;
       }
 
-      /* Edge flash decay */
-      edges.forEach(e => {
-        if (e.flash > 0) {
-          e.flash -= dt * 0.7;
-          if (e.flash <= 0 && e.mat.opacity > 0.35) e.mat.opacity = 0.3;
-        }
-      });
+      for (let i = attestations.length - 1; i >= 0; i--) {
+        const a      = attestations[i];
+        const age    = elapsedMs - a.bornMs;
+        const baseEI = a.node.isAnchor ? 0.8 : 0.55;
 
-      /* HTML label positions via projection */
-      nodes.forEach(n => {
-        if (parseFloat(n.lbl.style.opacity) > 0) {
-          const v = new THREE.Vector3(n.x, n.y - n.r - 8, 0).project(camera);
-          const x = (v.x * 0.5 + 0.5) * canvas.clientWidth;
-          const y = (v.y * -0.5 + 0.5) * canvas.clientHeight;
-          n.lbl.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+        /* Node brightens 0–180ms */
+        if (age <= 180) {
+          a.node.mat.emissiveIntensity = baseEI + (age / 180) * (2.8 - baseEI);
         }
-      });
+
+        /* Beam draws 0–450ms */
+        if (age <= 450) {
+          a.beamGeo.setDrawRange(0, Math.max(2, Math.round((age / 450) * (BEAM_SEGS + 1))));
+        } else if (a.rootPulseAt < 0) {
+          a.beamGeo.setDrawRange(0, BEAM_SEGS + 1);
+          a.rootPulseAt = elapsedMs;
+        }
+
+        /* Root blazes when beam completes: 80ms spike, 500ms decay */
+        if (a.rootPulseAt >= 0) {
+          const pAge   = elapsedMs - a.rootPulseAt;
+          const baseHB = 2.5 + heartT * (4.8 - 2.5);
+          if (pAge < 80) {
+            rootCoreMat.emissiveIntensity = baseHB + (pAge / 80) * (7.0 - baseHB);
+          } else if (pAge < 580) {
+            rootCoreMat.emissiveIntensity = 7.0 - ((pAge - 80) / 500) * (7.0 - baseHB);
+          }
+        }
+
+        /* Ripple: scale 0.3 → 9.0, fade 0.6 → 0 over 700ms */
+        if (age <= 700) {
+          const r = easeOutCubic(age / 700);
+          a.rippleMesh.scale.setScalar(0.3 + r * (24.0 - 0.3));
+          a.rippleMat.opacity = 0.6 * (1 - r);
+        }
+
+        /* Node recovers 180–530ms */
+        if (age >= 180) {
+          const rec = Math.min((age - 180) / 350, 1);
+          a.node.mat.emissiveIntensity = 2.8 - rec * (2.8 - baseEI);
+        }
+
+        if (age > 700) {
+          outerRingGroup.remove(a.beamLine);
+          a.beamGeo.dispose(); a.beamMat.dispose();
+          sealGroup.remove(a.rippleMesh);
+          a.rippleGeo.dispose(); a.rippleMat.dispose();
+          attestations.splice(i, 1);
+        }
+      }
+
+      /* ── Particle drift ───────────────────────────────── */
+      for (let i = 0; i < pCount; i++) {
+        const w = elapsedSec * pFreqs[i] + pPhases[i];
+        pLivePos[i*3]     = pBasePos[i*3]     + Math.sin(w)        * 0.003;
+        pLivePos[i*3 + 1] = pBasePos[i*3 + 1] + Math.sin(w * 1.31) * 0.003;
+        pLivePos[i*3 + 2] = pBasePos[i*3 + 2] + Math.cos(w * 0.77) * 0.003;
+      }
+      pGeo.attributes.position.needsUpdate = true;
 
       renderer.render(scene, camera);
     }
@@ -2275,14 +2449,40 @@ function hideResult() {
     function onResize() {
       const w = canvas.clientWidth, h = canvas.clientHeight || 400;
       renderer.setSize(w, h, false);
-      aspect = w / h;
-      camera.left  = -FRUST * aspect; camera.right = FRUST * aspect;
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
     }
     onResize();
     window.addEventListener('resize', onResize);
+    rafId = requestAnimationFrame(renderFrame);
 
-    requestAnimationFrame(render);
+    /* ── Cleanup ──────────────────────────────────────── */
+    let disposed = false;
+    function disposeScene() {
+      if (disposed) return;
+      disposed = true;
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('mousemove', onMouseMove);
+      outerNodeGeo.dispose(); anchorNodeGeo.dispose();
+      outerNodes.forEach(n => n.mat.dispose());
+      outerArcMat.dispose(); outerHaloGeo.dispose(); outerHaloMat.dispose();
+      merkleNodeGeo.dispose(); merkleNodeMat.dispose();
+      spokeMat.dispose(); spokeBrtMat.dispose();
+      merkleCircleGeo.dispose(); merkleCircleMat.dispose();
+      helixGeo.dispose(); helixMat.dispose(); helixHaloMat.dispose();
+      helixChannelGeo.dispose(); helixChannelMat.dispose();
+      crossLinkMat.dispose();
+      rootCoreGeo.dispose(); rootCoreMat.dispose();
+      rootHaloGeo.dispose(); rootHaloMat.dispose();
+      pGeo.dispose(); pMat.dispose();
+      for (const a of attestations) {
+        a.beamGeo.dispose(); a.beamMat.dispose();
+        a.rippleGeo.dispose(); a.rippleMat.dispose();
+      }
+      renderer.dispose();
+    }
+    window.addEventListener('beforeunload', disposeScene);
   }
 })();
 </script>
