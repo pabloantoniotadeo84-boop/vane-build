@@ -857,7 +857,7 @@ body {
    new scene inherits the exact same box and the #attestation anchor.) */
 .merkle-wrap {
   position: relative;
-  width: min(860px, 92vw);
+  width: 100%;
   height: 400px;
   margin: 0 auto;
 }
@@ -2087,7 +2087,7 @@ function hideResult() {
        Node i=0 is the gold ANCHOR node.
        ============================================================ */
     const outerNodeCount = OUTER_NODE_COUNT;
-    const outerRadius    = 22;
+    const outerRadius    = 18.7;
     const outerNodes     = [];
 
     const outerNodeGeo  = new THREE.SphereGeometry(0.55,  16, 16);
@@ -2114,7 +2114,7 @@ function hideResult() {
       const bAngle   = ((i + 1) / outerNodeCount) * Math.PI * 2;
       const midAngle = (aAngle + bAngle) / 2;
       const p0 = new THREE.Vector3(Math.cos(aAngle)   * outerRadius, 0, Math.sin(aAngle)   * outerRadius);
-      const p1 = new THREE.Vector3(Math.cos(midAngle) * 19.0,        0, Math.sin(midAngle) * 19.0);
+      const p1 = new THREE.Vector3(Math.cos(midAngle) * 16.15,       0, Math.sin(midAngle) * 16.15);
       const p2 = new THREE.Vector3(Math.cos(bAngle)   * outerRadius, 0, Math.sin(bAngle)   * outerRadius);
       outerRingGroup.add(new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(p0, p1, p2).getPoints(40)),
@@ -2123,7 +2123,7 @@ function hideResult() {
     }
 
     /* Faint outer boundary halo — torus rotated π/2 so it lies in XZ plane matching nodes */
-    const outerHaloGeo  = new THREE.TorusGeometry(23, 0.07, 8, 80);
+    const outerHaloGeo  = new THREE.TorusGeometry(19.55, 0.07, 8, 80);
     const outerHaloMat  = new THREE.MeshBasicMaterial({ color: 0x1a2a6f, transparent: true, opacity: 0.3 });
     const outerHaloMesh = new THREE.Mesh(outerHaloGeo, outerHaloMat);
     outerHaloMesh.rotation.x = Math.PI / 2;
