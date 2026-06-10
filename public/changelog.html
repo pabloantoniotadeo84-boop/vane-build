@@ -3,22 +3,23 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Vane — Agent Identity Infrastructure</title>
-<meta name="description" content="Cryptographic passports for AI agents. Ed25519-signed, Merkle-attested. Verifiable by anyone. Trusted everywhere." />
+<title>Changelog — Vane</title>
+<meta name="description" content="Every update, improvement, and milestone in Vane's development. Cryptographic identity infrastructure for AI agents." />
 
 <!-- Open Graph -->
 <meta property="og:type"        content="website" />
-<meta property="og:title"       content="Vane — Agent Identity Infrastructure" />
-<meta property="og:description" content="Cryptographic passports for AI agents. Ed25519-signed. Merkle-attested." />
+<meta property="og:title"       content="Changelog — Vane" />
+<meta property="og:description" content="Every build. Every fix. Every improvement. The Vane changelog." />
 <meta property="og:image"       content="/og.svg" />
-<meta property="og:url"         content="https://vane.build" />
+<meta property="og:url"         content="https://vane.build/changelog" />
 <!-- Twitter / X -->
 <meta name="twitter:card"        content="summary_large_image" />
-<meta name="twitter:title"       content="Vane — Agent Identity Infrastructure" />
-<meta name="twitter:description" content="Cryptographic passports for AI agents. Verifiable by anyone." />
+<meta name="twitter:title"       content="Changelog — Vane" />
+<meta name="twitter:description" content="Every build. Every fix. Every improvement." />
 <meta name="twitter:image"       content="/og.svg" />
 <!-- Theme -->
-<meta name="theme-color" content="#b5451b" />
+<meta name="theme-color" content="#0a1628" />
+<link rel="canonical" href="https://vane.build/changelog" />
 
 <!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -27,7 +28,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-
 <style>
 /* ============================================================
    DESIGN TOKENS
@@ -1409,6 +1409,117 @@ body.has-cursor button { cursor:none !important; }
 }
 </style>
 
+<style>
+/* ============================================================
+   CHANGELOG PAGE — premium product timeline (Linear/Vercel/Railway
+   inspired): date rail on the left, terracotta vertical line, entries
+   as announcements. Built on the shared design system.
+   ============================================================ */
+body { background: var(--navy); }   /* dark navy default */
+
+/* ---------- HERO (navy) ---------- */
+.cl-hero {
+  background: var(--navy);
+  color: var(--off-white);
+  padding: clamp(140px, 20vh, 210px) 7vw clamp(56px, 9vh, 100px);
+  position: relative;
+  overflow: hidden;
+}
+.cl-hero::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 70% 60% at 82% -10%, rgba(181,69,27,.16), transparent 62%);
+}
+.cl-hero-inner { position: relative; z-index: 1; max-width: 1000px; margin: 0 auto; }
+.cl-hero .eyebrow { display: block; color: var(--clay-light); margin-bottom: 1.5rem; }
+.cl-hero h1 {
+  font-weight: 800;
+  font-size: clamp(2.6rem, 7vw, 5.4rem);
+  line-height: .93;
+  letter-spacing: -0.035em;
+  color: var(--off-white);
+}
+.cl-hero .sub {
+  margin-top: 1.8rem;
+  font-family: var(--font-mono);
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  letter-spacing: .01em;
+  line-height: 1.55;
+  color: rgba(245,240,232,.66);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cl-hero .eyebrow { opacity:0; transform:translateY(20px); animation:hFadeUp .55s var(--ease-out) .05s forwards; }
+  .cl-hero h1       { opacity:0; transform:translateY(28px); animation:hFadeUp .65s var(--ease-out) .16s forwards; }
+  .cl-hero .sub     { opacity:0; transform:translateY(24px); animation:hFadeUp .65s var(--ease-out) .3s  forwards; }
+}
+
+/* ---------- TIMELINE SECTION (off-white) ---------- */
+.cl-section { background: var(--off-white); color: var(--navy); padding: clamp(58px, 9vh, 104px) 7vw clamp(80px, 12vh, 140px); }
+.cl-inner { max-width: 940px; margin: 0 auto; }
+.cl-timeline { position: relative; }
+/* terracotta vertical line */
+.cl-timeline::before {
+  content: ''; position: absolute;
+  left: 170px; top: 12px; bottom: 14px; width: 2px;
+  background: linear-gradient(180deg, var(--clay) 0%, var(--clay-dark) 82%, rgba(154,55,22,.18) 100%);
+}
+
+.cl-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  column-gap: 60px;
+  padding-bottom: clamp(2.6rem, 5vw, 3.8rem);
+}
+.cl-entry:last-child { padding-bottom: 0; }
+/* node on the line */
+.cl-entry::before {
+  content: ''; position: absolute;
+  left: 170px; top: 8px; transform: translateX(-50%);
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--clay);
+  box-shadow: 0 0 0 4px var(--off-white), 0 0 0 5px rgba(181,69,27,.28);
+  z-index: 1;
+}
+.cl-entry.genesis::before { background: var(--off-white); border: 2px solid var(--clay); }
+
+.cl-date {
+  font-family: var(--font-mono);
+  font-size: .76rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--clay);
+  text-align: right;
+  padding-top: 3px;
+  white-space: nowrap;
+}
+.cl-content { min-width: 0; }
+.cl-tags { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: .85rem; }
+.cl-tag {
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  padding: .3rem .6rem;
+  border: 1px solid rgba(181,69,27,.4);
+  color: var(--clay);
+  background: rgba(181,69,27,.08);
+  border-radius: 3px;
+  line-height: 1;
+}
+.cl-tag.launch { background: var(--clay); color: var(--off-white); border-color: var(--clay); }
+.cl-title { font-weight: 800; font-size: clamp(1.25rem, 2.3vw, 1.62rem); letter-spacing: -0.02em; line-height: 1.18; color: var(--navy); margin-bottom: .7rem; }
+.cl-desc { font-size: 1rem; line-height: 1.7; color: var(--ink-body); max-width: 56ch; }
+
+@media (max-width: 768px) {
+  .cl-hero { padding-left: 6vw; padding-right: 6vw; }
+  .cl-section { padding-left: 6vw; padding-right: 6vw; }
+  .cl-timeline::before { left: 7px; }
+  .cl-entry { grid-template-columns: 1fr; column-gap: 0; padding-left: 34px; padding-bottom: 2.8rem; }
+  .cl-entry::before { left: 7px; top: 6px; }
+  .cl-date { text-align: left; margin-bottom: .9rem; }
+}
+</style>
+
 <!-- Lenis base stylesheet (v1.1.14 ships dist/lenis.css; dist/lenis.min.css does not exist) -->
 <link rel="stylesheet" href="https://unpkg.com/lenis@1.1.14/dist/lenis.css" />
 </head>
@@ -1417,7 +1528,7 @@ body.has-cursor button { cursor:none !important; }
 <div id="vane-cursor" aria-hidden="true"></div>
 
 <!-- ===================== LOGO ===================== -->
-<a class="logo on-terra" href="#top" aria-label="Vane home">
+<a class="logo on-terra" href="/" aria-label="Vane home">
   <svg class="mark" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
     <line x1="11" y1="2"  x2="11" y2="20" />
     <line x1="2"  y1="11" x2="20" y2="11" />
@@ -1435,10 +1546,10 @@ body.has-cursor button { cursor:none !important; }
     <li class="nav-item has-dropdown">
       <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Product <span class="caret" aria-hidden="true"></span></button>
       <div class="nav-dropdown" role="menu">
-        <a role="menuitem" href="#how-it-works">How It Works</a>
-        <a role="menuitem" href="#passport">Agent Passports</a>
-        <a role="menuitem" href="#attestation">Attestation</a>
-        <a role="menuitem" href="#code">SDK</a>
+        <a role="menuitem" href="/#how-it-works">How It Works</a>
+        <a role="menuitem" href="/#passport">Agent Passports</a>
+        <a role="menuitem" href="/#attestation">Attestation</a>
+        <a role="menuitem" href="/#code">SDK</a>
       </div>
     </li>
     <li class="nav-item has-dropdown">
@@ -1447,7 +1558,7 @@ body.has-cursor button { cursor:none !important; }
         <a role="menuitem" href="/security">Security</a>
         <a role="menuitem" href="/security#cryptographic-primitives">Cryptography</a>
         <a role="menuitem" href="/security#verification-model">Merkle Tree</a>
-        <a role="menuitem" href="#eu-act">EU AI Act</a>
+        <a role="menuitem" href="/#eu-act">EU AI Act</a>
       </div>
     </li>
     <li class="nav-item has-dropdown">
@@ -1460,16 +1571,16 @@ body.has-cursor button { cursor:none !important; }
       </div>
     </li>
     <li class="nav-item">
-      <a class="nav-trigger" href="#pricing">Pricing</a>
+      <a class="nav-trigger" href="/#pricing">Pricing</a>
     </li>
     <li class="nav-item">
-      <a class="nav-trigger" href="#contact">Contact</a>
+      <a class="nav-trigger" href="/#contact">Contact</a>
     </li>
   </ul>
 
   <div class="nav-actions">
-    <a class="nav-demo" href="#contact">Book a demo</a>
-    <a class="nav-cta"  href="#pricing">Start building</a>
+    <a class="nav-demo" href="/#contact">Book a demo</a>
+    <a class="nav-cta"  href="/#pricing">Start building</a>
   </div>
 
   <button class="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-mobile">
@@ -1481,17 +1592,17 @@ body.has-cursor button { cursor:none !important; }
 <div class="nav-mobile" id="nav-mobile">
   <div class="mob-group">
     <div class="mob-head">Product</div>
-    <a href="#how-it-works">How It Works</a>
-    <a href="#passport">Agent Passports</a>
-    <a href="#attestation">Attestation</a>
-    <a href="#code">SDK</a>
+    <a href="/#how-it-works">How It Works</a>
+    <a href="/#passport">Agent Passports</a>
+    <a href="/#attestation">Attestation</a>
+    <a href="/#code">SDK</a>
   </div>
   <div class="mob-group">
     <div class="mob-head">Security</div>
     <a href="/security">Security</a>
     <a href="/security#cryptographic-primitives">Cryptography</a>
     <a href="/security#verification-model">Merkle Tree</a>
-    <a href="#eu-act">EU AI Act</a>
+    <a href="/#eu-act">EU AI Act</a>
   </div>
   <div class="mob-group">
     <div class="mob-head">Developers</div>
@@ -1502,361 +1613,106 @@ body.has-cursor button { cursor:none !important; }
   </div>
   <div class="mob-group">
     <div class="mob-head">Pricing</div>
-    <a href="#pricing">Pricing</a>
+    <a href="/#pricing">Pricing</a>
   </div>
   <div class="mob-group">
     <div class="mob-head">Contact</div>
-    <a href="#contact">Contact</a>
+    <a href="/#contact">Contact</a>
   </div>
   <div class="mob-actions">
-    <a class="nav-demo" href="#contact">Book a demo</a>
-    <a class="nav-cta"  href="#pricing">Start building</a>
+    <a class="nav-demo" href="/#contact">Book a demo</a>
+    <a class="nav-cta"  href="/#pricing">Start building</a>
   </div>
 </div>
 
 <div id="smooth-wrapper">
 
 <!-- ===================== HERO ===================== -->
-<section class="hero" id="top" data-theme="terra">
-  <div class="hero-layout">
+<section class="cl-hero" id="top" data-theme="terra">
+  <div class="cl-hero-inner">
+    <span class="eyebrow">Changelog</span>
+    <h1>What we've shipped.</h1>
+    <p class="sub">Every build. Every fix. Every improvement.</p>
+  </div>
+</section>
 
-    <!-- LEFT: copy -->
-    <div class="hero-copy">
-      <div class="eyebrow">Agent Identity Infrastructure</div>
-      <h1>
-        <span class="line1">Give your</span>
-        <span class="line2">agents</span>
-        <span class="line2">identity.</span>
-      </h1>
-      <p class="lede">Cryptographic passports for AI agents. Ed25519-signed, Merkle-attested. Verifiable by anyone.</p>
-      <div class="actions">
-        <a class="btn btn-light-navy" href="#start">Start building</a>
-        <a class="btn btn-ghost" href="https://docs.vane.build">Read the docs →</a>
-      </div>
-    </div>
+<!-- ===================== TIMELINE ===================== -->
+<section class="cl-section" data-theme="paper">
+  <div class="cl-inner">
+    <div class="cl-timeline">
 
-    <!-- RIGHT: live playground -->
-    <div class="hero-pg" aria-label="Live Passport Playground">
-      <div class="pg-card">
-        <div class="pg-hdr">
-          <span class="pg-live" aria-hidden="true"></span>
-          <span class="pg-hdr-title">Live Passport Playground</span>
-          <span class="pg-hdr-badge">Ed25519 · In-browser</span>
+      <article class="cl-entry" data-reveal>
+        <div class="cl-date r">Jun 9, 2026</div>
+        <div class="cl-content r">
+          <div class="cl-tags"><span class="cl-tag">Site</span></div>
+          <h3 class="cl-title">Security, Privacy &amp; Terms pages launched</h3>
+          <p class="cl-desc">Vane now has a dedicated security page covering cryptographic primitives, the verification model, and the compliance roadmap. Privacy policy and terms of service are live at vane.build/privacy and vane.build/terms.</p>
         </div>
-        <div class="pg-body">
-          <!-- Agent name -->
-          <div class="pg-field">
-            <label class="pg-lbl" for="pg-agent">Agent name</label>
-            <input class="pg-inp" id="pg-agent" type="text" value="billing-agent-001" spellcheck="false" autocomplete="off">
-          </div>
-          <!-- Scopes -->
-          <div class="pg-field">
-            <span class="pg-lbl">Scopes</span>
-            <div class="pg-chips" id="pg-chips" role="group" aria-label="Scope toggles">
-              <button class="pg-chip on" data-scope="attest:write"     type="button">attest:write</button>
-              <button class="pg-chip on" data-scope="financial:read"   type="button">financial:read</button>
-              <button class="pg-chip on" data-scope="tool:*"           type="button">tool:*</button>
-              <button class="pg-chip"    data-scope="data:read"        type="button">data:read</button>
-              <button class="pg-chip"    data-scope="webhook:trigger"  type="button">webhook:trigger</button>
-              <button class="pg-chip"    data-scope="admin:agents"     type="button">admin:agents</button>
-            </div>
-          </div>
-          <!-- Delegation -->
-          <div class="pg-field">
-            <label class="pg-lbl" for="pg-deleg">Delegation chain <span class="opt">(optional)</span></label>
-            <input class="pg-inp" id="pg-deleg" type="text" placeholder="e.g. CFO → Engineering Lead" autocomplete="off">
-          </div>
-          <!-- Issue button -->
-          <button class="pg-issue" id="pg-issue" type="button">
-            <span aria-hidden="true">⚡</span>
-            <span id="pg-issue-txt">Issue Passport</span>
-          </button>
+      </article>
 
-          <!-- Token area (hidden until issued) -->
-          <div class="pg-token-area" id="pg-token-area" aria-live="polite">
-            <div class="pg-tok-bar">
-              <span class="pg-tok-lbl">Signed Token</span>
-              <button class="pg-copy" id="pg-tok-copy" type="button">Copy</button>
-            </div>
-            <div class="pg-tok-box" id="pg-tok-box" aria-label="JWT token"></div>
-            <div class="pg-tok-btns">
-              <button class="pg-verify" id="pg-verify" type="button">✓ Verify</button>
-              <button class="pg-tamper" id="pg-tamper" type="button">⚠ Tamper Demo</button>
-            </div>
-          </div>
-
-          <!-- Result -->
-          <div class="pg-result" id="pg-result" role="status" aria-live="polite"></div>
+      <article class="cl-entry" data-reveal>
+        <div class="cl-date r">Jun 7, 2026</div>
+        <div class="cl-content r">
+          <div class="cl-tags"><span class="cl-tag">Docs</span></div>
+          <h3 class="cl-title">docs.vane.build launched</h3>
+          <p class="cl-desc">Full documentation site live at docs.vane.build covering the passport specification, API reference, SDK integrations, and security architecture. 35 pages across five sections.</p>
         </div>
-      </div>
-    </div>
-  </div>
+      </article>
 
-  <div class="scroll-ind" aria-hidden="true">
-    <div class="track"><span class="dot"></span></div>
-    <span class="label">SCROLL</span>
-  </div>
-</section>
+      <article class="cl-entry" data-reveal>
+        <div class="cl-date r">Jun 5, 2026</div>
+        <div class="cl-content r">
+          <div class="cl-tags"><span class="cl-tag">Site</span></div>
+          <h3 class="cl-title">Weighted scroll and mobile responsiveness</h3>
+          <p class="cl-desc">Replaced custom lerp scroll with Lenis — the same library used by Linear and Vercel. Added velocity momentum for a weighted, premium feel. Full mobile responsiveness pass: native scroll on touch devices, responsive layouts across all sections.</p>
+        </div>
+      </article>
 
-<!-- ===================== PROBLEM //01 ===================== -->
-<section class="section problem" data-theme="terra" data-reveal>
-  <span class="sec-num">//01</span>
-  <div class="problem-grid">
-    <h2>
-      <span class="r">When your agent</span>
-      <span class="r">calls Stripe —</span>
-      <span class="r" style="opacity:0;margin-top:.25em;display:block;font-style:italic;">Stripe has no idea who sent&nbsp;it.</span>
-    </h2>
-    <p class="body r">
-      An API key proves nothing. It tells you that someone has a string of characters.
-      It does not tell you which company owns the agent, which human authorized it,
-      what it is allowed to do, or whether that authorization has been revoked.
-      Vane fixes this.
-    </p>
-  </div>
-</section>
+      <article class="cl-entry" data-reveal>
+        <div class="cl-date r">Jun 3, 2026</div>
+        <div class="cl-content r">
+          <div class="cl-tags"><span class="cl-tag">SDK</span></div>
+          <h3 class="cl-title">npm packages hit 200+ weekly downloads</h3>
+          <p class="cl-desc">Five packages now available: @vane.build/sdk, mcp-middleware, langchain, openai-agents, and sidecar. 200+ combined weekly downloads with zero marketing. All packages have full READMEs and TypeScript types.</p>
+        </div>
+      </article>
 
-<!-- ===================== HOW IT WORKS //02 ===================== -->
-<section class="section how" id="how-it-works" data-theme="terra" data-reveal>
-  <span class="sec-num">//02</span>
-  <div class="how-eyebrow eyebrow r">How It Works</div>
+      <article class="cl-entry" data-reveal>
+        <div class="cl-date r">May 28, 2026</div>
+        <div class="cl-content r">
+          <div class="cl-tags"><span class="cl-tag">Security</span></div>
+          <h3 class="cl-title">Security hardening sprint</h3>
+          <p class="cl-desc">273 passing tests. Fail-closed verification across all 17 authentication functions. Sender-constrained passports with nonce binding. JCS (RFC 8785) canonical serialization. Clock-skew enforcement across all five verifiers. mTLS support for enterprise deployments. GitHub Actions CI with dependency review.</p>
+        </div>
+      </article>
 
-  <!-- Three.js Merkle tree visualization -->
-  <div class="merkle-wrap r" id="attestation" aria-label="Self-building Merkle attestation tree">
-    <canvas id="merkle-canvas"></canvas>
-    <div id="merkle-labels" aria-hidden="true"></div>
+      <article class="cl-entry" data-reveal>
+        <div class="cl-date r">May 22, 2026</div>
+        <div class="cl-content r">
+          <div class="cl-tags"><span class="cl-tag">Infrastructure</span></div>
+          <h3 class="cl-title">Merkle tree attestation + inclusion proofs</h3>
+          <p class="cl-desc">Every agent action is now anchored to an append-only SHA-256 Merkle tree. Inclusion proofs are verifiable offline with only the CA public key — O(log n) verification, no network call required. Offline CLI verifier published.</p>
+        </div>
+      </article>
 
-    <!-- Reduced-motion / no-JS static fallback -->
-    <div class="merkle-static" role="img" aria-label="Merkle tree: 4 leaf nodes each with a hash, combining into 2 parent nodes, then a single root hash">
-      <svg viewBox="-300 -170 600 360" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
-        <!-- Edges -->
-        <line x1="-220" y1="-100" x2="-140" y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
-        <line x1="-60"  y1="-100" x2="-140" y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
-        <line x1="60"   y1="-100" x2="140"  y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
-        <line x1="220"  y1="-100" x2="140"  y2="-10" stroke="rgba(245,240,232,.25)" stroke-width="1.5"/>
-        <line x1="-140" y1="-10"  x2="0"    y2="120" stroke="rgba(245,240,232,.3)"  stroke-width="1.5"/>
-        <line x1="140"  y1="-10"  x2="0"    y2="120" stroke="rgba(245,240,232,.3)"  stroke-width="1.5"/>
-        <!-- Leaves -->
-        <circle cx="-220" cy="-100" r="14" fill="#b5451b" opacity=".9"/>
-        <circle cx="-60"  cy="-100" r="14" fill="#b5451b" opacity=".9"/>
-        <circle cx="60"   cy="-100" r="14" fill="#b5451b" opacity=".9"/>
-        <circle cx="220"  cy="-100" r="14" fill="#b5451b" opacity=".9"/>
-        <!-- Internal -->
-        <circle cx="-140" cy="-10"  r="17" fill="#9a3716"/>
-        <circle cx="140"  cy="-10"  r="17" fill="#9a3716"/>
-        <!-- Root -->
-        <circle cx="0"    cy="120"  r="22" fill="#f5f0e8" opacity=".9"/>
-        <!-- Labels -->
-        <text x="-220" y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">3f7a</text>
-        <text x="-60"  y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">c912</text>
-        <text x="60"   y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">8b4e</text>
-        <text x="220"  y="-82" text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">d71f</text>
-        <text x="-140" y="8"   text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">a3c4</text>
-        <text x="140"  y="8"   text-anchor="middle" font-family="monospace" font-size="10" fill="#c8552a">9e2b</text>
-        <text x="0"    y="140" text-anchor="middle" font-family="monospace" font-size="10" fill="#0a1628">e5f6</text>
-      </svg>
-    </div>
-  </div>
+      <article class="cl-entry" data-reveal>
+        <div class="cl-date r">May 19, 2026</div>
+        <div class="cl-content r">
+          <div class="cl-tags"><span class="cl-tag">Infrastructure</span></div>
+          <h3 class="cl-title">Agent Passport issuance live</h3>
+          <p class="cl-desc">Ed25519-signed Agent Passports are live on the Vane API. Passports carry agent identity, authorization scopes, delegation chains, and expiry. Deployed to Railway with PostgreSQL on Railway. API auto-deploys from main.</p>
+        </div>
+      </article>
 
-  <div class="merkle-controls r">
-    <button class="merkle-btn"      id="merkle-add"    type="button">+ Add Record</button>
-    <button class="merkle-btn merkle-btn-warn" id="merkle-tamper-btn" type="button">⚠ Tamper Demo</button>
-    <div    class="merkle-status"   id="merkle-status" aria-live="polite"></div>
-  </div>
+      <article class="cl-entry genesis" data-reveal>
+        <div class="cl-date r">May 15, 2026</div>
+        <div class="cl-content r">
+          <div class="cl-tags"><span class="cl-tag launch">Launch</span></div>
+          <h3 class="cl-title">Vane ships</h3>
+          <p class="cl-desc">Cryptographic identity infrastructure for AI agents. Every agent action signed, attested, and independently verifiable. Built from zero in Puerto Rico.</p>
+        </div>
+      </article>
 
-  <div class="how-steps r">
-    <span>Register your agent</span>
-    <span class="dot">·</span>
-    <span>Issue a Passport</span>
-    <span class="dot">·</span>
-    <span>Every action attested</span>
-  </div>
-</section>
-
-<!-- ===================== PASSPORT //03 ===================== -->
-<section class="section passport" id="passport" data-theme="paper" data-reveal>
-  <span class="sec-num">//03</span>
-  <div class="pp-label eyebrow r">One Passport. Everything Proven.</div>
-  <div class="pp-scene r">
-    <div class="card" id="passport-card">
-      <div class="top">
-        <span class="t">Vane Agent Passport</span>
-        <span class="seal mono">ED25519</span>
-      </div>
-      <div class="hr"></div>
-      <div class="fields">
-        <div class="row"><span class="k">Agent</span><span class="v">billing-agent-001</span></div>
-        <div class="row"><span class="k">Organization</span><span class="v">spiffe://vane.local/company/acme</span></div>
-        <div class="row"><span class="k">Scopes</span><span class="v">tool:* · attest:write · financial:read</span></div>
-        <div class="row"><span class="k">Delegated By</span><span class="v">CFO → Engineering Lead → billing-agent-001</span></div>
-        <div class="row"><span class="k">Issued</span><span class="v" id="pp-issued">—</span></div>
-        <div class="row"><span class="k">Expires</span><span class="v" id="pp-expires">—</span></div>
-        <div class="row"><span class="k">Algorithm</span><span class="v">Ed25519 / EdDSA</span></div>
-        <div class="row"><span class="k">Signature</span><span class="v ok">✓ VERIFIED</span></div>
-      </div>
-      <div class="foot">
-        <div class="hash">sig:0x7f3a9c1e84b6d20f5ae9c47d1b8836f0a2e5c9d4716be03f8a1c6520d9e7f4b3c08a1d6e2f9b54c7a3e0d8f6b1c92a4d7e5</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================== STAKES ===================== -->
-<section class="section stakes" data-theme="terra" data-reveal>
-  <h2 class="r">Only 3% of enterprises have automated controls governing agent behavior.</h2>
-  <div class="sub r">The other 97% are running blind.</div>
-  <div class="src r">— Teleport State of AI Infrastructure Security 2026, 205 CISOs surveyed</div>
-  <div class="cta r"><a class="btn btn-light" href="#start">See how Vane works</a></div>
-</section>
-
-<!-- ===================== INTEGRATIONS //04 ===================== -->
-<section class="section integ" id="code" data-theme="paper" data-reveal>
-  <span class="sec-num">//04</span>
-  <div class="integ-grid">
-    <h2 class="r">Three lines of code.</h2>
-    <div class="r">
-      <div class="code-card">
-<pre><span class="kw">import</span> { VaneClient } <span class="kw">from</span> <span class="str">'@vane.build/sdk'</span>
-<span class="kw">const</span> vane = <span class="kw">new</span> VaneClient({ baseUrl, apiKey, agentId })
-<span class="kw">await</span> vane.<span class="mut">attest</span>(<span class="str">'financial_transfer'</span>, payload)</pre>
-      </div>
-      <div class="stack">LangChain <span>·</span> CrewAI <span>·</span> OpenAI Agents SDK <span>·</span> MCP</div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================== PRICING ===================== -->
-<section class="section pricing" id="pricing" data-theme="paper" data-reveal>
-  <h2 class="r">Simple pricing.</h2>
-  <div class="price-grid">
-    <div class="price-card dev r">
-      <div class="tier">Developer</div>
-      <div class="price">Free<span class="per"> forever</span></div>
-      <ul class="features">
-        <li>10,000 attestations / month</li>
-        <li>5 agents</li>
-        <li>Community support</li>
-        <li><span class="mono">npm install @vane.build/sdk</span></li>
-      </ul>
-      <a class="btn price-btn btn-clay" href="#contact">Request Access</a>
-    </div>
-    <div class="price-card startup r">
-      <div class="tier">Startup</div>
-      <div class="price">$99<span class="per"> / month</span></div>
-      <ul class="features">
-        <li>500,000 attestations / month</li>
-        <li>Unlimited agents</li>
-        <li>Webhook notifications</li>
-        <li>Email support</li>
-        <li>Trial available on request</li>
-      </ul>
-      <a class="btn price-btn btn-light" href="#contact">Request Access</a>
-    </div>
-    <div class="price-card ent r">
-      <div class="tier">Enterprise</div>
-      <div class="price">Custom<span class="per"> pricing</span></div>
-      <ul class="features">
-        <li>Unlimited attestations</li>
-        <li>SLA guarantees</li>
-        <li>Security documentation &amp; review</li>
-        <li>Dedicated support</li>
-        <li>Custom data retention</li>
-        <li>On-premise option</li>
-      </ul>
-      <a class="btn price-btn btn-navy" href="mailto:pablo@vane.build">Contact us</a>
-      <p class="price-demo-link">Or book a 30-minute demo directly:<br><a href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">cal.com/pablo-gonzalez-g12ly2/vane-demo →</a></p>
-    </div>
-  </div>
-</section>
-
-<!-- ===================== SECURITY ===================== -->
-<section class="section security" id="security" data-theme="terra" data-reveal>
-  <h2 class="r">Built on proven cryptography.</h2>
-  <div class="sec-grid">
-    <div class="sec-item r">
-      <div class="lab">ED25519</div>
-      <p>Deterministic signing. No nonce reuse risk. The same algorithm securing SSH and modern TLS.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">MERKLE TREE</div>
-      <p>Every attestation record is part of an append-only tree. Tamper with one record and the entire chain breaks.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">AES-256-GCM</div>
-      <p>Every private key encrypted at rest. The master key never touches the database.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">OFFLINE VERIFICATION</div>
-      <p>Passports verify with only the CA public key. No network call to Vane required.</p>
-    </div>
-  </div>
-  <p class="sec-foot r">Security documentation available on request. Responsible disclosure: security@vane.build</p>
-</section>
-
-<!-- ===================== EU AI ACT //05 ===================== -->
-<section class="section euact" id="eu-act" data-theme="paper" data-reveal>
-  <span class="sec-num">//05</span>
-  <div class="euact-grid">
-    <div>
-      <div class="eyebrow r">Regulatory deadline approaching</div>
-      <h2 class="r">Regulators are watching.</h2>
-      <p class="body r">
-        The EU AI Act requires deployers of high-risk AI systems to maintain tamper-evident
-        records of automated decisions — who authorized what, and when. Not screenshots. Not
-        hope. Cryptographic proof that the right agent did the right thing, with the right
-        authorization, at the right time. Vane produces that record on every action —
-        verifiable by anyone, with no trust in Vane's servers required.
-      </p>
-    </div>
-    <div class="timeline r">
-      <div class="tl-item muted">
-        <span class="pt"></span>
-        <div class="date">Feb 2025</div>
-        <div class="ev">Prohibited AI practices banned</div>
-      </div>
-      <div class="tl-item">
-        <span class="pt"></span>
-        <div class="date">Aug 2026</div>
-        <div class="ev">Transparency obligations begin</div>
-      </div>
-      <div class="tl-item">
-        <span class="pt"></span>
-        <div class="date">Dec 2027</div>
-        <div class="ev">High-risk AI compliance deadline</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================== FINAL CTA ===================== -->
-<section class="section final" id="start" data-theme="terra" data-reveal>
-  <h2>
-    <span class="r" style="display:block">Your agents are acting.</span>
-    <span class="r" style="display:block">Make sure they're trusted.</span>
-  </h2>
-  <div class="copy-wrap r">
-    <button class="btn btn-light-navy" id="copy-btn" type="button">npm install @vane.build/sdk</button>
-    <div class="copied" id="copied-msg">copied ✓</div>
-  </div>
-  <p class="fine r">Free to start. No credit card. Docs at docs.vane.build</p>
-</section>
-
-<!-- ===================== CONTACT ===================== -->
-<section class="section contact" id="contact" data-theme="paper" data-reveal>
-  <div class="contact-grid">
-    <div class="contact-left r">
-      <h2>Ready to give your agents identity?</h2>
-      <div class="contact-actions">
-        <a class="btn btn-clay"         href="#contact">Request Access</a>
-        <a class="btn btn-outline-navy" href="mailto:pablo@vane.build">Talk to us</a>
-      </div>
-      <p class="contact-fine">pablo@vane.build &middot; Response within 24 hours.</p>
-      <p class="contact-book">Or book a 30-minute demo directly:<br><a href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">cal.com/pablo-gonzalez-g12ly2/vane-demo →</a></p>
-    </div>
-    <div class="r">
-      <div class="cal-wrap">
-        <div id="cal-booking" data-cal-link="pablo-gonzalez-g12ly2/vane-demo" data-cal-config='{"layout":"month_view"}'></div>
-      </div>
     </div>
   </div>
 </section>
@@ -1890,425 +1746,13 @@ body.has-cursor button { cursor:none !important; }
 </footer>
 </div><!-- /#smooth-wrapper -->
 
-<!-- ===================== PLAYGROUND — real Ed25519 ===================== -->
-<script type="module">
-import {
-  generateKeyPair, buildPassportClaims, signPassport,
-  verifyPassport, tamperToken, decodePayload
-} from './passport-crypto.js';
-
-const $ = id => document.getElementById(id);
-let currentKp = null, currentToken = null, isTampered = false;
-
-/* Scope chip toggle */
-document.querySelectorAll('.pg-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    chip.classList.toggle('on');
-    chip.setAttribute('aria-pressed', chip.classList.contains('on'));
-  });
-});
-
-/* Issue passport */
-$('pg-issue').addEventListener('click', async () => {
-  const agentName = $('pg-agent').value.trim() || 'demo-agent';
-  const scopes    = [...document.querySelectorAll('.pg-chip.on')].map(c => c.dataset.scope);
-  if (!scopes.length) scopes.push('attest:write');
-  const delegation = $('pg-deleg').value.trim() || undefined;
-
-  /* Loading state */
-  const btn = $('pg-issue');
-  const lbl = $('pg-issue-txt');
-  btn.classList.add('busy');
-  lbl.textContent = 'Generating keys…';
-
-  try {
-    /* brief pause so user sees the "real crypto" moment */
-    currentKp    = await generateKeyPair();
-    lbl.textContent = 'Signing…';
-    await new Promise(r => setTimeout(r, 220));
-
-    const claims   = buildPassportClaims({ agentName, scopes, delegation, companyId: 'demo' });
-    currentToken   = await signPassport(claims, currentKp.privateKey);
-    isTampered     = false;
-
-    renderToken(currentToken, false);
-    showTokenArea();
-    hideResult();
-  } catch (e) {
-    showResult(false, 'Crypto error: ' + e.message);
-  } finally {
-    btn.classList.remove('busy');
-    lbl.textContent = 'Issue Passport';
-  }
-});
-
-/* Render token in colored segments */
-function renderToken(token, tampered) {
-  const box = $('pg-tok-box');
-  const [h, p, s] = token.split('.');
-  box.innerHTML =
-    `<span class="jwt-h">${h}</span>` +
-    `<span class="jwt-dot">.</span>` +
-    `<span class="jwt-p${tampered ? ' tampered' : ''}">${p}</span>` +
-    `<span class="jwt-dot">.</span>` +
-    `<span class="jwt-s">${s}</span>`;
-}
-
-function showTokenArea() {
-  $('pg-token-area').classList.add('show');
-}
-
-/* Verify */
-$('pg-verify').addEventListener('click', async () => {
-  if (!currentToken || !currentKp) return;
-  const token = isTampered ? tamperToken(currentToken) : currentToken;
-  const result = await verifyPassport(token, currentKp.publicKey);
-  if (result.valid) {
-    const c = result.claims;
-    const rows = [
-      ['agent',  c.vane?.agentId  || '—'],
-      ['org',    c.vane?.org      || '—'],
-      ['scopes', (c.vane?.scopes || []).join(', ')],
-      ['exp',    new Date(c.exp * 1000).toISOString().replace('T',' ').slice(0,19) + 'Z'],
-    ];
-    showResult(true, '✓ Ed25519 signature valid', rows);
-  } else {
-    showResult(false, '✕ Signature verification failed', [['reason', result.error || 'invalid']]);
-  }
-});
-
-/* Tamper demo */
-$('pg-tamper').addEventListener('click', async () => {
-  if (!currentToken || !currentKp) return;
-  isTampered = !isTampered;
-  renderToken(currentToken, isTampered);
-  $('pg-tamper').textContent = isTampered ? '↩ Restore' : '⚠ Tamper Demo';
-  hideResult();
-
-  if (isTampered) {
-    /* auto-verify after a beat so user sees the effect */
-    await new Promise(r => setTimeout(r, 350));
-    const tampered = tamperToken(currentToken);
-    const result   = await verifyPassport(tampered, currentKp.publicKey);
-    showResult(false, '✕ Payload was tampered — signature invalid', [['details', 'one byte flipped in the payload segment']]);
-  }
-});
-
-/* Copy token */
-$('pg-tok-copy').addEventListener('click', async () => {
-  if (!currentToken) return;
-  try { await navigator.clipboard.writeText(currentToken); }
-  catch (_) {
-    const ta = document.createElement('textarea');
-    ta.value = currentToken; document.body.appendChild(ta); ta.select();
-    document.execCommand('copy'); document.body.removeChild(ta);
-  }
-  const btn = $('pg-tok-copy');
-  btn.textContent = 'Copied ✓';
-  setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
-});
-
-function showResult(ok, status, rows = []) {
-  const el = $('pg-result');
-  el.className = 'pg-result show ' + (ok ? 'ok' : 'err');
-  el.innerHTML = `<div class="pg-result-inner">
-    <div class="pg-result-status">${status}</div>
-    ${rows.map(([k,v]) => `<div class="pg-result-row"><span class="pg-rk">${k}</span><span class="pg-rv">${v}</span></div>`).join('')}
-  </div>`;
-}
-function hideResult() {
-  const el = $('pg-result');
-  el.className = 'pg-result';
-  el.innerHTML = '';
-}
-</script>
-
-<!-- ===================== THREE.JS MERKLE TREE — lazy-loaded ===================== -->
-<script>
-(function(){
-  'use strict';
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduceMotion) return;
-
-  /* Mobile: the CSS hides the canvas and shows the static SVG fallback,
-     so skip loading Three.js entirely — it's too heavy for phones. */
-  const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  if (isMobile) return;
-
-  const canvas = document.getElementById('merkle-canvas');
-  if (!canvas) return;
-
-  /* Load Three.js only when the How It Works section is near-visible */
-  let threeLoaded = false;
-  const merkleObs = new IntersectionObserver(entries => {
-    if (!entries[0].isIntersecting || threeLoaded) return;
-    threeLoaded = true;
-    merkleObs.disconnect();
-
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-    s.onload = () => initMerkle();
-    document.head.appendChild(s);
-  }, { rootMargin: '300px' });
-  merkleObs.observe(canvas);
-
-  function initMerkle() {
-    if (typeof THREE === 'undefined') return;
-
-    const labelsEl = document.getElementById('merkle-labels');
-    const statusEl = document.getElementById('merkle-status');
-
-    /* ── Scene ─────────────────────────────────────────── */
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-
-    const scene = new THREE.Scene();
-
-    /* Orthographic camera — frustum half-height 170 world units */
-    const FRUST = 170;
-    let aspect  = canvas.clientWidth / (canvas.clientHeight || 400);
-    const camera = new THREE.OrthographicCamera(
-      -FRUST * aspect, FRUST * aspect,
-       FRUST, -FRUST, 1, 1000
-    );
-    camera.position.set(0, 0, 500);
-
-    /* Lights */
-    scene.add(new THREE.AmbientLight(0xffeedd, 0.9));
-    const key = new THREE.DirectionalLight(0xffffff, 0.4);
-    key.position.set(100, 200, 300); scene.add(key);
-
-    /* ── Node definitions ────────────────────────────── */
-    const HASHES = { 0:'3f7a', 1:'c912', 2:'8b4e', 3:'d71f', 4:'a3c4', 5:'9e2b', 6:'e5f6' };
-    const COL_EMPTY  = new THREE.Color(0x0d1f35);
-    const COL_ACTIVE = new THREE.Color(0xb5451b);
-    const COL_ROOT   = new THREE.Color(0xede8e0);
-    const COL_TAMPER = new THREE.Color(0xe0442e);
-
-    const nodeDefs = [
-      { id:0, x:-220, y:-100, r:14, parentId:4 },
-      { id:1, x:-60,  y:-100, r:14, parentId:4 },
-      { id:2, x: 60,  y:-100, r:14, parentId:5 },
-      { id:3, x: 220, y:-100, r:14, parentId:5 },
-      { id:4, x:-140, y:  0,  r:17, parentId:6, childIds:[0,1] },
-      { id:5, x: 140, y:  0,  r:17, parentId:6, childIds:[2,3] },
-      { id:6, x:  0,  y: 130, r:22, parentId:null, childIds:[4,5] },
-    ];
-
-    const nodes = nodeDefs.map(def => {
-      const geo = new THREE.SphereGeometry(def.r, 32, 32);
-      const mat = new THREE.MeshStandardMaterial({
-        color: COL_EMPTY, emissive: COL_EMPTY,
-        emissiveIntensity: 0.25, roughness: 0.35, metalness: 0.1,
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(def.x, def.y, 0);
-      mesh.scale.setScalar(0.25);
-      scene.add(mesh);
-
-      /* HTML label */
-      const lbl = document.createElement('div');
-      lbl.className = 'ml-lbl';
-      lbl.style.opacity = '0';
-      labelsEl && labelsEl.appendChild(lbl);
-
-      return { ...def, mesh, mat, lbl, curScale: 0.25, targScale: 0.25, state: 'empty' };
-    });
-
-    /* ── Edge lines ───────────────────────────────────── */
-    const edgePairs = [[0,4],[1,4],[2,5],[3,5],[4,6],[5,6]];
-    const edges = edgePairs.map(([childId, parentId]) => {
-      const c = nodes[childId], p = nodes[parentId];
-      const pts = [new THREE.Vector3(c.x,c.y,0), new THREE.Vector3(p.x,p.y,0)];
-      const geo = new THREE.BufferGeometry().setFromPoints(pts);
-      const mat = new THREE.LineBasicMaterial({ color:0x1a3856, opacity:0.2, transparent:true });
-      const line = new THREE.Line(geo, mat);
-      scene.add(line);
-      return { line, mat, childId, parentId, flash: 0 };
-    });
-
-    /* ── Glow lights pool ─────────────────────────────── */
-    const glows = [];
-    function addGlow(node, hexColor, intensity = 50) {
-      const light = new THREE.PointLight(hexColor, intensity, 250);
-      light.position.set(node.x, node.y, 30);
-      scene.add(light);
-      glows.push(light);
-    }
-
-    /* ── Activation ───────────────────────────────────── */
-    function activateNode(id, color, flash = true) {
-      const n = nodes[id];
-      n.state     = 'active';
-      n.targScale = 1.0;
-      n.mat.color.set(color);
-      n.mat.emissive.set(color);
-      n.mat.emissiveIntensity = 1.3;
-      n.lbl.textContent  = HASHES[id];
-      n.lbl.style.opacity = '1';
-      n.lbl.style.color  = '#' + color.getHexString();
-      if (flash) addGlow(n, color.getHex(), 60);
-      edges.forEach(e => { if(e.childId===id||e.parentId===id){ e.mat.opacity=0.75; e.flash=1.5; } });
-    }
-    function tamperNode(id) {
-      const n = nodes[id];
-      n.state = 'tampered';
-      n.mat.color.set(COL_TAMPER);
-      n.mat.emissive.set(COL_TAMPER);
-      n.mat.emissiveIntensity = 1.6;
-      n.lbl.style.color = '#e0442e';
-      n.lbl.textContent = id === 6 ? 'INVALID' : (HASHES[id] + '!');
-      edges.forEach(e => { if(e.childId===id||e.parentId===id){ e.mat.color.set(COL_TAMPER); e.mat.opacity=0.7; } });
-    }
-    function resetAll() {
-      nodes.forEach(n => {
-        n.state = 'empty'; n.targScale = 0.25;
-        n.mat.color.set(COL_EMPTY); n.mat.emissive.set(COL_EMPTY); n.mat.emissiveIntensity = 0.25;
-        n.lbl.style.opacity = '0';
-      });
-      edges.forEach(e => { e.mat.color.set(new THREE.Color(0x1a3856)); e.mat.opacity = 0.2; e.flash = 0; });
-    }
-    function setStatus(text, type) {
-      if (!statusEl) return;
-      statusEl.textContent  = text;
-      statusEl.className    = 'merkle-status' + (type ? ' ms-' + type : '');
-    }
-
-    /* ── Animation timeline ───────────────────────────── */
-    let clock = 0, lastTs = null;
-    const triggered = new Set();
-
-    const buildTimeline = () => [
-      { t:1.2,  fn:()=> activateNode(0, COL_ACTIVE) },
-      { t:2.8,  fn:()=> activateNode(1, COL_ACTIVE) },
-      { t:3.4,  fn:()=> activateNode(4, new THREE.Color(0x9a3716)) },
-      { t:4.8,  fn:()=> activateNode(2, COL_ACTIVE) },
-      { t:6.2,  fn:()=> activateNode(3, COL_ACTIVE) },
-      { t:6.8,  fn:()=> activateNode(5, new THREE.Color(0x9a3716)) },
-      { t:7.4,  fn:()=> { activateNode(6, COL_ROOT); setStatus('Chain valid ✓', 'ok'); }},
-      { t:11.5, fn:()=> { tamperNode(1); }},
-      { t:12.1, fn:()=> { tamperNode(4); }},
-      { t:12.7, fn:()=> { tamperNode(6); setStatus('CHAIN BROKEN', 'err'); }},
-      { t:16.0, fn:()=> { resetAll(); setStatus(''); clock = 0; triggered.clear(); }},
-    ];
-
-    let timeline = buildTimeline();
-
-    /* ── Manual controls ──────────────────────────────── */
-    let manualLeaf = 0;
-    document.getElementById('merkle-add')?.addEventListener('click', () => {
-      const leaves = [0,1,2,3].filter(i => nodes[i].state === 'empty');
-      if (!leaves.length) return;
-      activateNode(leaves[0], COL_ACTIVE);
-      if ([0,1].every(i => nodes[i].state === 'active') && nodes[4].state === 'empty') {
-        setTimeout(()=> activateNode(4, new THREE.Color(0x9a3716)), 400);
-      }
-      if ([2,3].every(i => nodes[i].state === 'active') && nodes[5].state === 'empty') {
-        setTimeout(()=> activateNode(5, new THREE.Color(0x9a3716)), 400);
-      }
-      if ([4,5].every(i => nodes[i].state !== 'empty') && nodes[6].state === 'empty') {
-        setTimeout(()=> { activateNode(6, COL_ROOT); setStatus('Chain valid ✓', 'ok'); }, 800);
-      }
-    });
-
-    document.getElementById('merkle-tamper-btn')?.addEventListener('click', () => {
-      const active = [0,1,2,3].find(i => nodes[i].state === 'active');
-      if (active === undefined) return;
-      tamperNode(active);
-      const parent = nodes[active].parentId;
-      if (parent != null) {
-        setTimeout(()=> tamperNode(parent), 450);
-        setTimeout(()=> { tamperNode(6); setStatus('CHAIN BROKEN', 'err'); }, 900);
-      }
-    });
-
-    /* ── Render loop ──────────────────────────────────── */
-    function render(ts) {
-      requestAnimationFrame(render);
-      if (lastTs === null) lastTs = ts;
-      const dt = Math.min((ts - lastTs) / 1000, 0.05);
-      lastTs   = ts;
-      clock   += dt;
-
-      /* Timeline */
-      timeline.forEach(ev => {
-        const k = ev.t.toString();
-        if (!triggered.has(k) && clock >= ev.t) { triggered.add(k); ev.fn(); }
-      });
-
-      /* Scale lerp */
-      nodes.forEach(n => {
-        if (Math.abs(n.curScale - n.targScale) > 0.001) {
-          n.curScale += (n.targScale - n.curScale) * 0.1;
-          n.mesh.scale.setScalar(n.curScale);
-        }
-      });
-
-      /* Glow decay */
-      for (let i = glows.length - 1; i >= 0; i--) {
-        glows[i].intensity *= 0.93;
-        if (glows[i].intensity < 0.3) { scene.remove(glows[i]); glows.splice(i, 1); }
-      }
-
-      /* Edge flash decay */
-      edges.forEach(e => {
-        if (e.flash > 0) {
-          e.flash -= dt * 0.7;
-          if (e.flash <= 0 && e.mat.opacity > 0.35) e.mat.opacity = 0.3;
-        }
-      });
-
-      /* HTML label positions via projection */
-      nodes.forEach(n => {
-        if (parseFloat(n.lbl.style.opacity) > 0) {
-          const v = new THREE.Vector3(n.x, n.y - n.r - 8, 0).project(camera);
-          const x = (v.x * 0.5 + 0.5) * canvas.clientWidth;
-          const y = (v.y * -0.5 + 0.5) * canvas.clientHeight;
-          n.lbl.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
-        }
-      });
-
-      renderer.render(scene, camera);
-    }
-
-    /* ── Resize ───────────────────────────────────────── */
-    function onResize() {
-      const w = canvas.clientWidth, h = canvas.clientHeight || 400;
-      renderer.setSize(w, h, false);
-      aspect = w / h;
-      camera.left  = -FRUST * aspect; camera.right = FRUST * aspect;
-      camera.updateProjectionMatrix();
-    }
-    onResize();
-    window.addEventListener('resize', onResize);
-
-    requestAnimationFrame(render);
-  }
-})();
-</script>
-
-<!-- ===================== MAIN SCRIPT ===================== -->
+<!-- ===================== PAGE BEHAVIOUR — cursor, reveal, theme follow ===================== -->
 <script>
 (function(){
   'use strict';
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ── Passport timestamps ──────────────────────────── */
-  (function(){
-    const now = new Date(), exp = new Date(now.getTime() + 3600000);
-    const iso = d => d.toISOString().replace('T',' ').slice(0,19)+'Z';
-    const i = document.getElementById('pp-issued');
-    const e = document.getElementById('pp-expires');
-    if(i) i.textContent = iso(now);
-    if(e) e.textContent = iso(exp);
-  })();
-
-  /* ── Smooth scroll + parallax ─────────────────────── */
-  /* Now handled by Lenis — see the init block just before </body>. The old
-     custom rAF lerp + fixed-#smooth-wrapper transform has been removed in
-     favor of the library; the parallax was ported into that same block. */
-
-  /* ── Custom cursor ────────────────────────────────── */
+  /* Custom cursor (identical to index.html) */
   (function(){
     if(reduceMotion || window.matchMedia('(hover:none)').matches) return;
     const el = document.getElementById('vane-cursor');
@@ -2316,14 +1760,14 @@ function hideResult() {
     document.body.classList.add('has-cursor');
     let cx=-200,cy=-200,mx=-200,my=-200;
     window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;},{passive:true});
-    document.querySelectorAll('.btn,button,.nav a,.pg-chip,.pg-issue').forEach(b=>{
+    document.querySelectorAll('.btn,button,.nav a,.links a,.cl-tag').forEach(b=>{
       b.addEventListener('mouseenter',()=>el.classList.add('big'),{passive:true});
       b.addEventListener('mouseleave',()=>el.classList.remove('big'),{passive:true});
     });
     (function tick(){ requestAnimationFrame(tick); cx+=(mx-cx)*.15; cy+=(my-cy)*.15; el.style.transform=`translate(${cx}px,${cy}px)`; })();
   })();
 
-  /* ── Reveal on scroll ─────────────────────────────── */
+  /* Scroll reveal on entries (identical pattern to index.html) */
   (function(){
     const groups = document.querySelectorAll('[data-reveal]');
     if(reduceMotion){ groups.forEach(g=>g.classList.add('in')); return; }
@@ -2339,43 +1783,7 @@ function hideResult() {
     groups.forEach(g=>io.observe(g));
   })();
 
-  /* ── Passport 3D tilt ─────────────────────────────── */
-  (function(){
-    const card = document.getElementById('passport-card');
-    if(!card||reduceMotion) return;
-    /* Skip tilt on touch / coarse-pointer devices (CSS also resets the transform) */
-    if(window.matchMedia('(pointer: coarse)').matches) return;
-    const MAX=10, sec=card.closest('.passport');
-    function onMove(e){
-      const r=card.getBoundingClientRect();
-      const dx=(e.clientX-(r.left+r.width/2))/(r.width/2);
-      const dy=(e.clientY-(r.top+r.height/2))/(r.height/2);
-      card.style.transform=`rotateX(${Math.max(-1,Math.min(1,dy))*-MAX}deg) rotateY(${Math.max(-1,Math.min(1,dx))*MAX}deg)`;
-    }
-    function reset(){ card.style.transform='rotateX(0) rotateY(0)'; }
-    (sec||document).addEventListener('mousemove',onMove,{passive:true});
-    (sec||document).addEventListener('mouseleave',reset);
-  })();
-
-  /* ── Copy npm install ─────────────────────────────── */
-  (function(){
-    const btn=document.getElementById('copy-btn');
-    const msg=document.getElementById('copied-msg');
-    if(!btn) return;
-    btn.addEventListener('click',async()=>{
-      try{ await navigator.clipboard.writeText('npm install @vane.build/sdk'); }
-      catch(_){
-        const ta=document.createElement('textarea');
-        ta.value='npm install @vane.build/sdk';
-        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-      }
-      msg.classList.add('show');
-      clearTimeout(btn._t);
-      btn._t=setTimeout(()=>msg.classList.remove('show'),2000);
-    });
-  })();
-
-  /* ── Logo + nav follow active section ────────────── */
+  /* Logo + nav follow active section theme (identical to index.html) */
   (function(){
     const logo=document.querySelector('.logo');
     const nav=document.querySelector('.nav');
@@ -2392,68 +1800,8 @@ function hideResult() {
     },{threshold:[.5]});
     sections.forEach(s=>io.observe(s));
   })();
-
-  /* ── Smooth anchor scrolling ──────────────────────── */
-  (function(){
-    document.querySelectorAll('a[href^="#"]').forEach(a=>{
-      a.addEventListener('click',e=>{
-        const id=a.getAttribute('href').slice(1);
-        if(!id) return;
-        const target=document.getElementById(id);
-        if(!target) return;
-        e.preventDefault();
-        window.scrollTo(0,target.offsetTop);
-      });
-    });
-  })();
-
 })();
 </script>
-
-<!-- ===================== CAL.COM INIT ===================== -->
-<script>
-(function (C, A, L) {
-  let p = function (a, ar) { a.q.push(ar); };
-  let d = C.document;
-  C.Cal = C.Cal || function () {
-    let cal = C.Cal;
-    let ar = arguments;
-    if (!cal.loaded) {
-      cal.ns = {};
-      cal.q = cal.q || [];
-      d.head.appendChild(d.createElement("script")).src = A;
-      cal.loaded = true;
-    }
-    if (ar[0] === L) {
-      const api = function () { p(api, arguments); };
-      const namespace = ar[1];
-      api.q = [];
-      if (typeof namespace === "string") {
-        cal.ns[namespace] = cal.ns[namespace] || api;
-        p(cal.ns[namespace], ar);
-        p(cal, [L, api]);
-      } else {
-        p(cal, ar);
-      }
-      return;
-    }
-    p(cal, ar);
-  };
-})(window, "https://app.cal.com/embed/embed.js", "init");
-
-Cal("init", { origin: "https://cal.com" });
-Cal("inline", {
-  elementOrSelector: "#cal-booking",
-  calLink: "pablo-gonzalez-g12ly2/vane-demo",
-  layout: "month_view"
-});
-Cal("ui", {
-  theme: "light",
-  styles: { branding: { brandColor: "#b5451b" } },
-  hideEventTypeDetails: false,
-});
-</script>
-
 <!-- ===================== NAV — dropdowns, hamburger, scroll state ===================== -->
 <script>
 (function(){
