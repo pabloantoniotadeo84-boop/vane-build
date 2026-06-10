@@ -205,6 +205,7 @@ app.get('/', async (c) => {
 const PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../public');
 
 const STATIC_MIME: Record<string, string> = {
+  html: 'text/html; charset=utf-8',
   js:   'application/javascript',
   css:  'text/css',
   png:  'image/png',
@@ -214,19 +215,30 @@ const STATIC_MIME: Record<string, string> = {
   webp: 'image/webp',
 };
 
+// Clean ("extensionless") URLs for HTML pages:
+//   /security      → public/security.html
+//   /anything      → public/anything.html
+//   /favicon.svg   → public/favicon.svg   (real files still served verbatim)
+// Resolution: try the exact path under public/ first; if it does not exist, fall
+// back to the same path with a .html extension; otherwise 404. ("/" is handled by
+// the dedicated marketing route above and still serves public/index.html.)
 app.get('/:filename', async (c) => {
   const filename = c.req.param('filename');
   if (filename.includes('..')) return c.json({ error: 'Not Found' }, 404);
-  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
-  const contentType = STATIC_MIME[ext] ?? 'application/octet-stream';
-  try {
-    const data = await readFile(resolve(PUBLIC_DIR, filename));
-    c.header('Content-Type', contentType);
-    c.header('Cache-Control', 'public, max-age=3600');
-    return c.body(data);
-  } catch {
-    return c.json({ error: 'Not Found' }, 404);
+
+  const candidates = filename.endsWith('.html') ? [filename] : [filename, `${filename}.html`];
+  for (const name of candidates) {
+    try {
+      const data = await readFile(resolve(PUBLIC_DIR, name));
+      const ext = name.split('.').pop()?.toLowerCase() ?? '';
+      c.header('Content-Type', STATIC_MIME[ext] ?? 'application/octet-stream');
+      c.header('Cache-Control', 'public, max-age=3600');
+      return c.body(data);
+    } catch {
+      // Try the next candidate (e.g. "<name>.html") before giving up.
+    }
   }
+  return c.json({ error: 'Not Found' }, 404);
 });
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
