@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Security — Vane</title>
-<meta name="description" content="How Vane protects your AI agents. Ed25519 signatures, SHA-256 Merkle attestation, offline verification, and defense-in-depth security design." />
+<title>Privacy Policy — Vane</title>
+<meta name="description" content="Vane's privacy policy — what data we collect, why, how we store and protect it, and your rights." />
 
 <!-- Open Graph -->
 <meta property="og:type"        content="website" />
-<meta property="og:title"       content="Security — Vane" />
-<meta property="og:description" content="How Vane protects your AI agents. Ed25519-signed, SHA-256 Merkle-attested, verifiable offline." />
+<meta property="og:title"       content="Privacy Policy — Vane" />
+<meta property="og:description" content="What data Vane collects, why, and how we handle it." />
 <meta property="og:image"       content="/og.svg" />
-<meta property="og:url"         content="https://vane.build/security" />
+<meta property="og:url"         content="https://vane.build/privacy" />
 <!-- Twitter / X -->
 <meta name="twitter:card"        content="summary_large_image" />
-<meta name="twitter:title"       content="Security — Vane" />
-<meta name="twitter:description" content="How Vane protects your AI agents. Verifiable by anyone." />
+<meta name="twitter:title"       content="Privacy Policy — Vane" />
+<meta name="twitter:description" content="What data Vane collects, why, and how we handle it." />
 <meta name="twitter:image"       content="/og.svg" />
 <!-- Theme -->
-<meta name="theme-color" content="#b5451b" />
-<link rel="canonical" href="https://vane.build/security" />
+<meta name="theme-color" content="#0a1628" />
+<link rel="canonical" href="https://vane.build/privacy" />
 
 <!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -28,7 +28,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-
 <style>
 /* ============================================================
    DESIGN TOKENS
@@ -1412,155 +1411,74 @@ body.has-cursor button { cursor:none !important; }
 
 <style>
 /* ============================================================
-   SECURITY PAGE — section-specific additions (palette/fonts inherited)
+   LEGAL PAGES (privacy / terms) — additions on top of the shared
+   design system. Dark navy default, navy hero, off-white readable body.
    ============================================================ */
+body { background: var(--navy); }   /* dark navy background by default */
 
-/* shared section heading helpers */
-.sxhead { max-width: 60ch; }
-.sxhead.center { margin-left:auto; margin-right:auto; text-align:center; }
-.sxhead .eyebrow { display:block; margin-bottom:1.3rem; }
-.sx-lead { margin-top:1.4rem; font-size:1.06rem; line-height:1.65; }
-
-/* ---- HERO (terra, grid background like index hero) ---- */
-.shero {
-  background:
-    radial-gradient(ellipse 80% 60% at 75% 20%, rgba(200,85,42,.22) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 50% at 20% 75%, rgba(154,55,22,.18) 0%, transparent 60%),
-    linear-gradient(rgba(154,55,22,.09) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(154,55,22,.09) 1px, transparent 1px),
-    var(--clay);
-  background-size: 100% 100%, 100% 100%, 72px 72px, 72px 72px;
+.legal-hero {
+  background: var(--navy);
   color: var(--off-white);
-  text-align: center;
-  align-items: center;
-  overflow: hidden;
+  padding: clamp(140px, 20vh, 210px) 7vw clamp(54px, 8vh, 96px);
+  position: relative;
 }
-/* subtle drifting grid overlay for life */
-.shero::before {
-  content:''; position:absolute; inset:-2px; pointer-events:none;
-  background:
-    linear-gradient(rgba(245,240,232,.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(245,240,232,.045) 1px, transparent 1px);
-  background-size: 72px 72px;
-  animation: sheroDrift 26s linear infinite;
-}
-@keyframes sheroDrift { to { background-position: 72px 72px, 72px 72px; } }
-.shero-inner { position:relative; z-index:2; max-width:1000px; margin:0 auto; }
-.shero .eyebrow { color: rgba(245,240,232,.72); margin-bottom:1.9rem; }
-.shero h1 {
-  font-weight:800;
-  font-size: clamp(2.6rem, 7.2vw, 6.4rem);
-  line-height:.94;
-  letter-spacing:-0.035em;
+.legal-hero .eyebrow { display: block; color: var(--clay-light); margin-bottom: 1.4rem; }
+.legal-hero h1 {
+  font-weight: 800;
+  font-size: clamp(2.6rem, 7vw, 5rem);
+  line-height: .94;
+  letter-spacing: -0.035em;
   color: var(--off-white);
 }
-.shero h1 .l1 { display:block; color: rgba(245,240,232,.66); }
-.shero h1 .l2 { display:block; }
-.shero .sub {
-  margin:2.1rem auto 0;
-  font-size: clamp(1.1rem, 1.8vw, 1.45rem);
-  line-height:1.6;
-  max-width:44ch;
-  color: rgba(245,240,232,.84);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .shero .eyebrow { opacity:0; transform:translateY(20px); animation:hFadeUp .55s var(--ease-out) .05s forwards; }
-  .shero h1       { opacity:0; transform:translateY(28px); animation:hFadeUp .65s var(--ease-out) .16s forwards; }
-  .shero .sub     { opacity:0; transform:translateY(24px); animation:hFadeUp .65s var(--ease-out) .3s  forwards; }
+.legal-hero .updated {
+  margin-top: 1.5rem;
+  font-family: var(--font-mono);
+  font-size: .9rem;
+  letter-spacing: .04em;
+  color: rgba(245,240,232,.6);
 }
 
-/* ---- CRYPTOGRAPHIC PRIMITIVES (paper) ---- */
-.scrypto { background: var(--warm-gray); color: var(--navy); }
-.scrypto h2 { font-weight:800; font-size:clamp(2rem,4.6vw,3rem); letter-spacing:-0.03em; color:var(--navy); }
-.scrypto .sx-lead { color: var(--ink-body); }
-.crypto-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.6rem; max-width:1120px; margin:3.6rem auto 0; }
-.crypto-card {
+.legal-body {
   background: var(--off-white);
-  border:1px solid rgba(10,22,40,.1);
-  border-top:4px solid var(--clay);
-  padding:2.3rem 1.85rem;
-  transition: transform .2s var(--ease-out), box-shadow .2s var(--ease-out);
+  color: var(--navy);
+  padding: clamp(44px, 7vh, 84px) 7vw clamp(72px, 12vh, 130px);
 }
-@media (hover:hover) and (pointer:fine){ .crypto-card:hover { transform:translateY(-5px); box-shadow:0 20px 40px rgba(10,22,40,.1); } }
-.crypto-card .lab { font-family:var(--font-mono); font-size:.72rem; letter-spacing:.16em; color:var(--clay); }
-.crypto-card h3 { margin-top:1rem; font-weight:800; font-size:1.3rem; letter-spacing:-0.02em; color:var(--navy); line-height:1.12; }
-.crypto-card p { margin-top:.95rem; font-size:.96rem; line-height:1.62; color:var(--ink-body); }
+.legal-inner { max-width: 760px; margin: 0 auto; }
 
-/* ---- VERIFICATION MODEL (navy) ---- */
-.sverify { background: var(--navy); color: var(--off-white); }
-.sverify .eyebrow { color: var(--clay-light); margin-bottom:1.3rem; }
-.sverify h2 { font-weight:800; font-size:clamp(2rem,4.6vw,3rem); letter-spacing:-0.03em; color:var(--off-white); max-width:20ch; }
-.verify-cols { display:grid; grid-template-columns:1fr 1fr; gap:2.2rem; margin-top:3rem; }
-.vcol { border:1px solid rgba(245,240,232,.14); background:rgba(245,240,232,.02); padding:2rem 1.9rem; }
-.vcol .tag { display:block; font-family:var(--font-mono); font-size:.7rem; letter-spacing:.16em; text-transform:uppercase; color:rgba(245,240,232,.5); margin-bottom:1rem; }
-.vcol p { font-size:1rem; line-height:1.72; color:rgba(245,240,232,.8); }
-.vcol.alt { border-color:rgba(181,69,27,.5); background:rgba(181,69,27,.08); }
-.vcol.alt .tag { color:var(--clay-light); }
-.vcol.alt p { color:var(--off-white); }
-
-/* animated 3-step flow */
-.vflow { margin-top:3.4rem; display:grid; grid-template-columns:1.3fr auto 1fr auto .95fr; align-items:center; gap:0; }
-.vnode { display:flex; flex-direction:column; align-items:center; gap:.95rem; }
-.vnode .cap { font-family:var(--font-mono); font-size:.62rem; letter-spacing:.14em; text-transform:uppercase; color:rgba(245,240,232,.48); text-align:center; }
-.vinputs { width:100%; display:flex; flex-direction:column; gap:.55rem; padding:1rem; border:1px solid rgba(245,240,232,.16); background:rgba(245,240,232,.03); }
-.vchip { display:flex; align-items:center; gap:.6rem; padding:.62rem .75rem; border:1px solid rgba(245,240,232,.1); background:rgba(0,0,0,.2); font-family:var(--font-mono); font-size:.71rem; letter-spacing:.03em; color:var(--off-white); }
-.vchip svg { width:15px; height:15px; flex:none; color:var(--clay-light); }
-.vengine { position:relative; width:100%; padding:1.5rem 1rem; border:1px solid rgba(181,69,27,.5); background:linear-gradient(180deg, rgba(181,69,27,.18), rgba(181,69,27,.04)); text-align:center; overflow:hidden; }
-.vengine .ic { color:var(--clay-light); }
-.vengine .ic svg { width:26px; height:26px; }
-.vengine .t { margin-top:.5rem; font-family:var(--font-mono); font-size:.8rem; letter-spacing:.05em; color:var(--off-white); }
-.vengine .s { margin-top:.3rem; font-family:var(--font-mono); font-size:.58rem; letter-spacing:.12em; text-transform:uppercase; color:var(--clay-light); }
-.vengine::after { content:''; position:absolute; top:0; left:-60%; width:60%; height:100%; background:linear-gradient(90deg, transparent, rgba(245,240,232,.12), transparent); animation:vscan 2.8s linear infinite; pointer-events:none; }
-@keyframes vscan { to { left:110%; } }
-.vresult { width:100%; padding:1.25rem 1rem; border:1px solid rgba(34,197,94,.4); background:rgba(34,197,94,.08); text-align:center; }
-.vresult .ok { font-family:var(--font-mono); font-size:.82rem; letter-spacing:.06em; color:#22c55e; font-weight:600; }
-.vresult .alt { display:block; margin-top:.4rem; font-family:var(--font-mono); font-size:.58rem; letter-spacing:.1em; text-transform:uppercase; color:rgba(245,240,232,.4); }
-.varrow { position:relative; height:2px; min-width:40px; margin:0 .6rem; background:rgba(245,240,232,.14); overflow:hidden; }
-.varrow::after { content:''; position:absolute; top:0; left:-45%; width:45%; height:100%; background:linear-gradient(90deg, transparent, var(--clay-light), transparent); animation:vtravel 2.6s linear infinite; }
-.varrow.a2::after { animation-delay:1.3s; }
-@keyframes vtravel { to { left:110%; } }
-
-/* ---- DEFENSE IN DEPTH (terra) — reuses .sec-item, custom 3-col grid ---- */
-.harden { background: var(--clay); color: var(--off-white); }
-.harden .eyebrow { color: rgba(245,240,232,.7); margin-bottom:1.2rem; }
-.harden h2 { font-weight:800; font-size:clamp(2rem,4.6vw,3rem); letter-spacing:-0.03em; color:var(--off-white); max-width:20ch; }
-.harden-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:2.6rem 3rem; margin-top:3.4rem; max-width:1120px; }
-
-/* ---- RESPONSIBLE DISCLOSURE (navy) ---- */
-.sdisclose { background: var(--navy); color: var(--off-white); text-align:center; align-items:center; }
-.sdisclose h2 { font-weight:800; font-size:clamp(2.2rem,5vw,3.6rem); letter-spacing:-0.03em; color:var(--off-white); }
-.sdisclose .body { margin:1.9rem auto 0; max-width:54ch; font-size:1.12rem; line-height:1.72; color:rgba(245,240,232,.82); }
-.sdisclose .body strong { color:var(--off-white); font-weight:600; }
-.sdisclose .mailwrap { margin-top:2.5rem; }
-.sdisclose .mail {
-  display:inline-flex; align-items:center; gap:.7rem;
-  font-family:var(--font-mono); font-size:.95rem; letter-spacing:.03em;
-  padding:.9rem 1.6rem;
-  border:1px solid rgba(181,69,27,.55); background:rgba(181,69,27,.14);
-  color:var(--off-white); text-decoration:none;
-  transition:background .2s ease, border-color .2s ease, transform .15s ease;
+.legal-warning {
+  display: flex; gap: .85rem; align-items: flex-start;
+  background: rgba(181,69,27,.08);
+  border: 1px solid rgba(181,69,27,.3);
+  border-left: 4px solid var(--clay);
+  padding: 1.05rem 1.25rem;
+  margin-bottom: 3.4rem;
+  font-size: .97rem; line-height: 1.62; color: var(--ink-body);
 }
-.sdisclose .mail:hover { background:rgba(181,69,27,.26); border-color:var(--clay-light); }
-.sdisclose .mail:active { transform:scale(.98); }
-.sdisclose .mail svg { width:17px; height:17px; color:var(--clay-light); }
-.sdisclose .note { margin:1.9rem auto 0; max-width:50ch; font-family:var(--font-mono); font-size:.74rem; line-height:1.6; letter-spacing:.02em; color:rgba(245,240,232,.55); }
+.legal-warning .ico { font-size: 1.15rem; line-height: 1.4; flex: none; }
+.legal-warning strong { color: var(--clay-dark); }
 
-/* ---- COMPLIANCE ROADMAP (paper) — reuses .timeline ---- */
-.sroadmap { background: var(--warm-gray); color: var(--navy); align-items:center; }
-.sroadmap .eyebrow { color: var(--navy); opacity:.6; margin-bottom:1.2rem; }
-.sroadmap h2 { font-weight:800; font-size:clamp(2rem,4.6vw,3rem); letter-spacing:-0.03em; color:var(--navy); text-align:center; }
-.sroadmap .timeline { margin:3rem auto 0; max-width:540px; width:100%; }
-
-/* ---- responsive ---- */
-@media (max-width: 900px) {
-  .crypto-grid  { grid-template-columns:1fr; }
-  .harden-grid  { grid-template-columns:1fr; }
-  .verify-cols  { grid-template-columns:1fr; }
-  .vflow        { grid-template-columns:1fr; gap:1.2rem; max-width:360px; margin-left:auto; margin-right:auto; }
-  .varrow       { display:none; }
+.legal-sec { margin-top: 2.8rem; }
+.legal-sec:first-of-type { margin-top: 0; }
+.legal-sec h2 {
+  font-weight: 800;
+  font-size: clamp(1.3rem, 2.5vw, 1.75rem);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--navy);
+  margin-bottom: .95rem;
 }
-@media (prefers-reduced-motion: reduce) {
-  .shero::before, .vengine::after, .varrow::after { animation:none !important; }
+.legal-sec p { font-size: 1.02rem; line-height: 1.72; color: var(--ink-body); margin-bottom: 1rem; }
+.legal-sec p:last-child { margin-bottom: 0; }
+.legal-sec ul { list-style: none; margin: .2rem 0 1rem; padding: 0; }
+.legal-sec li { position: relative; padding: .4rem 0 .4rem 1.45rem; font-size: 1.02rem; line-height: 1.6; color: var(--ink-body); }
+.legal-sec li::before { content: ''; position: absolute; left: 1px; top: 1rem; width: 7px; height: 7px; border-radius: 50%; background: var(--clay); }
+.legal-sec a { color: var(--clay); text-decoration: none; border-bottom: 1px solid rgba(181,69,27,.35); transition: border-color .15s ease, color .15s ease; }
+.legal-sec a:hover { border-bottom-color: var(--clay); color: var(--clay-dark); }
+.legal-sec strong { color: var(--navy); font-weight: 600; }
+
+@media (max-width: 768px) {
+  .legal-hero { padding-left: 6vw; padding-right: 6vw; }
+  .legal-body { padding-left: 6vw; padding-right: 6vw; }
 }
 </style>
 
@@ -1599,9 +1517,9 @@ body.has-cursor button { cursor:none !important; }
     <li class="nav-item has-dropdown">
       <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Security <span class="caret" aria-hidden="true"></span></button>
       <div class="nav-dropdown" role="menu">
-        <a role="menuitem" href="#top">Overview</a>
-        <a role="menuitem" href="#cryptographic-primitives">Cryptography</a>
-        <a role="menuitem" href="#verification-model">Merkle Tree</a>
+        <a role="menuitem" href="/security">Security</a>
+        <a role="menuitem" href="/security#cryptographic-primitives">Cryptography</a>
+        <a role="menuitem" href="/security#verification-model">Merkle Tree</a>
         <a role="menuitem" href="/#eu-act">EU AI Act</a>
       </div>
     </li>
@@ -1643,9 +1561,9 @@ body.has-cursor button { cursor:none !important; }
   </div>
   <div class="mob-group">
     <div class="mob-head">Security</div>
-    <a href="#top">Overview</a>
-    <a href="#cryptographic-primitives">Cryptography</a>
-    <a href="#verification-model">Merkle Tree</a>
+    <a href="/security">Security</a>
+    <a href="/security#cryptographic-primitives">Cryptography</a>
+    <a href="/security#verification-model">Merkle Tree</a>
     <a href="/#eu-act">EU AI Act</a>
   </div>
   <div class="mob-group">
@@ -1672,165 +1590,93 @@ body.has-cursor button { cursor:none !important; }
 <div id="smooth-wrapper">
 
 <!-- ===================== HERO ===================== -->
-<section class="section shero" id="top" data-theme="terra">
-  <div class="shero-inner">
-    <div class="eyebrow">Security</div>
-    <h1>
-      <span class="l1">Security isn't a feature.</span>
-      <span class="l2">It's the foundation.</span>
-    </h1>
-    <p class="sub">Every design decision in Vane starts from a threat model. Here's exactly how we protect your agents.</p>
-  </div>
+<section class="legal-hero" id="top" data-theme="terra">
+  <span class="eyebrow">Legal</span>
+  <h1>Privacy Policy</h1>
+  <div class="updated">Last updated: June 2026</div>
 </section>
 
-<!-- ===================== CRYPTOGRAPHIC PRIMITIVES ===================== -->
-<section class="section scrypto" id="cryptographic-primitives" data-theme="paper" data-reveal>
-  <div class="sxhead center">
-    <span class="eyebrow r">Cryptographic primitives</span>
-    <h2 class="r">Built on proven cryptography.</h2>
-  </div>
-  <div class="crypto-grid">
-    <div class="crypto-card r">
-      <div class="lab">ED25519</div>
-      <h3>Ed25519 Signatures</h3>
-      <p>Industry-standard elliptic curve signatures. Every passport and attestation is signed with Ed25519 — the same algorithm used by SSH, TLS 1.3, and Signal. 128-bit security level. Deterministic. Fast.</p>
-    </div>
-    <div class="crypto-card r">
-      <div class="lab">AES-256-GCM</div>
-      <h3>AES-256-GCM Encryption</h3>
-      <p>Envelope encryption for all sensitive credential material. AES-256-GCM provides both confidentiality and authenticity. Credentials are encrypted at rest in PostgreSQL with a separately-stored master key.</p>
-    </div>
-    <div class="crypto-card r">
-      <div class="lab">SHA-256</div>
-      <h3>SHA-256 Merkle Tree</h3>
-      <p>An append-only SHA-256 binary Merkle tree anchors every attestation. Any inclusion proof is verifiable offline with only the CA public key — O(log n) verification, no network call required.</p>
-    </div>
-  </div>
-</section>
+<!-- ===================== BODY ===================== -->
+<main class="legal-body" data-theme="paper">
+  <div class="legal-inner">
 
-<!-- ===================== VERIFICATION MODEL ===================== -->
-<section class="section sverify" id="verification-model" data-theme="terra" data-reveal>
-  <div class="sxhead">
-    <span class="eyebrow r">Verification model</span>
-    <h2 class="r">Verify without trusting us.</h2>
-  </div>
-  <div class="verify-cols">
-    <div class="vcol r">
-      <span class="tag">The usual way</span>
-      <p>Most identity systems require you to call our API to verify a credential. If our servers are down, your verification fails. If our database is compromised, your audit trail is worthless.</p>
-    </div>
-    <div class="vcol alt r">
-      <span class="tag">The Vane way</span>
-      <p>Vane passports verify offline. Given a passport, an inclusion proof, and our CA public key — all public information — any third party can independently verify any agent action. No network call. No trust in Vane.</p>
-    </div>
-  </div>
-
-  <!-- animated three-step verification flow -->
-  <div class="vflow r" aria-hidden="true">
-    <div class="vnode">
-      <div class="vinputs">
-        <div class="vchip"><svg viewBox="0 0 24 24" fill="none"><path d="M7 3h7l4 4v14H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.4"/><path d="M13 3v4h4" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 12.5l1.8 1.8 3.4-3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Passport</div>
-        <div class="vchip"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="6" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="7" cy="17" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="17" cy="17" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M12 8v3M12 11l-5 4M12 11l5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Inclusion proof</div>
-        <div class="vchip"><svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="12" r="4" stroke="currentColor" stroke-width="1.4"/><path d="M13 12h7M17 12v3M20 12v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="9" cy="12" r="1.15" fill="currentColor"/></svg>CA public key</div>
-      </div>
-      <span class="cap">Public inputs</span>
+    <div class="legal-warning" role="note">
+      <span class="ico" aria-hidden="true">⚠️</span>
+      <span><strong>These are template documents for legal review.</strong> Have qualified legal counsel review before relying on them.</span>
     </div>
 
-    <div class="varrow a1"></div>
+    <section class="legal-sec">
+      <h2>1. Overview</h2>
+      <p>Vane Build LLC ("Vane", "we", "us") operates the API infrastructure available at vane.build and api.vane.build. This Privacy Policy explains what data we collect, why we collect it, and how we handle it.</p>
+    </section>
 
-    <div class="vnode">
-      <div class="vengine">
-        <span class="ic"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8l8-4 8 4v5c0 4.5-3.4 7-8 8-4.6-1-8-3.5-8-8V8Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 12l2.2 2.2L15.5 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        <div class="t">Local verification</div>
-        <div class="s">on your machine</div>
-      </div>
-      <span class="cap">No network call</span>
-    </div>
+    <section class="legal-sec">
+      <h2>2. What We Collect</h2>
+      <ul>
+        <li><strong>Account data:</strong> name, email address, company name when you register.</li>
+        <li><strong>Usage data:</strong> API request logs, attestation counts, error rates — used for billing and debugging only.</li>
+        <li><strong>Technical data:</strong> IP addresses, request timestamps, User-Agent strings.</li>
+        <li><strong>Payment data:</strong> handled entirely by Stripe — we never see or store card numbers.</li>
+      </ul>
+    </section>
 
-    <div class="varrow a2"></div>
+    <section class="legal-sec">
+      <h2>3. What We Do Not Collect</h2>
+      <ul>
+        <li>We do not collect data about your AI agents' actions beyond what you explicitly attest.</li>
+        <li>We do not sell data to third parties.</li>
+        <li>We do not use your data to train AI models.</li>
+        <li>We do not track users across third-party websites.</li>
+      </ul>
+    </section>
 
-    <div class="vnode">
-      <div class="vresult">
-        <span class="ok">✓ VALID</span>
-        <span class="alt">valid / invalid</span>
-      </div>
-      <span class="cap">Deterministic result</span>
-    </div>
-  </div>
-</section>
+    <section class="legal-sec">
+      <h2>4. How We Use Your Data</h2>
+      <ul>
+        <li>To provide and operate the Vane API.</li>
+        <li>To send transactional emails (account creation, billing receipts).</li>
+        <li>To debug and improve the service.</li>
+        <li>To comply with legal obligations.</li>
+      </ul>
+    </section>
 
-<!-- ===================== DEFENSE IN DEPTH ===================== -->
-<section class="section harden" data-theme="terra" data-reveal>
-  <div class="sxhead">
-    <span class="eyebrow r">Security hardening</span>
-    <h2 class="r">Defense in depth.</h2>
-  </div>
-  <div class="harden-grid">
-    <div class="sec-item r">
-      <div class="lab">FAIL-CLOSED</div>
-      <p>All 17 authentication and verification functions fail closed. An unexpected error returns 401, never a false positive.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">NONCE BINDING</div>
-      <p>Sender-constrained passports with per-request nonce binding prevent replay attacks even if a passport is intercepted.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">CLOCK-SKEW</div>
-      <p>Strict nbf and exp enforcement with configurable clock-skew leeway across all five verifiers.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">JCS / RFC 8785</div>
-      <p>RFC 8785 JSON Canonicalization Scheme ensures the exact bytes that were signed are the exact bytes that are verified. No serialization ambiguity.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">RATE LIMITING</div>
-      <p>Sliding-window rate limiting on all issuance endpoints. Configurable per API key and per IP address.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">mTLS</div>
-      <p>Mutual TLS authentication for enterprise deployments. Client certificates bound to company identity at the TLS layer.</p>
-    </div>
-  </div>
-</section>
+    <section class="legal-sec">
+      <h2>5. Data Storage and Security</h2>
+      <p>All data is stored on infrastructure in the United States. Data at rest is encrypted with AES-256. Data in transit is encrypted with TLS 1.3. We apply role-based access controls and audit logging to all production systems.</p>
+    </section>
 
-<!-- ===================== RESPONSIBLE DISCLOSURE ===================== -->
-<section class="section sdisclose" id="responsible-disclosure" data-theme="terra" data-reveal>
-  <span class="eyebrow r">Responsible disclosure</span>
-  <h2 class="r" style="margin-top:1.2rem">Found something?</h2>
-  <p class="body r">We take security reports seriously. If you discover a vulnerability, please disclose it responsibly. We commit to acknowledging reports within <strong>24 hours</strong> and providing a resolution timeline within <strong>72 hours</strong>.</p>
-  <div class="mailwrap r">
-    <a class="mail" href="mailto:security@vane.build">
-      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M4 7l8 6 8-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      security@vane.build
-    </a>
-  </div>
-  <p class="note r">We do not currently offer a bug bounty program, but we recognize researchers who responsibly disclose vulnerabilities.</p>
-</section>
+    <section class="legal-sec">
+      <h2>6. Data Retention</h2>
+      <p>We retain account data for the duration of your account plus 90 days after deletion. API logs are retained for 30 days. Attestation records are retained per your account configuration.</p>
+    </section>
 
-<!-- ===================== COMPLIANCE ROADMAP ===================== -->
-<section class="section sroadmap" id="compliance-roadmap" data-theme="paper" data-reveal>
-  <div class="sxhead center">
-    <span class="eyebrow r">Compliance roadmap</span>
-    <h2 class="r">Where we're headed.</h2>
+    <section class="legal-sec">
+      <h2>7. Your Rights</h2>
+      <p>You may request access to, correction of, or deletion of your personal data at any time by emailing <a href="mailto:privacy@vane.build">privacy@vane.build</a>. We will respond within 30 days.</p>
+    </section>
+
+    <section class="legal-sec">
+      <h2>8. Third-Party Services</h2>
+      <p>We rely on the following sub-processors, each of which maintains its own privacy policy:</p>
+      <ul>
+        <li><strong>Stripe</strong> (payments) — <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">stripe.com/privacy</a></li>
+        <li><strong>Railway</strong> (infrastructure) — <a href="https://railway.com/legal/privacy" target="_blank" rel="noopener noreferrer">railway.com/legal/privacy</a></li>
+        <li><strong>Sentry</strong> (error monitoring, if enabled) — <a href="https://sentry.io/privacy/" target="_blank" rel="noopener noreferrer">sentry.io/privacy</a></li>
+      </ul>
+    </section>
+
+    <section class="legal-sec">
+      <h2>9. Changes to This Policy</h2>
+      <p>We will notify registered users by email of material changes to this policy at least 30 days in advance.</p>
+    </section>
+
+    <section class="legal-sec">
+      <h2>10. Contact</h2>
+      <p>Questions about this policy: <a href="mailto:privacy@vane.build">privacy@vane.build</a></p>
+    </section>
+
   </div>
-  <div class="timeline r">
-    <div class="tl-item">
-      <span class="pt"></span>
-      <div class="date">Now</div>
-      <div class="ev">Security documentation available on request. Architecture review available for enterprise prospects.</div>
-    </div>
-    <div class="tl-item">
-      <span class="pt"></span>
-      <div class="date">Q4 2026</div>
-      <div class="ev">Third-party penetration test. Results summary published.</div>
-    </div>
-    <div class="tl-item">
-      <span class="pt"></span>
-      <div class="date">2027</div>
-      <div class="ev">SOC 2 Type II audit initiated.</div>
-    </div>
-  </div>
-</section>
+</main>
 
 <!-- ===================== FOOTER ===================== -->
 <footer id="footer" data-theme="paper">
@@ -1848,11 +1694,11 @@ body.has-cursor button { cursor:none !important; }
       <span class="word">VANE</span>
     </div>
     <div class="links">
-      <a href="https://docs.vane.build">docs.vane.build</a> ·
-      <a href="https://github.com/vane-build/vane">GitHub</a> ·
-      <a href="https://npmjs.com/package/@vane.build/sdk">npm</a> ·
-      <a href="/privacy">Privacy</a> ·
-      <a href="/terms">Terms</a> ·
+      <a href="https://docs.vane.build">docs.vane.build</a> &middot;
+      <a href="https://github.com/vane-build/vane">GitHub</a> &middot;
+      <a href="https://npmjs.com/package/@vane.build/sdk">npm</a> &middot;
+      <a href="/privacy">Privacy</a> &middot;
+      <a href="/terms">Terms</a> &middot;
       <a href="https://x.com/vane_build">@vane.build</a>
     </div>
     <div class="built">Built in Puerto Rico.</div>
@@ -1860,13 +1706,13 @@ body.has-cursor button { cursor:none !important; }
 </footer>
 </div><!-- /#smooth-wrapper -->
 
-<!-- ===================== PAGE BEHAVIOUR — cursor, reveal, theme follow ===================== -->
+<!-- ===================== PAGE BEHAVIOUR — cursor + theme follow ===================== -->
 <script>
 (function(){
   'use strict';
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ── Custom cursor (identical to index.html) ──────────── */
+  /* Custom cursor (identical to index.html) */
   (function(){
     if(reduceMotion || window.matchMedia('(hover:none)').matches) return;
     const el = document.getElementById('vane-cursor');
@@ -1874,30 +1720,14 @@ body.has-cursor button { cursor:none !important; }
     document.body.classList.add('has-cursor');
     let cx=-200,cy=-200,mx=-200,my=-200;
     window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;},{passive:true});
-    document.querySelectorAll('.btn,button,.nav a,.mail').forEach(b=>{
+    document.querySelectorAll('.btn,button,.nav a,.legal-sec a,.links a').forEach(b=>{
       b.addEventListener('mouseenter',()=>el.classList.add('big'),{passive:true});
       b.addEventListener('mouseleave',()=>el.classList.remove('big'),{passive:true});
     });
     (function tick(){ requestAnimationFrame(tick); cx+=(mx-cx)*.15; cy+=(my-cy)*.15; el.style.transform=`translate(${cx}px,${cy}px)`; })();
   })();
 
-  /* ── Reveal on scroll (identical to index.html) ───────── */
-  (function(){
-    const groups = document.querySelectorAll('[data-reveal]');
-    if(reduceMotion){ groups.forEach(g=>g.classList.add('in')); return; }
-    const io = new IntersectionObserver(entries=>{
-      entries.forEach(e=>{
-        if(e.isIntersecting){
-          e.target.querySelectorAll('.r').forEach((it,i)=>{ it.style.transitionDelay=(i*.1)+'s'; });
-          e.target.classList.add('in');
-          io.unobserve(e.target);
-        }
-      });
-    },{threshold:.16});
-    groups.forEach(g=>io.observe(g));
-  })();
-
-  /* ── Logo + nav follow active section theme (identical to index.html) ── */
+  /* Logo + nav follow active section theme (identical to index.html) */
   (function(){
     const logo=document.querySelector('.logo');
     const nav=document.querySelector('.nav');
@@ -1916,8 +1746,7 @@ body.has-cursor button { cursor:none !important; }
   })();
 })();
 </script>
-
-<!-- ===================== NAV — dropdowns, hamburger, scroll state (verbatim from index.html) ===================== -->
+<!-- ===================== NAV — dropdowns, hamburger, scroll state ===================== -->
 <script>
 (function(){
   'use strict';
