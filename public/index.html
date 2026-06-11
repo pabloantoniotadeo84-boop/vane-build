@@ -45,7 +45,6 @@
   --font-sans: 'Bricolage Grotesque', system-ui, sans-serif;
   --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Emil-grade custom easing */
   --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -63,7 +62,7 @@ html {
 }
 body {
   font-family: var(--font-sans);
-  background: var(--clay);
+  background: var(--navy);
   color: var(--off-white);
   overflow-x: hidden;
 }
@@ -71,40 +70,12 @@ body {
 .mono { font-family: var(--font-mono); }
 
 /* ============================================================
-   SHARED SECTION SCAFFOLDING
-   ============================================================ */
-.section {
-  position: relative;
-  min-height: 100vh;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 9vh 7vw;
-  z-index: 2;
-}
-.sec-num {
-  position: absolute;
-  top: 9vh; left: 7vw;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  letter-spacing: 0.15em;
-  color: var(--clay);
-}
-.eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-/* ============================================================
    REVEAL ON SCROLL
    ============================================================ */
 .r {
   opacity: 0;
-  transform: translateY(24px);
-  transition: opacity .6s var(--ease-out), transform .6s var(--ease-out);
+  transform: translateY(20px);
+  transition: opacity .7s var(--ease-out), transform .7s var(--ease-out);
   will-change: opacity, transform;
 }
 [data-reveal].in .r { opacity: 1; transform: none; }
@@ -144,7 +115,7 @@ body {
   top: 0; left: 0; right: 0;
   width: 100%;
   height: 84px;
-  z-index: 90;                /* below the logo (z-index 100), above all sections */
+  z-index: 90;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -157,7 +128,7 @@ body {
   transition: background .3s var(--ease-out), border-color .3s var(--ease-out);
 }
 .nav.scrolled {
-  background: rgba(10, 22, 40, 0.82);
+  background: rgba(10, 22, 40, 0.88);
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   border-bottom: 1px solid rgba(181, 69, 27, 0.28);
@@ -194,7 +165,6 @@ body {
 .nav-item.open > .nav-trigger { color: var(--clay-light); opacity: 1; }
 .nav-trigger:focus-visible { outline: 1px solid var(--clay-light); outline-offset: 3px; opacity: 1; }
 
-/* caret chevron */
 .nav-trigger .caret {
   width: 6px; height: 6px;
   border-right: 1.5px solid currentColor;
@@ -205,7 +175,7 @@ body {
 }
 .nav-item.open > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
 
-/* ── Dropdown panel — absolute, never pushes content ─── */
+/* ── Dropdown panel ─────────────────────────────────── */
 .nav-dropdown {
   position: absolute;
   top: 100%;
@@ -218,7 +188,6 @@ body {
   border: 1px solid rgba(181, 69, 27, 0.3);
   border-radius: 4px;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
-  /* hidden state — transform + opacity only, origin-aware */
   opacity: 0;
   transform: translateX(-50%) translateY(-6px) scale(0.98);
   transform-origin: top center;
@@ -233,7 +202,6 @@ body {
   pointer-events: auto;
   transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
 }
-/* Hover-to-open — desktop pointers only */
 @media (hover: hover) and (pointer: fine) {
   .nav-item.has-dropdown:hover > .nav-dropdown {
     opacity: 1;
@@ -321,7 +289,7 @@ body {
 .nav-burger.open span:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
 .nav-burger.open span:nth-child(3) { top: 14px; transform: rotate(-45deg); }
 
-/* ── Mobile slide-down panel — flat links, no dropdowns ─ */
+/* ── Mobile slide-down panel ────────────────────────── */
 .nav-mobile {
   position: fixed;
   top: 84px; left: 0; right: 0;
@@ -333,7 +301,6 @@ body {
   padding: 1.4rem 7vw 2rem;
   max-height: calc(100dvh - 84px);
   overflow-y: auto;
-  /* hidden state */
   opacity: 0;
   transform: translateY(-12px);
   visibility: hidden;
@@ -371,13 +338,11 @@ body {
 .nav-mobile .mob-actions { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 0.4rem; }
 .nav-mobile .mob-actions a { text-align: center; padding: 0.85rem; border-radius: 3px; }
 
-/* ── Responsive: collapse to hamburger ──────────────── */
 @media (max-width: 900px) {
   .nav-menu, .nav-actions { display: none; }
   .nav-burger { display: block; }
 }
 
-/* ── Reduced motion: keep fades, drop movement ──────── */
 @media (prefers-reduced-motion: reduce) {
   .nav, .nav-dropdown, .nav-mobile, .nav-burger span, .nav-trigger .caret {
     transition: opacity .15s ease, background-color .15s ease, border-color .15s ease, visibility 0s !important;
@@ -389,7 +354,34 @@ body {
 }
 
 /* ============================================================
-   HERO — full-bleed video
+   BUTTONS — shared
+   ============================================================ */
+.btn {
+  font-family: var(--font-mono);
+  font-size: .83rem;
+  letter-spacing: .06em;
+  padding: .95rem 1.9rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: background .2s ease, color .2s ease, border-color .2s ease, transform .15s ease;
+}
+.btn:active          { transform: scale(0.97); }
+.btn-clay            { background: var(--clay); color: var(--off-white); border-color: var(--clay); }
+.btn-clay:hover      { background: var(--clay-light); border-color: var(--clay-light); }
+.btn-ghost           { background: transparent; color: var(--off-white); border-color: rgba(245,240,232,.35); }
+.btn-ghost:hover     { border-color: var(--off-white); background: rgba(245,240,232,.06); }
+.btn-light           { background: var(--off-white); color: var(--clay); }
+.btn-light:hover     { background: var(--warm-white); }
+.btn-light-navy      { background: var(--off-white); color: var(--navy); }
+.btn-navy            { background: var(--navy); color: var(--off-white); }
+.btn-navy:hover      { background: #13233f; }
+.btn-outline-navy    { background: transparent; color: var(--navy); border-color: var(--navy); }
+.btn-outline-navy:hover { background: var(--navy); color: var(--off-white); }
+
+/* ============================================================
+   SECTION 1 — HERO: full-bleed video
    ============================================================ */
 .hero-video {
   position: relative;
@@ -412,615 +404,269 @@ body {
 .hero-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(10, 22, 40, 0.62);
+  background: rgba(10, 22, 40, 0.58);
   z-index: 1;
 }
 .hero-content {
   position: relative;
   z-index: 2;
   text-align: center;
-  padding: 2rem 7vw;
-  max-width: 900px;
+  padding: 2rem 8vw;
+  max-width: 980px;
 }
 .hero-content h1 {
   font-weight: 800;
-  font-size: clamp(2.6rem, 6.5vw, 6.5rem);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
+  font-size: clamp(2.8rem, 7vw, 7.2rem);
+  line-height: 1.0;
+  letter-spacing: -0.035em;
   color: var(--off-white);
+  text-wrap: balance;
 }
 .hero-content .hero-cta {
-  margin-top: 2.8rem;
+  margin-top: 3rem;
 }
 .hero-scroll-hint {
   position: absolute;
   bottom: 36px; right: 7vw;
   z-index: 3;
   font-family: var(--font-mono);
-  font-size: .68rem;
-  letter-spacing: .18em;
-  color: rgba(245, 240, 232, .4);
+  font-size: .65rem;
+  letter-spacing: .22em;
+  color: rgba(245, 240, 232, .35);
+  user-select: none;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .hero-content h1        { opacity: 0; transform: translateY(24px); animation: hFadeUp .65s var(--ease-out) .1s  forwards; }
-  .hero-content .hero-cta { opacity: 0; transform: translateY(20px); animation: hFadeUp .6s  var(--ease-out) .32s forwards; }
-  .hero-scroll-hint       { opacity: 0;                               animation: hFadeUp .6s  var(--ease-out) .6s  forwards; }
+  .hero-content h1        { opacity: 0; transform: translateY(28px); animation: hFadeUp .7s  var(--ease-out) .08s forwards; }
+  .hero-content .hero-cta { opacity: 0; transform: translateY(20px); animation: hFadeUp .65s var(--ease-out) .3s  forwards; }
+  .hero-scroll-hint       { opacity: 0;                               animation: hFadeUp .6s  var(--ease-out) .7s  forwards; }
 }
 @keyframes hFadeUp {
   to { opacity: 1; transform: translateY(0); }
 }
 
 /* ============================================================
-   BUTTONS — shared
+   SECTION 2 — PROBLEM: video background, large statement
    ============================================================ */
-.btn {
-  font-family: var(--font-mono);
-  font-size: .83rem;
-  letter-spacing: .06em;
-  padding: .95rem 1.65rem;
-  border: 1px solid transparent;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-block;
-  transition: background .2s ease, color .2s ease, transform .15s ease;
-}
-.btn:active          { transform: scale(0.97); }
-.btn-clay            { background: var(--clay); color: var(--off-white); }
-.btn-clay:hover      { background: var(--clay-light); }
-.btn-ghost           { background: transparent; color: var(--off-white); border-color: rgba(245,240,232,.42); }
-.btn-ghost:hover     { border-color: var(--off-white); }
-.btn-light           { background: var(--off-white); color: var(--clay); }
-.btn-light-navy      { background: var(--off-white); color: var(--navy); }
-.btn-navy            { background: var(--navy); color: var(--off-white); }
-.btn-navy:hover      { background: #13233f; }
-.btn-outline-navy    { background: transparent; color: var(--navy); border-color: var(--navy); }
-.btn-outline-navy:hover { background: var(--navy); color: var(--off-white); }
-
-/* ============================================================
-   STATISTICS — warm gray
-   ============================================================ */
-.stats { background: var(--warm-gray); color: var(--navy); }
-.stats .rule {
-  height: 1px; width: 100%;
-  background: var(--clay);
-  margin-bottom: 4.5rem;
-  transform-origin: left;
-}
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4,1fr);
-  gap: 2.5rem;
-}
-.stat .num {
-  font-weight: 800;
-  font-size: clamp(3rem,7.5vw,7.5rem);
-  line-height: .9;
-  letter-spacing: -0.04em;
-  color: var(--clay);
-}
-.stat .lab {
-  margin-top: 1.2rem;
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  line-height: 1.55;
-  color: var(--navy);
-  max-width: 26ch;
-}
-.stats .sources {
-  margin-top: 2.8rem;
-  text-align: right;
-  font-family: var(--font-mono);
-  font-size: .64rem;
-  color: rgba(10,22,40,.45);
-}
-.stats .summary {
-  margin-top: 4rem;
-  text-align: center;
-  font-size: clamp(1.05rem,1.7vw,1.4rem);
-  line-height: 1.55;
-  max-width: 50ch;
-  margin-left: auto; margin-right: auto;
-  color: var(--navy);
-}
-
-/* ============================================================
-   PROBLEM — terracotta
-   ============================================================ */
-.problem { background: var(--clay); }
-.problem .sec-num { color: var(--off-white); }
-.problem-grid {
-  display: grid;
-  grid-template-columns: 1.25fr 1fr;
-  gap: 6vw;
-  align-items: center;
-}
-.problem h2 {
-  font-weight: 800;
-  font-size: clamp(2.4rem,6vw,5.8rem);
-  line-height: .95;
-  letter-spacing: -0.03em;
-  color: var(--off-white);
-}
-.problem .body {
-  font-size: 1.12rem;
-  line-height: 1.72;
-  color: rgba(245,240,232,.76);
-  max-width: 40ch;
-}
-
-/* ============================================================
-   HOW IT WORKS — navy, identity graph
-   ============================================================ */
-.how {
-  background: var(--navy);
-  color: var(--off-white);
-  align-items: center;
-  text-align: center;
-}
-.how .sec-num  { color: var(--clay-light); }
-.how-eyebrow   { color: var(--clay-light); margin-bottom: 2.6rem; }
-
-/* Spline viewer container — full-width, no overflow clipping */
-.merkle-wrap {
-  width: 100%;
-  background: transparent;
+.problem-video {
   position: relative;
-}
-/* Re-enable pointer events for Spline's internal iframe so Lenis scroll
-   capture doesn't swallow interaction with the 3D scene */
-.lenis.lenis-smooth .merkle-wrap iframe,
-.lenis.lenis-smooth spline-viewer iframe { pointer-events: auto; }
-/* Cover the "Built with Spline" badge injected into the iframe */
-.spline-badge-cover {
-  position: absolute;
-  right: 0; bottom: 0;
-  width: 240px; height: 56px;
-  background: var(--navy);
-  pointer-events: none;
-  z-index: 2;
-}
-
-.how-steps {
-  margin-top: 3rem;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: .8rem;
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  letter-spacing: .14em;
-  color: rgba(245,240,232,.65);
-}
-.how-steps .dot { color: var(--clay-light); }
-
-/* ============================================================
-   PASSPORT — warm gray, 3D tilt card
-   ============================================================ */
-.passport {
-  background: var(--warm-gray);
-  align-items: center;
-  text-align: center;
-  perspective: 1400px;
-}
-.pp-label {
-  color: var(--navy);
-  opacity: .9;
-  margin-bottom: 3.2rem;
-  font-size: clamp(1.5rem,3vw,2.6rem);
-  letter-spacing: .03em;
-  line-height: 1.1;
-}
-.pp-scene { perspective: 1400px; }
-.card {
-  width: min(560px,86vw);
-  margin: 0 auto;
-  background: var(--off-white);
-  border: 1px solid var(--navy);
-  color: var(--navy);
-  text-align: left;
-  box-shadow: 0 28px 56px rgba(10,22,40,.16);
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  transition: transform .15s ease-out;
-  will-change: transform;
-}
-.card .top {
-  background: var(--clay);
-  padding: .82rem 1.35rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.card .top .t   { font-family:var(--font-mono); font-size:.76rem; letter-spacing:.18em; text-transform:uppercase; color:var(--off-white); }
-.card .top .seal{ font-family:var(--font-mono); font-size:.64rem; letter-spacing:.12em; color:rgba(245,240,232,.85); }
-.card .hr       { height:1px; background:rgba(10,22,40,.15); }
-.card .fields   { padding:1.6rem 1.35rem 1.1rem; }
-.card .row      { display:grid; grid-template-columns:130px 1fr; gap:.9rem; padding:.48rem 0; font-family:var(--font-mono); font-size:.72rem; align-items:baseline; }
-.card .row .k   { color:var(--navy); letter-spacing:.08em; text-transform:uppercase; opacity:.6; }
-.card .row .v   { color:var(--clay); letter-spacing:.02em; word-break:break-word; }
-.card .row .v.ok{ color:#1f7a3d; font-weight:600; }
-.card .foot     { padding:.95rem 1.35rem 1.2rem; border-top:1px solid rgba(10,22,40,.12); }
-.card .foot .hash { font-family:var(--font-mono); font-size:.58rem; letter-spacing:.04em; color:var(--clay); opacity:.65; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-/* ============================================================
-   STAKES — terracotta
-   ============================================================ */
-.stakes {
-  background: var(--clay);
-  color: var(--off-white);
-  text-align: center;
-  align-items: center;
-}
-.stakes h2 {
-  font-weight: 700;
-  font-size: clamp(2rem,4.5vw,4rem);
-  line-height: 1.06;
-  letter-spacing: -0.025em;
-  max-width: 18ch;
-}
-.stakes .sub {
-  margin-top: 1.8rem;
-  font-size: clamp(1.2rem,2.2vw,1.85rem);
-  font-weight: 500;
-  color: rgba(245,240,232,.85);
-}
-.stakes .src  { margin-top:2.2rem; font-family:var(--font-mono); font-size:.66rem; letter-spacing:.06em; color:rgba(245,240,232,.6); }
-.stakes .cta  { margin-top:3.2rem; }
-
-/* ============================================================
-   INTEGRATIONS — warm gray
-   ============================================================ */
-.integ { background: var(--warm-gray); color: var(--navy); }
-.integ-grid {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr;
-  gap: 6vw;
-  align-items: center;
-}
-.integ h2 {
-  font-weight: 700;
-  font-size: clamp(2.2rem,4.8vw,4.4rem);
-  line-height: .98;
-  letter-spacing: -0.03em;
-  color: var(--navy);
-}
-.code-card {
-  background: var(--navy);
-  border: 1px solid rgba(181,69,27,.35);
-  padding: 1.85rem 1.7rem;
-  overflow-x: auto;
-}
-.code-card pre { font-family:var(--font-mono); font-size:.84rem; line-height:1.95; color:var(--off-white); white-space:pre; }
-.code-card .kw  { color: var(--clay-light); }
-.code-card .str { color: var(--clay-light); }
-.code-card .mut { color: rgba(245,240,232,.52); }
-.integ .stack {
-  margin-top: 1.8rem;
-  font-family: var(--font-mono);
-  font-size: .76rem;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--navy);
-}
-.integ .stack span { opacity: .5; }
-
-/* ============================================================
-   PRICING — warm gray
-   ============================================================ */
-.pricing { background: var(--warm-gray); color: var(--navy); }
-.pricing h2 {
-  font-weight: 800;
-  font-size: clamp(2rem,4.5vw,2.8rem);
-  letter-spacing: -0.03em;
-  color: var(--navy);
-  text-align: center;
-}
-.price-grid {
-  display: grid;
-  grid-template-columns: repeat(3,1fr);
-  gap: 2rem;
-  max-width: 1060px;
-  margin: 3.5rem auto 0;
-  align-items: stretch;
-}
-.price-card {
-  background: var(--off-white);
-  border: 1px solid rgba(10,22,40,.1);
-  padding: 2.4rem 1.85rem;
-  display: flex;
-  flex-direction: column;
-  transition: transform .2s var(--ease-out), box-shadow .2s var(--ease-out);
-}
-@media (hover: hover) and (pointer: fine) {
-  .price-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 40px rgba(10,22,40,.1);
-  }
-}
-.price-card.dev    { border-top: 4px solid var(--clay); }
-.price-card.ent    { border-top: 4px solid var(--navy); }
-.price-card.startup {
-  background: var(--clay);
-  color: var(--off-white);
-  transform: scale(1.04);
-  box-shadow: 0 28px 56px rgba(181,69,27,.26);
+  align-items: flex-end;
   z-index: 1;
 }
-@media (hover: hover) and (pointer: fine) {
-  .price-card.startup:hover { transform: scale(1.04) translateY(-5px); }
+.problem-video video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
 }
-
-.price-card .tier  { font-family:var(--font-mono); font-size:.7rem; letter-spacing:.18em; color:var(--clay); }
-.price-card.startup .tier { color:var(--off-white); opacity:.85; }
-.price-card .price { margin-top:1.3rem; font-weight:800; font-size:2.5rem; letter-spacing:-0.02em; line-height:1; color:var(--navy); }
-.price-card.startup .price { color:var(--off-white); }
-.price-card .price .per { font-weight:400; font-size:.95rem; letter-spacing:0; opacity:.6; }
-.price-card .features { list-style:none; margin:1.8rem 0 0; padding:0; flex:1 1 auto; }
-.price-card .features li { position:relative; padding:.5rem 0 .5rem 1.35rem; font-size:.9rem; line-height:1.4; color:var(--ink-body); border-bottom:1px solid rgba(10,22,40,.07); }
-.price-card .features li::before { content:''; position:absolute; left:0; top:.9rem; width:7px; height:7px; border-radius:50%; background:var(--clay); }
-.price-card .features li .mono   { font-family:var(--font-mono); font-size:.78rem; }
-.price-card.startup .features li { color:rgba(245,240,232,.92); border-bottom-color:rgba(245,240,232,.18); }
-.price-card.startup .features li::before { background:var(--off-white); }
-.price-btn { width:100%; text-align:center; margin-top:1.8rem; }
-
-/* ============================================================
-   SECURITY — terracotta
-   ============================================================ */
-.security { background: var(--clay); color: var(--off-white); }
-.security h2 {
+.problem-overlay {
+  position: absolute;
+  inset: 0;
+  /* heavier gradient at bottom so text reads over video */
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 22, 40, 0.25) 0%,
+    rgba(10, 22, 40, 0.55) 45%,
+    rgba(10, 22, 40, 0.86) 100%
+  );
+  z-index: 1;
+}
+.problem-content {
+  position: relative;
+  z-index: 2;
+  padding: 12vh 7vw 10vh;
+  width: 100%;
+  max-width: 1280px;
+}
+.problem-content h2 {
   font-weight: 800;
-  font-size: clamp(2rem,4.5vw,2.8rem);
-  letter-spacing: -0.03em;
-  color: var(--off-white);
-  max-width: 18ch;
-}
-.sec-grid {
-  display: grid;
-  grid-template-columns: repeat(2,1fr);
-  gap: 2.8rem 4rem;
-  max-width: 1000px;
-  margin-top: 3.8rem;
-}
-.sec-item { transition: transform .2s var(--ease-out); }
-@media (hover: hover) and (pointer: fine) {
-  .sec-item:hover { transform: translateX(6px); }
-}
-.sec-item .lab {
-  font-family: var(--font-mono);
-  font-size: .83rem;
-  letter-spacing: .16em;
-  color: var(--off-white);
-}
-.sec-item .lab::after {
-  content: '';
-  display: block;
-  width: 34px; height: 2px;
-  background: rgba(245,240,232,.45);
-  margin: .85rem 0;
-}
-.sec-item p { font-size:.98rem; line-height:1.65; color:rgba(245,240,232,.83); max-width:40ch; }
-.sec-foot { margin-top:3.2rem; font-family:var(--font-mono); font-size:.7rem; letter-spacing:.06em; color:rgba(245,240,232,.65); }
-
-/* ============================================================
-   EU AI ACT — warm gray
-   ============================================================ */
-.euact { background: var(--warm-gray); }
-.euact-grid {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  gap: 6vw;
-  align-items: center;
-}
-.euact .eyebrow { color:var(--navy); opacity:.65; margin-bottom:1.4rem; }
-.euact h2 {
-  font-weight: 800;
-  font-size: clamp(2.2rem,5.5vw,5.2rem);
-  line-height: .95;
-  letter-spacing: -0.03em;
-  color: var(--navy);
-}
-.euact .body { margin-top:1.85rem; font-size:1.1rem; line-height:1.72; color:var(--ink-body); max-width:44ch; }
-.timeline { border-left:1px solid rgba(10,22,40,.2); padding-left:2rem; }
-.timeline .tl-item { position:relative; padding:.95rem 0; }
-.timeline .tl-item .pt { position:absolute; left:-2.55rem; top:1.3rem; width:11px; height:11px; border-radius:50%; background:var(--clay); box-shadow:0 0 0 5px rgba(181,69,27,.18); }
-.timeline .tl-item .date { font-family:var(--font-mono); font-size:.78rem; letter-spacing:.06em; color:var(--clay-light); }
-.timeline .tl-item .ev { margin-top:.35rem; font-size:1.02rem; color:var(--navy); }
-.timeline .tl-item.muted .pt  { background:transparent; border:1px solid rgba(10,22,40,.3); box-shadow:none; }
-.timeline .tl-item.muted .date,
-.timeline .tl-item.muted .ev  { opacity:.42; }
-
-/* ============================================================
-   FINAL CTA — terracotta
-   ============================================================ */
-.final {
-  background: var(--clay);
-  color: var(--off-white);
-  text-align: center;
-  align-items: center;
-}
-.final h2 {
-  font-weight: 800;
-  font-size: clamp(2.4rem,6.5vw,6.5rem);
-  line-height: .95;
+  font-size: clamp(2.4rem, 5.8vw, 6rem);
+  line-height: 1.0;
   letter-spacing: -0.035em;
+  color: var(--off-white);
+  max-width: 22ch;
+  text-wrap: balance;
 }
-.final .copy-wrap { margin-top:2.8rem; position:relative; }
-.final .copied {
-  margin-top:1rem;
-  font-family:var(--font-mono);
-  font-size:.78rem;
-  letter-spacing:.1em;
-  color:var(--off-white);
-  opacity:0;
-  transition:opacity .35s ease;
-}
-.final .copied.show { opacity:.9; }
-.final .fine  { margin-top:1.8rem; font-size:.92rem; color:rgba(245,240,232,.78); }
 
 /* ============================================================
-   CONTACT — warm gray
+   SECTION 3 — CTA: terracotta, centered
    ============================================================ */
-.contact { background:var(--warm-gray); color:var(--navy); }
-.contact h2 {
-  font-weight:800;
-  font-size:clamp(2.2rem,5.5vw,4.2rem);
-  line-height:1.02;
-  letter-spacing:-0.03em;
-  color:var(--navy);
-  max-width:20ch;
+.cta-section {
+  position: relative;
+  min-height: 100dvh;
+  width: 100%;
+  background: var(--clay);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10vh 7vw;
+  z-index: 1;
+  overflow: hidden;
 }
-.contact-grid { display:grid; grid-template-columns:1fr 1.4fr; gap:5vw; align-items:start; width:100%; }
-.contact-actions { margin-top:2.8rem; display:flex; gap:.9rem; flex-wrap:wrap; }
-.contact-fine { margin-top:1.8rem; font-family:var(--font-mono); font-size:.76rem; letter-spacing:.08em; color:var(--ink-body); }
-.contact-book { margin-top:.9rem; font-family:var(--font-mono); font-size:.7rem; letter-spacing:.04em; color:var(--ink-body); line-height:1.55; }
-.contact-book a { color:var(--clay); text-decoration:none; }
-.contact-book a:hover { text-decoration:underline; }
-.cal-wrap { border:1px solid var(--navy); background:var(--off-white); min-height:600px; overflow:hidden; }
-#cal-booking { min-height:600px; width:100%; }
-.price-demo-link { margin-top:1rem; font-family:var(--font-mono); font-size:.68rem; letter-spacing:.03em; color:var(--ink-body); line-height:1.55; text-align:center; }
-.price-demo-link a { color:var(--clay); text-decoration:none; }
-.price-demo-link a:hover { text-decoration:underline; }
+/* subtle radial warmth in center */
+.cta-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 42%, rgba(200, 100, 40, 0.28) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.cta-inner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.cta-inner .cta-primary {
+  margin-bottom: 2.2rem;
+}
+.cta-divider {
+  width: 1px;
+  height: 3.5rem;
+  background: rgba(245, 240, 232, 0.22);
+  margin: 0 auto 2.2rem;
+}
+.cta-book-label {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(245, 240, 232, .45);
+  margin-bottom: 1.2rem;
+}
+.cta-cal-link {
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  letter-spacing: .04em;
+  color: rgba(245, 240, 232, .72);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(245, 240, 232, .25);
+  padding-bottom: 2px;
+  transition: color .2s ease, border-color .2s ease;
+}
+.cta-cal-link:hover {
+  color: var(--off-white);
+  border-color: rgba(245, 240, 232, .65);
+}
+
+/* ── btn-arrow — arrow variant for the CTA ─────────── */
+.btn-arrow {
+  background: var(--off-white);
+  color: var(--clay-dark);
+  border-color: var(--off-white);
+  font-size: .9rem;
+  padding: 1.05rem 2.2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .65rem;
+  transition: background .2s ease, color .2s ease, transform .15s ease, gap .2s var(--ease-spring);
+}
+.btn-arrow:hover {
+  background: var(--warm-white);
+  border-color: var(--warm-white);
+  gap: .95rem;
+}
+.btn-arrow:active { transform: scale(0.97); }
+
+/* ============================================================
+   CONTACT section (kept for #contact anchor from hero CTA)
+   ============================================================ */
+.contact-anchor {
+  display: block;
+  height: 0;
+  overflow: hidden;
+}
 
 /* ============================================================
    FOOTER — warm gray
    ============================================================ */
-footer { background:var(--warm-gray); color:var(--navy); position:relative; z-index:2; }
-footer .rule { height:1px; background:var(--clay); }
+footer { background: var(--warm-gray); color: var(--navy); position: relative; z-index: 2; }
+footer .rule { height: 1px; background: var(--clay); }
 footer .inner {
-  display:grid;
-  grid-template-columns:1fr auto 1fr;
-  align-items:center;
-  gap:2rem;
-  padding:2.8rem 7vw;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 2rem;
+  padding: 2.8rem 7vw;
 }
-footer .f-logo { display:flex; align-items:center; gap:11px; }
-footer .f-logo svg { display:block; }
-footer .f-logo .word { font-weight:700; font-size:1rem; letter-spacing:.08em; line-height:1; transform:translateY(1px); color:var(--navy); }
-footer .f-logo line { stroke:var(--clay); stroke-width:2; }
-footer .links { text-align:center; font-family:var(--font-mono); font-size:.78rem; letter-spacing:.06em; }
-footer .links a { color:var(--navy); text-decoration:none; opacity:.82; }
-footer .links a:hover { color:var(--clay); opacity:1; }
-footer .built { text-align:right; font-family:var(--font-mono); font-size:.76rem; letter-spacing:.06em; color:var(--ink-body); }
+footer .f-logo { display: flex; align-items: center; gap: 11px; }
+footer .f-logo svg { display: block; }
+footer .f-logo .word { font-weight: 700; font-size: 1rem; letter-spacing: .08em; line-height: 1; transform: translateY(1px); color: var(--navy); }
+footer .f-logo line { stroke: var(--clay); stroke-width: 2; }
+footer .links { text-align: center; font-family: var(--font-mono); font-size: .78rem; letter-spacing: .06em; }
+footer .links a { color: var(--navy); text-decoration: none; opacity: .82; }
+footer .links a:hover { color: var(--clay); opacity: 1; }
+footer .built { text-align: right; font-family: var(--font-mono); font-size: .76rem; letter-spacing: .06em; color: var(--ink-body); }
 
 /* ============================================================
    SMOOTH SCROLL — LENIS
    ============================================================ */
-/* Smooth scrolling is handled by Lenis (init block just before </body>).
-   Lenis scrolls the window natively, so #smooth-wrapper stays in normal
-   document flow — no fixed positioning and no fake body height needed.
-   Lenis's stylesheet sets `.lenis.lenis-smooth iframe { pointer-events:none }`
-   so iframes don't swallow wheel events; re-enable it for the Cal.com booking
-   embed (a runtime-injected iframe) so the demo scheduler stays clickable. */
 .lenis.lenis-smooth #cal-booking iframe { pointer-events: auto; }
 
 /* ============================================================
    CUSTOM CURSOR
    ============================================================ */
 #vane-cursor {
-  position:fixed; top:0; left:0;
-  width:8px; height:8px;
-  margin:-4px 0 0 -4px;
-  background:#b5451b;
-  opacity:.9;
-  /* contrasting ring so the terracotta dot stays visible on terracotta sections */
-  box-shadow:0 0 0 1.5px rgba(245,240,232,.9);
-  border-radius:50%;
-  pointer-events:none;
-  z-index:9999;
-  will-change:transform;
-  display:none;
-  transition:width .22s ease, height .22s ease, margin .22s ease;
+  position: fixed; top: 0; left: 0;
+  width: 8px; height: 8px;
+  margin: -4px 0 0 -4px;
+  background: #b5451b;
+  opacity: .9;
+  box-shadow: 0 0 0 1.5px rgba(245, 240, 232, .9);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+  display: none;
+  transition: width .22s ease, height .22s ease, margin .22s ease;
 }
-body.has-cursor #vane-cursor { display:block; }
+body.has-cursor #vane-cursor { display: block; }
 body.has-cursor,
 body.has-cursor a,
-body.has-cursor button { cursor:none !important; }
-#vane-cursor.big { width:22px; height:22px; margin:-11px 0 0 -11px; }
+body.has-cursor button { cursor: none !important; }
+#vane-cursor.big { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
 
 /* ============================================================
    RESPONSIVE
    ============================================================ */
-@media (max-width:900px) {
-  .stats-grid         { grid-template-columns:repeat(2,1fr); gap:2.5rem 2rem; }
-  .problem-grid,
-  .integ-grid,
-  .euact-grid         { grid-template-columns:1fr; gap:3rem; }
-  .timeline           { margin-left:.4rem; }
-  .price-grid         { grid-template-columns:1fr; gap:2rem; max-width:440px; }
-  .price-card.startup { transform:none; }
-  .sec-grid           { grid-template-columns:1fr; gap:2.2rem; }
-  .contact-grid       { grid-template-columns:1fr; gap:3rem; }
-  .contact-grid .contact-left { text-align:center; }
-  .contact-grid .contact-actions { justify-content:center; }
-  footer .inner       { grid-template-columns:1fr; text-align:center; gap:1.3rem; }
+@media (max-width: 768px) {
+  .problem-content h2 { font-size: clamp(2rem, 9vw, 3.2rem); }
+  .hero-content h1    { font-size: clamp(2.4rem, 10vw, 4rem); }
+  footer .inner       { grid-template-columns: 1fr; text-align: center; gap: 1.3rem; }
   footer .f-logo,
   footer .built,
-  footer .links       { justify-content:center; text-align:center; }
-}
-@media (max-width:560px) {
-  .stats-grid            { grid-template-columns:1fr; }
-  .section               { padding:10vh 6vw; }
-}
-
-/* ============================================================
-   MOBILE — comprehensive pass
-   These blocks come after the legacy 1000/900/560 queries so they
-   win the cascade on equal specificity. Desktop styles untouched.
-   ============================================================ */
-@media (max-width: 768px) {
-  /* Section rhythm */
-  .section { padding: 8vh 6vw; }
-  .sec-num { top: 8vh; left: 6vw; }
-
-  /* CODE SNIPPET — never overflow horizontally */
-  .code-card     { padding: 1.4rem 1.2rem; }
-  .code-card pre { white-space: pre-wrap; word-break: break-word; font-size: .8rem; }
-
-  /* CAL.COM EMBED */
-  .cal-wrap, #cal-booking { min-height: 500px; }
-
-  /* TOUCH TARGETS — Apple 44px minimum */
-  .nav-mobile a               { min-height: 44px; display: flex; align-items: center; }
-  .nav-mobile .mob-actions a  { min-height: 48px; justify-content: center; }
-  footer .links a             { display: inline-block; padding: .5rem .35rem; }
-}
-
-/* Coarse pointer (touch) — kill the passport parallax/tilt entirely */
-@media (pointer: coarse) {
-  .card { transform: none !important; }
+  footer .links       { justify-content: center; text-align: center; }
+  .nav-mobile a       { min-height: 44px; display: flex; align-items: center; }
+  .nav-mobile .mob-actions a { min-height: 48px; justify-content: center; }
+  footer .links a     { display: inline-block; padding: .5rem .35rem; }
 }
 
 @media (max-width: 480px) {
-  .section          { padding: 7vh 6vw; }
-
-  /* Passport card — tighten field rows so values don't crush */
-  .card .row    { grid-template-columns: 92px 1fr; gap: .7rem; }
-  .card .fields { padding: 1.3rem 1.1rem .9rem; }
-  .card .top    { padding: .75rem 1.1rem; }
-
-  /* Stats — single column already; cap the number scale */
-  .stat .num    { font-size: clamp(3rem, 18vw, 5rem); }
-
-  /* Pricing — let the single column use full width */
-  .price-grid   { max-width: 100%; }
+  .problem-content { padding: 10vh 6vw 8vh; }
+  .cta-section     { padding: 8vh 6vw; }
 }
 
 /* ============================================================
    REDUCED MOTION
    ============================================================ */
-@media (prefers-reduced-motion:reduce) {
-  * { animation:none !important; }
-  .r { opacity:1 !important; transform:none !important; transition:none !important; }
-  .card { transition:none !important; }
-  html { scroll-behavior:auto; }
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+  .r { opacity: 1 !important; transform: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
 }
 </style>
 
-<!-- Lenis base stylesheet (v1.1.14 ships dist/lenis.css; dist/lenis.min.css does not exist) -->
+<!-- Lenis base stylesheet -->
 <link rel="stylesheet" href="https://unpkg.com/lenis@1.1.14/dist/lenis.css" />
 </head>
 <body>
@@ -1046,10 +692,10 @@ body.has-cursor button { cursor:none !important; }
     <li class="nav-item has-dropdown">
       <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Product <span class="caret" aria-hidden="true"></span></button>
       <div class="nav-dropdown" role="menu">
-        <a role="menuitem" href="#how-it-works">How It Works</a>
-        <a role="menuitem" href="#passport">Agent Passports</a>
-        <a role="menuitem" href="#attestation">Attestation</a>
-        <a role="menuitem" href="#code">SDK</a>
+        <a role="menuitem" href="/product">How It Works</a>
+        <a role="menuitem" href="/product#passports">Agent Passports</a>
+        <a role="menuitem" href="/product#attestation">Attestation</a>
+        <a role="menuitem" href="/product#sdk">SDK</a>
       </div>
     </li>
     <li class="nav-item has-dropdown">
@@ -1058,7 +704,6 @@ body.has-cursor button { cursor:none !important; }
         <a role="menuitem" href="/security">Security</a>
         <a role="menuitem" href="/security#cryptographic-primitives">Cryptography</a>
         <a role="menuitem" href="/security#verification-model">Merkle Tree</a>
-        <a role="menuitem" href="#eu-act">EU AI Act</a>
       </div>
     </li>
     <li class="nav-item has-dropdown">
@@ -1071,16 +716,13 @@ body.has-cursor button { cursor:none !important; }
       </div>
     </li>
     <li class="nav-item">
-      <a class="nav-trigger" href="#pricing">Pricing</a>
-    </li>
-    <li class="nav-item">
       <a class="nav-trigger" href="#contact">Contact</a>
     </li>
   </ul>
 
   <div class="nav-actions">
     <a class="nav-demo" href="#contact">Book a demo</a>
-    <a class="nav-cta"  href="#pricing">Start building</a>
+    <a class="nav-cta"  href="#contact">Request Access</a>
   </div>
 
   <button class="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-mobile">
@@ -1092,28 +734,22 @@ body.has-cursor button { cursor:none !important; }
 <div class="nav-mobile" id="nav-mobile">
   <div class="mob-group">
     <div class="mob-head">Product</div>
-    <a href="#how-it-works">How It Works</a>
-    <a href="#passport">Agent Passports</a>
-    <a href="#attestation">Attestation</a>
-    <a href="#code">SDK</a>
+    <a href="/product">How It Works</a>
+    <a href="/product#passports">Agent Passports</a>
+    <a href="/product#attestation">Attestation</a>
+    <a href="/product#sdk">SDK</a>
   </div>
   <div class="mob-group">
     <div class="mob-head">Security</div>
     <a href="/security">Security</a>
     <a href="/security#cryptographic-primitives">Cryptography</a>
     <a href="/security#verification-model">Merkle Tree</a>
-    <a href="#eu-act">EU AI Act</a>
   </div>
   <div class="mob-group">
     <div class="mob-head">Developers</div>
     <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation ↗</a>
     <a href="https://npmjs.com/package/@vane.build/sdk" target="_blank" rel="noopener noreferrer">npm Package ↗</a>
     <a href="https://github.com/vane-build/vane" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
-    <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">SDK Reference ↗</a>
-  </div>
-  <div class="mob-group">
-    <div class="mob-head">Pricing</div>
-    <a href="#pricing">Pricing</a>
   </div>
   <div class="mob-group">
     <div class="mob-head">Contact</div>
@@ -1121,13 +757,13 @@ body.has-cursor button { cursor:none !important; }
   </div>
   <div class="mob-actions">
     <a class="nav-demo" href="#contact">Book a demo</a>
-    <a class="nav-cta"  href="#pricing">Start building</a>
+    <a class="nav-cta"  href="#contact">Request Access</a>
   </div>
 </div>
 
 <div id="smooth-wrapper">
 
-<!-- ===================== HERO ===================== -->
+<!-- ===================== SECTION 1 — HERO ===================== -->
 <section class="hero-video" id="top" data-theme="terra">
   <video autoplay loop muted playsinline>
     <source src="/hero.mp4" type="video/mp4">
@@ -1142,229 +778,32 @@ body.has-cursor button { cursor:none !important; }
   <div class="hero-scroll-hint" aria-hidden="true">Scroll to explore ↓</div>
 </section>
 
-<!-- ===================== PROBLEM //01 ===================== -->
-<section class="section problem" data-theme="terra" data-reveal>
-  <span class="sec-num">//01</span>
-  <div class="problem-grid">
-    <h2>
-      <span class="r">When your agent</span>
-      <span class="r">calls Stripe —</span>
-      <span class="r" style="opacity:0;margin-top:.25em;display:block;font-style:italic;">Stripe has no idea who sent&nbsp;it.</span>
-    </h2>
-    <p class="body r">
-      An API key proves nothing. It tells you that someone has a string of characters.
-      It does not tell you which company owns the agent, which human authorized it,
-      what it is allowed to do, or whether that authorization has been revoked.
-      Vane fixes this.
-    </p>
+<!-- ===================== SECTION 2 — PROBLEM ===================== -->
+<section class="problem-video" id="problem" data-theme="terra" data-reveal>
+  <video autoplay loop muted playsinline>
+    <source src="/problem.mp4" type="video/mp4">
+  </video>
+  <div class="problem-overlay"></div>
+  <div class="problem-content">
+    <h2 class="r">Your agents are acting. Nobody can prove who authorized what.</h2>
   </div>
 </section>
 
-<!-- ===================== HOW IT WORKS //02 ===================== -->
-<section class="section how" id="how-it-works" data-theme="terra" data-reveal>
-  <span class="sec-num">//02</span>
-  <div class="how-eyebrow eyebrow r">How It Works</div>
-
-  <!-- Spline 3D robot -->
-  <div class="merkle-wrap r" id="attestation">
-    <iframe src='https://my.spline.design/nexbotrobotcharacterconcept-UM32zcuBV7mYrOPw8TwBaIKr/' frameborder='0' width='100%' height='600px' style='border:none;background:transparent;'></iframe>
-    <div class="spline-badge-cover" aria-hidden="true"></div>
-  </div>
-
-  <div class="how-steps r">
-    <span>Register your agent</span>
-    <span class="dot">·</span>
-    <span>Issue a Passport</span>
-    <span class="dot">·</span>
-    <span>Every action attested</span>
-  </div>
-</section>
-
-<!-- ===================== PASSPORT //03 ===================== -->
-<section class="section passport" id="passport" data-theme="paper" data-reveal>
-  <span class="sec-num">//03</span>
-  <div class="pp-label eyebrow r">One Passport. Everything Proven.</div>
-  <div class="pp-scene r">
-    <div class="card" id="passport-card">
-      <div class="top">
-        <span class="t">Vane Agent Passport</span>
-        <span class="seal mono">ED25519</span>
-      </div>
-      <div class="hr"></div>
-      <div class="fields">
-        <div class="row"><span class="k">Agent</span><span class="v">billing-agent-001</span></div>
-        <div class="row"><span class="k">Organization</span><span class="v">spiffe://vane.local/company/acme</span></div>
-        <div class="row"><span class="k">Scopes</span><span class="v">tool:* · attest:write · financial:read</span></div>
-        <div class="row"><span class="k">Delegated By</span><span class="v">CFO → Engineering Lead → billing-agent-001</span></div>
-        <div class="row"><span class="k">Issued</span><span class="v" id="pp-issued">—</span></div>
-        <div class="row"><span class="k">Expires</span><span class="v" id="pp-expires">—</span></div>
-        <div class="row"><span class="k">Algorithm</span><span class="v">Ed25519 / EdDSA</span></div>
-        <div class="row"><span class="k">Signature</span><span class="v ok">✓ VERIFIED</span></div>
-      </div>
-      <div class="foot">
-        <div class="hash">sig:0x7f3a9c1e84b6d20f5ae9c47d1b8836f0a2e5c9d4716be03f8a1c6520d9e7f4b3c08a1d6e2f9b54c7a3e0d8f6b1c92a4d7e5</div>
-      </div>
+<!-- ===================== SECTION 3 — CTA ===================== -->
+<span class="contact-anchor" id="contact" aria-hidden="true"></span>
+<section class="cta-section" data-theme="terra" data-reveal>
+  <div class="cta-inner">
+    <div class="cta-primary r">
+      <a class="btn btn-arrow" href="/product">See how it works →</a>
     </div>
-  </div>
-</section>
-
-<!-- ===================== STAKES ===================== -->
-<section class="section stakes" data-theme="terra" data-reveal>
-  <h2 class="r">Only 3% of enterprises have automated controls governing agent behavior.</h2>
-  <div class="sub r">The other 97% are running blind.</div>
-  <div class="src r">— Teleport State of AI Infrastructure Security 2026, 205 CISOs surveyed</div>
-  <div class="cta r"><a class="btn btn-light" href="#start">See how Vane works</a></div>
-</section>
-
-<!-- ===================== INTEGRATIONS //04 ===================== -->
-<section class="section integ" id="code" data-theme="paper" data-reveal>
-  <span class="sec-num">//04</span>
-  <div class="integ-grid">
-    <h2 class="r">Three lines of code.</h2>
-    <div class="r">
-      <div class="code-card">
-<pre><span class="kw">import</span> { VaneClient } <span class="kw">from</span> <span class="str">'@vane.build/sdk'</span>
-<span class="kw">const</span> vane = <span class="kw">new</span> VaneClient({ baseUrl, apiKey, agentId })
-<span class="kw">await</span> vane.<span class="mut">attest</span>(<span class="str">'financial_transfer'</span>, payload)</pre>
-      </div>
-      <div class="stack">LangChain <span>·</span> CrewAI <span>·</span> OpenAI Agents SDK <span>·</span> MCP</div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================== PRICING ===================== -->
-<section class="section pricing" id="pricing" data-theme="paper" data-reveal>
-  <h2 class="r">Simple pricing.</h2>
-  <div class="price-grid">
-    <div class="price-card dev r">
-      <div class="tier">Developer</div>
-      <div class="price">Free<span class="per"> forever</span></div>
-      <ul class="features">
-        <li>10,000 attestations / month</li>
-        <li>5 agents</li>
-        <li>Community support</li>
-        <li><span class="mono">npm install @vane.build/sdk</span></li>
-      </ul>
-      <a class="btn price-btn btn-clay" href="#contact">Request Access</a>
-    </div>
-    <div class="price-card startup r">
-      <div class="tier">Startup</div>
-      <div class="price">$99<span class="per"> / month</span></div>
-      <ul class="features">
-        <li>500,000 attestations / month</li>
-        <li>Unlimited agents</li>
-        <li>Webhook notifications</li>
-        <li>Email support</li>
-        <li>Trial available on request</li>
-      </ul>
-      <a class="btn price-btn btn-light" href="#contact">Request Access</a>
-    </div>
-    <div class="price-card ent r">
-      <div class="tier">Enterprise</div>
-      <div class="price">Custom<span class="per"> pricing</span></div>
-      <ul class="features">
-        <li>Unlimited attestations</li>
-        <li>SLA guarantees</li>
-        <li>Security documentation &amp; review</li>
-        <li>Dedicated support</li>
-        <li>Custom data retention</li>
-        <li>On-premise option</li>
-      </ul>
-      <a class="btn price-btn btn-navy" href="mailto:pablo@vane.build">Contact us</a>
-      <p class="price-demo-link">Or book a 30-minute demo directly:<br><a href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">cal.com/pablo-gonzalez-g12ly2/vane-demo →</a></p>
-    </div>
-  </div>
-</section>
-
-<!-- ===================== SECURITY ===================== -->
-<section class="section security" id="security" data-theme="terra" data-reveal>
-  <h2 class="r">Built on proven cryptography.</h2>
-  <div class="sec-grid">
-    <div class="sec-item r">
-      <div class="lab">ED25519</div>
-      <p>Deterministic signing. No nonce reuse risk. The same algorithm securing SSH and modern TLS.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">MERKLE TREE</div>
-      <p>Every attestation record is part of an append-only tree. Tamper with one record and the entire chain breaks.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">AES-256-GCM</div>
-      <p>Every private key encrypted at rest. The master key never touches the database.</p>
-    </div>
-    <div class="sec-item r">
-      <div class="lab">OFFLINE VERIFICATION</div>
-      <p>Passports verify with only the CA public key. No network call to Vane required.</p>
-    </div>
-  </div>
-  <p class="sec-foot r">Security documentation available on request. Responsible disclosure: security@vane.build</p>
-</section>
-
-<!-- ===================== EU AI ACT //05 ===================== -->
-<section class="section euact" id="eu-act" data-theme="paper" data-reveal>
-  <span class="sec-num">//05</span>
-  <div class="euact-grid">
-    <div>
-      <div class="eyebrow r">Regulatory deadline approaching</div>
-      <h2 class="r">Regulators are watching.</h2>
-      <p class="body r">
-        The EU AI Act requires deployers of high-risk AI systems to maintain tamper-evident
-        records of automated decisions — who authorized what, and when. Not screenshots. Not
-        hope. Cryptographic proof that the right agent did the right thing, with the right
-        authorization, at the right time. Vane produces that record on every action —
-        verifiable by anyone, with no trust in Vane's servers required.
-      </p>
-    </div>
-    <div class="timeline r">
-      <div class="tl-item muted">
-        <span class="pt"></span>
-        <div class="date">Feb 2025</div>
-        <div class="ev">Prohibited AI practices banned</div>
-      </div>
-      <div class="tl-item">
-        <span class="pt"></span>
-        <div class="date">Aug 2026</div>
-        <div class="ev">Transparency obligations begin</div>
-      </div>
-      <div class="tl-item">
-        <span class="pt"></span>
-        <div class="date">Dec 2027</div>
-        <div class="ev">High-risk AI compliance deadline</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===================== FINAL CTA ===================== -->
-<section class="section final" id="start" data-theme="terra" data-reveal>
-  <h2>
-    <span class="r" style="display:block">Your agents are acting.</span>
-    <span class="r" style="display:block">Make sure they're trusted.</span>
-  </h2>
-  <div class="copy-wrap r">
-    <button class="btn btn-light-navy" id="copy-btn" type="button">npm install @vane.build/sdk</button>
-    <div class="copied" id="copied-msg">copied ✓</div>
-  </div>
-  <p class="fine r">Free to start. No credit card. Docs at docs.vane.build</p>
-</section>
-
-<!-- ===================== CONTACT ===================== -->
-<section class="section contact" id="contact" data-theme="paper" data-reveal>
-  <div class="contact-grid">
-    <div class="contact-left r">
-      <h2>Ready to give your agents identity?</h2>
-      <div class="contact-actions">
-        <a class="btn btn-clay"         href="#contact">Request Access</a>
-        <a class="btn btn-outline-navy" href="mailto:pablo@vane.build">Talk to us</a>
-      </div>
-      <p class="contact-fine">pablo@vane.build &middot; Response within 24 hours.</p>
-      <p class="contact-book">Or book a 30-minute demo directly:<br><a href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">cal.com/pablo-gonzalez-g12ly2/vane-demo →</a></p>
-    </div>
-    <div class="r">
-      <div class="cal-wrap">
-        <div id="cal-booking" data-cal-link="pablo-gonzalez-g12ly2/vane-demo" data-cal-config='{"layout":"month_view"}'></div>
-      </div>
-    </div>
+    <div class="cta-divider r"></div>
+    <div class="cta-book-label r">Or book a 30-minute demo</div>
+    <a
+      class="cta-cal-link r"
+      href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo"
+      target="_blank"
+      rel="noopener noreferrer"
+    >cal.com/pablo-gonzalez-g12ly2/vane-demo →</a>
   </div>
 </section>
 
@@ -1395,6 +834,7 @@ body.has-cursor button { cursor:none !important; }
     <div class="built">Built in Puerto Rico.</div>
   </div>
 </footer>
+
 </div><!-- /#smooth-wrapper -->
 
 <!-- ===================== MAIN SCRIPT ===================== -->
@@ -1402,21 +842,6 @@ body.has-cursor button { cursor:none !important; }
 (function(){
   'use strict';
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  /* ── Passport timestamps ──────────────────────────── */
-  (function(){
-    const now = new Date(), exp = new Date(now.getTime() + 3600000);
-    const iso = d => d.toISOString().replace('T',' ').slice(0,19)+'Z';
-    const i = document.getElementById('pp-issued');
-    const e = document.getElementById('pp-expires');
-    if(i) i.textContent = iso(now);
-    if(e) e.textContent = iso(exp);
-  })();
-
-  /* ── Smooth scroll + parallax ─────────────────────── */
-  /* Now handled by Lenis — see the init block just before </body>. The old
-     custom rAF lerp + fixed-#smooth-wrapper transform has been removed in
-     favor of the library; the parallax was ported into that same block. */
 
   /* ── Custom cursor ────────────────────────────────── */
   (function(){
@@ -1426,7 +851,7 @@ body.has-cursor button { cursor:none !important; }
     document.body.classList.add('has-cursor');
     let cx=-200,cy=-200,mx=-200,my=-200;
     window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;},{passive:true});
-    document.querySelectorAll('.btn,button,.nav a').forEach(b=>{
+    document.querySelectorAll('.btn,button,.nav a,.cta-cal-link').forEach(b=>{
       b.addEventListener('mouseenter',()=>el.classList.add('big'),{passive:true});
       b.addEventListener('mouseleave',()=>el.classList.remove('big'),{passive:true});
     });
@@ -1440,49 +865,13 @@ body.has-cursor button { cursor:none !important; }
     const io = new IntersectionObserver(entries=>{
       entries.forEach(e=>{
         if(e.isIntersecting){
-          e.target.querySelectorAll('.r').forEach((it,i)=>{ it.style.transitionDelay=(i*.1)+'s'; });
+          e.target.querySelectorAll('.r').forEach((it,i)=>{ it.style.transitionDelay=(i*.12)+'s'; });
           e.target.classList.add('in');
           io.unobserve(e.target);
         }
       });
-    },{threshold:.16});
+    },{threshold:.14});
     groups.forEach(g=>io.observe(g));
-  })();
-
-  /* ── Passport 3D tilt ─────────────────────────────── */
-  (function(){
-    const card = document.getElementById('passport-card');
-    if(!card||reduceMotion) return;
-    /* Skip tilt on touch / coarse-pointer devices (CSS also resets the transform) */
-    if(window.matchMedia('(pointer: coarse)').matches) return;
-    const MAX=10, sec=card.closest('.passport');
-    function onMove(e){
-      const r=card.getBoundingClientRect();
-      const dx=(e.clientX-(r.left+r.width/2))/(r.width/2);
-      const dy=(e.clientY-(r.top+r.height/2))/(r.height/2);
-      card.style.transform=`rotateX(${Math.max(-1,Math.min(1,dy))*-MAX}deg) rotateY(${Math.max(-1,Math.min(1,dx))*MAX}deg)`;
-    }
-    function reset(){ card.style.transform='rotateX(0) rotateY(0)'; }
-    (sec||document).addEventListener('mousemove',onMove,{passive:true});
-    (sec||document).addEventListener('mouseleave',reset);
-  })();
-
-  /* ── Copy npm install ─────────────────────────────── */
-  (function(){
-    const btn=document.getElementById('copy-btn');
-    const msg=document.getElementById('copied-msg');
-    if(!btn) return;
-    btn.addEventListener('click',async()=>{
-      try{ await navigator.clipboard.writeText('npm install @vane.build/sdk'); }
-      catch(_){
-        const ta=document.createElement('textarea');
-        ta.value='npm install @vane.build/sdk';
-        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-      }
-      msg.classList.add('show');
-      clearTimeout(btn._t);
-      btn._t=setTimeout(()=>msg.classList.remove('show'),2000);
-    });
   })();
 
   /* ── Logo + nav follow active section ────────────── */
@@ -1520,50 +909,6 @@ body.has-cursor button { cursor:none !important; }
 })();
 </script>
 
-<!-- ===================== CAL.COM INIT ===================== -->
-<script>
-(function (C, A, L) {
-  let p = function (a, ar) { a.q.push(ar); };
-  let d = C.document;
-  C.Cal = C.Cal || function () {
-    let cal = C.Cal;
-    let ar = arguments;
-    if (!cal.loaded) {
-      cal.ns = {};
-      cal.q = cal.q || [];
-      d.head.appendChild(d.createElement("script")).src = A;
-      cal.loaded = true;
-    }
-    if (ar[0] === L) {
-      const api = function () { p(api, arguments); };
-      const namespace = ar[1];
-      api.q = [];
-      if (typeof namespace === "string") {
-        cal.ns[namespace] = cal.ns[namespace] || api;
-        p(cal.ns[namespace], ar);
-        p(cal, [L, api]);
-      } else {
-        p(cal, ar);
-      }
-      return;
-    }
-    p(cal, ar);
-  };
-})(window, "https://app.cal.com/embed/embed.js", "init");
-
-Cal("init", { origin: "https://cal.com" });
-Cal("inline", {
-  elementOrSelector: "#cal-booking",
-  calLink: "pablo-gonzalez-g12ly2/vane-demo",
-  layout: "month_view"
-});
-Cal("ui", {
-  theme: "light",
-  styles: { branding: { brandColor: "#b5451b" } },
-  hideEventTypeDetails: false,
-});
-</script>
-
 <!-- ===================== NAV — dropdowns, hamburger, scroll state ===================== -->
 <script>
 (function(){
@@ -1574,9 +919,8 @@ Cal("ui", {
   const items  = Array.from(document.querySelectorAll('.nav-item.has-dropdown'));
   if(!nav) return;
 
-  const NAV_H = 84;   /* matches the fixed nav-bar height */
+  const NAV_H = 84;
 
-  /* ── Dropdown toggle (click / keyboard / touch) ─────── */
   function closeDropdowns(except){
     items.forEach(it=>{
       if(it===except) return;
@@ -1597,7 +941,6 @@ Cal("ui", {
     });
   });
 
-  /* ── Hamburger / mobile panel ───────────────────────── */
   function closeMobile(){
     if(!mobile||!burger) return;
     mobile.classList.remove('open');
@@ -1619,20 +962,13 @@ Cal("ui", {
   }
   window.addEventListener('resize',()=>{ if(window.innerWidth>900) closeMobile(); });
 
-  /* ── In-page smooth scroll for nav links ────────────────
-     Runs in the CAPTURE phase so it executes before the page's
-     generic anchor handler. Using getBoundingClientRect keeps it
-     correct for NESTED targets too (e.g. #attestation lives inside
-     the #how-it-works section, so its offsetTop is relative to the
-     section — the legacy handler would mis-scroll it). It also
-     offsets the fixed bar so targets aren't hidden beneath it. */
   function scrollToEl(el){
     const y = Math.max(0, el.getBoundingClientRect().top + window.scrollY - NAV_H);
-    window.scrollTo(0, y);   /* native jump; Lenis adopts this scroll position */
+    window.scrollTo(0, y);
   }
   function onNavLink(e){
     const a = e.target.closest('a');
-    if(!a) return;                       /* dropdown trigger buttons handled above */
+    if(!a) return;
     closeDropdowns(null);
     closeMobile();
     const href = a.getAttribute('href') || '';
@@ -1640,16 +976,14 @@ Cal("ui", {
       const target = document.getElementById(href.slice(1));
       if(target){
         e.preventDefault();
-        e.stopImmediatePropagation();    /* suppress the legacy offsetTop handler */
+        e.stopImmediatePropagation();
         scrollToEl(target);
       }
     }
-    /* external links (target="_blank") fall through to default navigation */
   }
   nav.addEventListener('click', onNavLink, true);
   if(mobile) mobile.addEventListener('click', onNavLink, true);
 
-  /* ── Outside click + Escape close ───────────────────── */
   document.addEventListener('click',e=>{
     if(!e.target.closest('.nav-item.has-dropdown')) closeDropdowns(null);
   });
@@ -1657,7 +991,6 @@ Cal("ui", {
     if(e.key==='Escape'){ closeDropdowns(null); closeMobile(); }
   });
 
-  /* ── Scrolled state: more opaque past 50px ──────────── */
   let ticking=false;
   function onScroll(){
     if(ticking) return;
@@ -1676,7 +1009,6 @@ Cal("ui", {
 <script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
 <script>
   (function () {
-    /* Respect reduced-motion: skip smoothing + parallax, keep native scroll. */
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (typeof Lenis === 'undefined') return;
 
@@ -1692,18 +1024,6 @@ Cal("ui", {
       requestAnimationFrame(raf);
     }
     requestAnimationFrame(raf);
-
-    /* ── Parallax — passport card on fine-pointer devices ── */
-    if (window.matchMedia('(pointer: fine)').matches) {
-      const ppScene   = document.querySelector('.pp-scene');
-      const ppSection = document.querySelector('.passport');
-
-      lenis.on('scroll', ({ scroll }) => {
-        if (ppScene && ppSection) {
-          ppScene.style.transform = `translateY(${(scroll - ppSection.offsetTop) * 0.1}px)`;
-        }
-      });
-    }
   })();
 </script>
 </body>
