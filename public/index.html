@@ -5,49 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Vane — Agent Identity Infrastructure</title>
 <meta name="description" content="Cryptographic passports for AI agents. Ed25519-signed, Merkle-attested. Verifiable by anyone. Trusted everywhere." />
-
-<!-- Open Graph -->
 <meta property="og:type"        content="website" />
 <meta property="og:title"       content="Vane — Agent Identity Infrastructure" />
 <meta property="og:description" content="Cryptographic passports for AI agents. Ed25519-signed. Merkle-attested." />
 <meta property="og:image"       content="/og.svg" />
 <meta property="og:url"         content="https://vane.build" />
-<!-- Twitter / X -->
 <meta name="twitter:card"        content="summary_large_image" />
 <meta name="twitter:title"       content="Vane — Agent Identity Infrastructure" />
 <meta name="twitter:description" content="Cryptographic passports for AI agents. Verifiable by anyone." />
 <meta name="twitter:image"       content="/og.svg" />
-<!-- Theme -->
 <meta name="theme-color" content="#b5451b" />
-
-<!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-
-<!-- Fonts — Bricolage Grotesque (variable grotesque) + Geist Mono -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<!-- GSAP + ScrollTrigger — loaded at top per spec -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+<!-- Lenis stylesheet -->
+<link rel="stylesheet" href="https://unpkg.com/lenis@1.1.14/dist/lenis.css" />
 
 <style>
 /* ============================================================
    DESIGN TOKENS
    ============================================================ */
 :root {
-  --clay:       #b5451b;
-  --clay-light: #c8552a;
-  --clay-dark:  #9a3716;
-  --warm-gray:  #f0ede8;
-  --navy:       #0a1628;
-  --ink-body:   #3d2e1e;
-  --off-white:  #f5f0e8;
-  --warm-white: #ede8e0;
-
-  --font-sans: 'Bricolage Grotesque', system-ui, sans-serif;
-  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
-
+  --clay:        #b5451b;
+  --clay-light:  #c8552a;
+  --clay-dark:   #9a3716;
+  --warm-gray:   #f0ede8;
+  --navy:        #0a1628;
+  --ink-body:    #3d2e1e;
+  --off-white:   #f5f0e8;
+  --warm-white:  #ede8e0;
+  --font-sans:   'Bricolage Grotesque', system-ui, sans-serif;
+  --font-mono:   'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
   --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-power:  cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ============================================================
@@ -67,18 +65,6 @@ body {
   overflow-x: hidden;
 }
 ::selection { background: var(--clay); color: var(--off-white); }
-.mono { font-family: var(--font-mono); }
-
-/* ============================================================
-   REVEAL ON SCROLL
-   ============================================================ */
-.r {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity .7s var(--ease-out), transform .7s var(--ease-out);
-  will-change: opacity, transform;
-}
-[data-reveal].in .r { opacity: 1; transform: none; }
 
 /* ============================================================
    LOGO — fixed
@@ -108,7 +94,7 @@ body {
 .logo.on-terra .word     { color: var(--off-white); }
 
 /* ============================================================
-   NAV — sticky full-width bar
+   NAV
    ============================================================ */
 .nav {
   position: fixed;
@@ -133,8 +119,6 @@ body {
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   border-bottom: 1px solid rgba(181, 69, 27, 0.28);
 }
-
-/* ── Menu (desktop) ─────────────────────────────────── */
 .nav-menu {
   display: flex;
   align-items: center;
@@ -144,7 +128,6 @@ body {
   margin: 0; padding: 0;
 }
 .nav-item { position: relative; display: flex; align-items: center; height: 100%; }
-
 .nav-trigger {
   display: inline-flex;
   align-items: center;
@@ -164,7 +147,6 @@ body {
 .nav-trigger:hover,
 .nav-item.open > .nav-trigger { color: var(--clay-light); opacity: 1; }
 .nav-trigger:focus-visible { outline: 1px solid var(--clay-light); outline-offset: 3px; opacity: 1; }
-
 .nav-trigger .caret {
   width: 6px; height: 6px;
   border-right: 1.5px solid currentColor;
@@ -174,8 +156,6 @@ body {
   opacity: 0.65;
 }
 .nav-item.open > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
-
-/* ── Dropdown panel ─────────────────────────────────── */
 .nav-dropdown {
   position: absolute;
   top: 100%;
@@ -213,7 +193,6 @@ body {
   .nav-item.has-dropdown:hover > .nav-trigger { color: var(--clay-light); opacity: 1; }
   .nav-item.has-dropdown:hover > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
 }
-
 .nav-dropdown a {
   display: flex;
   align-items: center;
@@ -232,8 +211,6 @@ body {
 .nav-dropdown a:hover  { background: rgba(181, 69, 27, 0.18); color: var(--off-white); }
 .nav-dropdown a:active { transform: scale(0.985); }
 .nav-dropdown a .ext   { opacity: 0.5; font-size: 0.85em; }
-
-/* ── Action buttons ─────────────────────────────────── */
 .nav-actions { display: flex; align-items: center; gap: 0.7rem; margin-left: 0.4rem; }
 .nav-demo {
   font-family: var(--font-mono);
@@ -263,8 +240,6 @@ body {
 }
 .nav-cta:hover  { background: var(--clay-light); border-color: var(--clay-light); }
 .nav-cta:active { transform: scale(0.97); }
-
-/* ── Hamburger (mobile) ─────────────────────────────── */
 .nav-burger {
   display: none;
   position: relative;
@@ -288,8 +263,6 @@ body {
 .nav-burger.open span:nth-child(1) { top: 14px; transform: rotate(45deg); }
 .nav-burger.open span:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
 .nav-burger.open span:nth-child(3) { top: 14px; transform: rotate(-45deg); }
-
-/* ── Mobile slide-down panel ────────────────────────── */
 .nav-mobile {
   position: fixed;
   top: 84px; left: 0; right: 0;
@@ -337,12 +310,10 @@ body {
 .nav-mobile a:active { transform: translateX(3px); }
 .nav-mobile .mob-actions { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 0.4rem; }
 .nav-mobile .mob-actions a { text-align: center; padding: 0.85rem; border-radius: 3px; }
-
 @media (max-width: 900px) {
   .nav-menu, .nav-actions { display: none; }
   .nav-burger { display: block; }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .nav, .nav-dropdown, .nav-mobile, .nav-burger span, .nav-trigger .caret {
     transition: opacity .15s ease, background-color .15s ease, border-color .15s ease, visibility 0s !important;
@@ -354,7 +325,7 @@ body {
 }
 
 /* ============================================================
-   BUTTONS — shared
+   BUTTONS
    ============================================================ */
 .btn {
   font-family: var(--font-mono);
@@ -372,16 +343,28 @@ body {
 .btn-clay:hover      { background: var(--clay-light); border-color: var(--clay-light); }
 .btn-ghost           { background: transparent; color: var(--off-white); border-color: rgba(245,240,232,.35); }
 .btn-ghost:hover     { border-color: var(--off-white); background: rgba(245,240,232,.06); }
-.btn-light           { background: var(--off-white); color: var(--clay); }
+.btn-light           { background: var(--off-white); color: var(--clay-dark); }
 .btn-light:hover     { background: var(--warm-white); }
-.btn-light-navy      { background: var(--off-white); color: var(--navy); }
 .btn-navy            { background: var(--navy); color: var(--off-white); }
 .btn-navy:hover      { background: #13233f; }
-.btn-outline-navy    { background: transparent; color: var(--navy); border-color: var(--navy); }
-.btn-outline-navy:hover { background: var(--navy); color: var(--off-white); }
+.btn-outline-clay    { background: transparent; color: var(--clay); border-color: var(--clay); }
+.btn-outline-clay:hover { background: var(--clay); color: var(--off-white); }
+.btn-arrow {
+  background: var(--off-white);
+  color: var(--clay-dark);
+  border-color: var(--off-white);
+  font-size: .9rem;
+  padding: 1.05rem 2.2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .65rem;
+  transition: background .2s ease, color .2s ease, transform .15s ease, gap .2s var(--ease-spring);
+}
+.btn-arrow:hover { background: var(--warm-white); border-color: var(--warm-white); gap: .95rem; }
+.btn-arrow:active { transform: scale(0.97); }
 
 /* ============================================================
-   SECTION 1 — HERO: full-bleed video
+   SECTION 1 — HERO (unchanged)
    ============================================================ */
 .hero-video {
   position: relative;
@@ -395,21 +378,15 @@ body {
 }
 .hero-video video {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 0;
+  inset: 0; width: 100%; height: 100%;
+  object-fit: cover; z-index: 0;
 }
 .hero-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(10, 22, 40, 0.58);
-  z-index: 1;
+  position: absolute; inset: 0;
+  background: rgba(10, 22, 40, 0.58); z-index: 1;
 }
 .hero-content {
-  position: relative;
-  z-index: 2;
+  position: relative; z-index: 2;
   text-align: center;
   padding: 2rem 8vw;
   max-width: 980px;
@@ -422,16 +399,12 @@ body {
   color: var(--off-white);
   text-wrap: balance;
 }
-.hero-content .hero-cta {
-  margin-top: 3rem;
-}
+.hero-content .hero-cta { margin-top: 3rem; }
 .hero-scroll-hint {
   position: absolute;
-  bottom: 36px; right: 7vw;
-  z-index: 3;
+  bottom: 36px; right: 7vw; z-index: 3;
   font-family: var(--font-mono);
-  font-size: .65rem;
-  letter-spacing: .22em;
+  font-size: .65rem; letter-spacing: .22em;
   color: rgba(245, 240, 232, .35);
   user-select: none;
 }
@@ -440,83 +413,498 @@ body {
   .hero-content .hero-cta { opacity: 0; transform: translateY(20px); animation: hFadeUp .65s var(--ease-out) .3s  forwards; }
   .hero-scroll-hint       { opacity: 0;                               animation: hFadeUp .6s  var(--ease-out) .7s  forwards; }
 }
-@keyframes hFadeUp {
-  to { opacity: 1; transform: translateY(0); }
-}
+@keyframes hFadeUp { to { opacity: 1; transform: translateY(0); } }
 
 /* ============================================================
-   SECTION 2 — PROBLEM: video background, large statement
+   SECTION 2 — PROBLEM
    ============================================================ */
-.problem-video {
+#problem {
   position: relative;
   min-height: 100dvh;
-  width: 100%;
-  overflow: hidden;
+  background: var(--navy);
   display: flex;
-  align-items: flex-end;
-  z-index: 1;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
-.problem-video video {
-  position: absolute;
-  inset: 0;
+.prob-inner {
+  padding: 12vh 9vw;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 0;
+  max-width: 1200px;
 }
-.problem-overlay {
-  position: absolute;
-  inset: 0;
-  /* heavier gradient at bottom so text reads over video */
-  background: linear-gradient(
-    to bottom,
-    rgba(10, 22, 40, 0.25) 0%,
-    rgba(10, 22, 40, 0.55) 45%,
-    rgba(10, 22, 40, 0.86) 100%
-  );
-  z-index: 1;
-}
-.problem-content {
-  position: relative;
-  z-index: 2;
-  padding: 12vh 7vw 10vh;
-  width: 100%;
-  max-width: 1280px;
-}
-.problem-content h2 {
+.prob-text {
   font-weight: 800;
-  font-size: clamp(2.4rem, 5.8vw, 6rem);
-  line-height: 1.0;
-  letter-spacing: -0.035em;
+  font-size: clamp(2.2rem, 4.8vw, 5.6rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
   color: var(--off-white);
-  max-width: 22ch;
-  text-wrap: balance;
+}
+/* word-mask technique: each word has an overflow:hidden wrapper */
+.word-wrap {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  line-height: 1.15;
+  margin-right: 0.25em;
+}
+.word-wrap .wd {
+  display: inline-block;
+  will-change: transform;
+}
+/* sentence break */
+.prob-sentence { display: block; margin-bottom: 0.06em; }
+/* dim punctuation accents */
+.prob-accent {
+  color: rgba(181, 69, 27, 0.9);
 }
 
 /* ============================================================
-   SECTION 3 — CTA: terracotta, centered
+   SECTION 3 — SOLUTION
    ============================================================ */
-.cta-section {
+#solution {
+  background: var(--navy);
+  padding: 14vh 7vw 12vh;
   position: relative;
-  min-height: 100dvh;
-  width: 100%;
+}
+.sol-inner { max-width: 1200px; margin: 0 auto; }
+.sol-label {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--clay);
+  margin-bottom: 2rem;
+  will-change: transform;
+}
+.sol-headline {
+  font-weight: 800;
+  font-size: clamp(3rem, 6vw, 6.5rem);
+  letter-spacing: -0.04em;
+  line-height: 1.0;
+  color: var(--off-white);
+  margin-bottom: 5rem;
+  will-change: transform;
+}
+.sol-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+.sol-card {
+  background: rgba(245, 240, 232, 0.04);
+  border: 1px solid rgba(245, 240, 232, 0.08);
+  padding: 2.4rem 2rem 2.4rem;
+  position: relative;
+  will-change: transform;
+}
+.sol-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
   background: var(--clay);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform .4s var(--ease-out);
+}
+.sol-card:hover::before { transform: scaleX(1); }
+.sol-card-num {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .16em;
+  color: rgba(181, 69, 27, 0.75);
+  margin-bottom: 1.4rem;
+}
+.sol-card h3 {
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+  color: var(--off-white);
+  margin-bottom: .85rem;
+  line-height: 1.2;
+}
+.sol-card p {
+  font-size: .92rem;
+  line-height: 1.6;
+  color: rgba(245, 240, 232, 0.6);
+}
+@media (max-width: 900px) {
+  .sol-cards { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   SECTION 4 — PASSPORT
+   ============================================================ */
+#passport {
+  min-height: 100dvh;
+  background: var(--off-white);
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+.pass-inner {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 10vh 7vw;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5vw;
+  align-items: center;
+}
+.pass-left {}
+.pass-eyebrow {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--clay);
+  margin-bottom: 1.6rem;
+  will-change: transform;
+}
+.pass-headline {
+  font-weight: 800;
+  font-size: clamp(2.6rem, 4.2vw, 4.8rem);
+  line-height: 1.0;
+  letter-spacing: -0.04em;
+  color: var(--navy);
+  will-change: transform;
+}
+.pass-sub {
+  margin-top: 1.4rem;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--ink-body);
+  max-width: 36ch;
+  will-change: transform;
+}
+/* The passport card */
+.pass-card {
+  background: var(--navy);
+  border: 1px solid rgba(245, 240, 232, 0.12);
+  padding: 0;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  will-change: transform;
+}
+.pass-card-header {
+  background: rgba(181, 69, 27, 0.15);
+  border-bottom: 1px solid rgba(181, 69, 27, 0.3);
+  padding: .8rem 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pass-card-badge {
+  font-size: .58rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--clay);
+}
+.pass-card-status {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  font-size: .6rem;
+  letter-spacing: .12em;
+  color: rgba(245, 240, 232, 0.5);
+}
+.pass-card-status::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
+}
+.pass-fields {
+  padding: 1.2rem 0;
+}
+.pass-field {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: .45rem 1.4rem;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.05);
+  will-change: transform;
+}
+.pass-field:last-child { border-bottom: none; }
+.pass-k {
+  font-size: .65rem;
+  letter-spacing: .08em;
+  color: rgba(181, 69, 27, 0.8);
+  min-width: 3ch;
+  flex-shrink: 0;
+}
+.pass-v {
+  font-size: .72rem;
+  letter-spacing: .02em;
+  color: rgba(245, 240, 232, 0.75);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pass-v.hl { color: var(--off-white); }
+@media (max-width: 768px) {
+  .pass-inner { grid-template-columns: 1fr; }
+  .pass-headline { font-size: clamp(2.2rem, 8vw, 3.5rem); }
+}
+
+/* ============================================================
+   SECTION 5 — CODE
+   ============================================================ */
+#code-section {
+  min-height: 100dvh;
+  background: #080f1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10vh 7vw;
+  position: relative;
+}
+.code-inner {
+  max-width: 860px;
+  width: 100%;
+}
+.code-eyebrow {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--clay);
+  margin-bottom: 1.6rem;
+  will-change: transform;
+}
+.code-headline {
+  font-weight: 800;
+  font-size: clamp(2.8rem, 5.5vw, 5.8rem);
+  letter-spacing: -0.04em;
+  line-height: 1.0;
+  color: var(--off-white);
+  margin-bottom: 3.5rem;
+  will-change: transform;
+}
+/* Code block */
+.code-block-wrap {
+  background: #0d1730;
+  border: 1px solid rgba(245, 240, 232, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+.code-block-bar {
+  background: rgba(245, 240, 232, 0.05);
+  border-bottom: 1px solid rgba(245, 240, 232, 0.08);
+  padding: .65rem 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+}
+.code-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+.code-dot-r { background: rgba(255, 96, 92, 0.7); }
+.code-dot-y { background: rgba(255, 189, 46, 0.7); }
+.code-dot-g { background: rgba(40, 200, 64, 0.7); }
+.code-file {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  letter-spacing: .06em;
+  color: rgba(245, 240, 232, 0.3);
+  margin-left: .5rem;
+}
+pre.code-pre {
+  padding: 1.6rem 1.6rem 1.8rem;
+  margin: 0;
+  overflow-x: auto;
+}
+pre.code-pre code {
+  font-family: var(--font-mono);
+  font-size: .84rem;
+  line-height: 1.8;
+  letter-spacing: .01em;
+  color: rgba(245, 240, 232, 0.85);
+}
+.cl {
+  display: block;
+  will-change: transform;
+}
+.ct-kw  { color: #c8555a; }
+.ct-fn  { color: #7dd3fc; }
+.ct-str { color: #86efac; }
+.ct-cm  { color: rgba(245, 240, 232, 0.25); }
+.ct-pk  { color: #fde68a; }
+/* Ecosystem row */
+.code-ecosystem {
+  margin-top: 2.8rem;
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  flex-wrap: wrap;
+  will-change: transform;
+}
+.code-eco-label {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(245, 240, 232, 0.3);
+}
+.code-eco-sep {
+  color: rgba(245, 240, 232, 0.15);
+  font-family: var(--font-mono);
+  font-size: .72rem;
+}
+.code-eco-item {
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(245, 240, 232, 0.55);
+  transition: color .2s ease;
+}
+.code-eco-item:hover { color: var(--off-white); }
+
+/* ============================================================
+   SECTION 6 — REGULATORS
+   ============================================================ */
+#regulators {
+  min-height: 100dvh;
+  background: var(--clay);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 7vw;
+  position: relative;
+  overflow: hidden;
+}
+#regulators::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 70% at 50% 0%, rgba(200, 100, 40, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+.reg-inner {
+  max-width: 1200px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+.reg-eyebrow {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(245, 240, 232, 0.6);
+  margin-bottom: 1.6rem;
+  will-change: transform;
+}
+.reg-headline {
+  font-weight: 800;
+  font-size: clamp(3rem, 6.5vw, 7rem);
+  letter-spacing: -0.04em;
+  line-height: 1.0;
+  color: var(--off-white);
+  margin-bottom: 6rem;
+  will-change: transform;
+}
+/* Timeline */
+.reg-timeline { position: relative; width: 100%; }
+.reg-line-track {
+  width: 100%;
+  height: 1px;
+  background: rgba(245, 240, 232, 0.2);
+  margin-bottom: 0;
+  position: relative;
+}
+.reg-line-fill {
+  position: absolute;
+  inset: 0;
+  background: rgba(245, 240, 232, 0.8);
+  transform-origin: left center;
+  transform: scaleX(0);
+  will-change: transform;
+}
+.reg-milestones {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin-top: 0;
+}
+.reg-ms {
+  padding-top: 2rem;
+  position: relative;
+  will-change: transform;
+}
+.reg-ms::before {
+  content: '';
+  position: absolute;
+  top: -5px; left: 0;
+  width: 9px; height: 9px;
+  background: var(--off-white);
+  border-radius: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 3px rgba(245, 240, 232, 0.2);
+}
+.reg-ms:first-child { padding-left: 0; }
+.reg-ms:last-child  { text-align: right; }
+.reg-ms:last-child::before { left: 100%; }
+.reg-ms:nth-child(2) { text-align: center; }
+.reg-ms:nth-child(2)::before { left: 50%; }
+.reg-date {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  letter-spacing: .1em;
+  color: rgba(245, 240, 232, 0.55);
+  margin-bottom: .55rem;
+}
+.reg-event-name {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(245, 240, 232, 0.4);
+  margin-bottom: .5rem;
+}
+.reg-label {
+  font-weight: 700;
+  font-size: clamp(.9rem, 1.4vw, 1.15rem);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--off-white);
+}
+@media (max-width: 768px) {
+  .reg-milestones { grid-template-columns: 1fr; gap: 2.5rem; }
+  .reg-ms::before { top: -1.2rem; left: -1.2rem; }
+  .reg-ms:last-child  { text-align: left; }
+  .reg-ms:nth-child(2) { text-align: left; }
+  .reg-ms:nth-child(2)::before { left: -1.2rem; }
+  .reg-ms:last-child::before   { left: -1.2rem; }
+  .reg-line-track { display: none; }
+}
+
+/* ============================================================
+   SECTION 7 — CTA
+   ============================================================ */
+#contact {
+  min-height: 100dvh;
+  background: var(--navy);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 10vh 7vw;
-  z-index: 1;
+  position: relative;
   overflow: hidden;
 }
-/* subtle radial warmth in center */
-.cta-section::before {
+#contact::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 70% 60% at 50% 42%, rgba(200, 100, 40, 0.28) 0%, transparent 70%);
+  background: radial-gradient(ellipse 60% 50% at 50% 45%, rgba(181, 69, 27, 0.12) 0%, transparent 70%);
   pointer-events: none;
-  z-index: 0;
 }
 .cta-inner {
   position: relative;
@@ -525,70 +913,63 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
 }
-.cta-inner .cta-primary {
-  margin-bottom: 2.2rem;
-}
-.cta-divider {
-  width: 1px;
-  height: 3.5rem;
-  background: rgba(245, 240, 232, 0.22);
-  margin: 0 auto 2.2rem;
-}
-.cta-book-label {
+.cta-eyebrow {
   font-family: var(--font-mono);
   font-size: .68rem;
   letter-spacing: .2em;
   text-transform: uppercase;
-  color: rgba(245, 240, 232, .45);
-  margin-bottom: 1.2rem;
+  color: rgba(245, 240, 232, 0.3);
+  margin-bottom: 1.8rem;
+  will-change: transform;
+}
+.cta-headline {
+  font-weight: 800;
+  font-size: clamp(2.6rem, 5.5vw, 6rem);
+  letter-spacing: -0.04em;
+  line-height: 1.0;
+  color: var(--off-white);
+  margin-bottom: 2.8rem;
+  will-change: transform;
+}
+.cta-primary {
+  margin-bottom: 2.5rem;
+  will-change: transform;
+}
+.cta-divider {
+  width: 1px;
+  height: 3rem;
+  background: rgba(245, 240, 232, 0.18);
+  margin: 0 auto 2rem;
+  will-change: transform;
+}
+.cta-book-label {
+  font-family: var(--font-mono);
+  font-size: .65rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(245, 240, 232, 0.35);
+  margin-bottom: 1rem;
+  will-change: transform;
 }
 .cta-cal-link {
   font-family: var(--font-mono);
-  font-size: .82rem;
+  font-size: .8rem;
   letter-spacing: .04em;
-  color: rgba(245, 240, 232, .72);
+  color: rgba(245, 240, 232, 0.55);
   text-decoration: none;
-  border-bottom: 1px solid rgba(245, 240, 232, .25);
+  border-bottom: 1px solid rgba(245, 240, 232, 0.18);
   padding-bottom: 2px;
   transition: color .2s ease, border-color .2s ease;
+  will-change: transform;
 }
 .cta-cal-link:hover {
   color: var(--off-white);
-  border-color: rgba(245, 240, 232, .65);
-}
-
-/* ── btn-arrow — arrow variant for the CTA ─────────── */
-.btn-arrow {
-  background: var(--off-white);
-  color: var(--clay-dark);
-  border-color: var(--off-white);
-  font-size: .9rem;
-  padding: 1.05rem 2.2rem;
-  display: inline-flex;
-  align-items: center;
-  gap: .65rem;
-  transition: background .2s ease, color .2s ease, transform .15s ease, gap .2s var(--ease-spring);
-}
-.btn-arrow:hover {
-  background: var(--warm-white);
-  border-color: var(--warm-white);
-  gap: .95rem;
-}
-.btn-arrow:active { transform: scale(0.97); }
-
-/* ============================================================
-   CONTACT section (kept for #contact anchor from hero CTA)
-   ============================================================ */
-.contact-anchor {
-  display: block;
-  height: 0;
-  overflow: hidden;
+  border-color: rgba(245, 240, 232, 0.55);
 }
 
 /* ============================================================
-   FOOTER — warm gray
+   FOOTER
    ============================================================ */
 footer { background: var(--warm-gray); color: var(--navy); position: relative; z-index: 2; }
 footer .rule { height: 1px; background: var(--clay); }
@@ -607,11 +988,15 @@ footer .links { text-align: center; font-family: var(--font-mono); font-size: .7
 footer .links a { color: var(--navy); text-decoration: none; opacity: .82; }
 footer .links a:hover { color: var(--clay); opacity: 1; }
 footer .built { text-align: right; font-family: var(--font-mono); font-size: .76rem; letter-spacing: .06em; color: var(--ink-body); }
-
-/* ============================================================
-   SMOOTH SCROLL — LENIS
-   ============================================================ */
-.lenis.lenis-smooth #cal-booking iframe { pointer-events: auto; }
+@media (max-width: 768px) {
+  footer .inner       { grid-template-columns: 1fr; text-align: center; gap: 1.3rem; }
+  footer .f-logo,
+  footer .built,
+  footer .links       { justify-content: center; text-align: center; }
+  footer .links a     { display: inline-block; padding: .5rem .35rem; }
+  .nav-mobile a       { min-height: 44px; display: flex; align-items: center; }
+  .nav-mobile .mob-actions a { min-height: 48px; justify-content: center; }
+}
 
 /* ============================================================
    CUSTOM CURSOR
@@ -637,43 +1022,26 @@ body.has-cursor button { cursor: none !important; }
 #vane-cursor.big { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
 
 /* ============================================================
-   RESPONSIVE
-   ============================================================ */
-@media (max-width: 768px) {
-  .problem-content h2 { font-size: clamp(2rem, 9vw, 3.2rem); }
-  .hero-content h1    { font-size: clamp(2.4rem, 10vw, 4rem); }
-  footer .inner       { grid-template-columns: 1fr; text-align: center; gap: 1.3rem; }
-  footer .f-logo,
-  footer .built,
-  footer .links       { justify-content: center; text-align: center; }
-  .nav-mobile a       { min-height: 44px; display: flex; align-items: center; }
-  .nav-mobile .mob-actions a { min-height: 48px; justify-content: center; }
-  footer .links a     { display: inline-block; padding: .5rem .35rem; }
-}
-
-@media (max-width: 480px) {
-  .problem-content { padding: 10vh 6vw 8vh; }
-  .cta-section     { padding: 8vh 6vw; }
-}
-
-/* ============================================================
-   REDUCED MOTION
+   REDUCED MOTION — disable GSAP-driven animations
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; }
-  .r { opacity: 1 !important; transform: none !important; transition: none !important; }
-  html { scroll-behavior: auto; }
+  * { animation: none !important; transition-duration: .01ms !important; }
+  .word-wrap .wd { opacity: 1 !important; transform: none !important; }
+  .cl, .pass-field, .sol-card, .reg-ms, .reg-line-fill,
+  .sol-label, .sol-headline, .pass-eyebrow, .pass-headline, .pass-sub,
+  .code-eyebrow, .code-headline, .code-ecosystem,
+  .reg-eyebrow, .reg-headline, .cta-eyebrow, .cta-headline, .cta-primary,
+  .cta-divider, .cta-book-label, .cta-cal-link, .pass-card {
+    opacity: 1 !important; transform: none !important;
+  }
 }
 </style>
-
-<!-- Lenis base stylesheet -->
-<link rel="stylesheet" href="https://unpkg.com/lenis@1.1.14/dist/lenis.css" />
 </head>
 <body>
 
 <div id="vane-cursor" aria-hidden="true"></div>
 
-<!-- ===================== LOGO ===================== -->
+<!-- LOGO -->
 <a class="logo on-terra" href="#top" aria-label="Vane home">
   <svg class="mark" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
     <line x1="11" y1="2"  x2="11" y2="20" />
@@ -686,7 +1054,7 @@ body.has-cursor button { cursor: none !important; }
   <span class="word">VANE</span>
 </a>
 
-<!-- ===================== NAV ===================== -->
+<!-- NAV -->
 <nav class="nav on-terra" aria-label="Primary">
   <ul class="nav-menu">
     <li class="nav-item has-dropdown">
@@ -719,18 +1087,16 @@ body.has-cursor button { cursor: none !important; }
       <a class="nav-trigger" href="#contact">Contact</a>
     </li>
   </ul>
-
   <div class="nav-actions">
     <a class="nav-demo" href="#contact">Book a demo</a>
     <a class="nav-cta"  href="#contact">Request Access</a>
   </div>
-
   <button class="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-mobile">
     <span></span><span></span><span></span>
   </button>
 </nav>
 
-<!-- ===================== MOBILE NAV PANEL ===================== -->
+<!-- MOBILE NAV -->
 <div class="nav-mobile" id="nav-mobile">
   <div class="mob-group">
     <div class="mob-head">Product</div>
@@ -761,9 +1127,11 @@ body.has-cursor button { cursor: none !important; }
   </div>
 </div>
 
-<div id="smooth-wrapper">
+<main id="smooth-wrapper">
 
-<!-- ===================== SECTION 1 — HERO ===================== -->
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 1 — HERO (unchanged)
+═══════════════════════════════════════════════════════════ -->
 <section class="hero-video" id="top" data-theme="terra">
   <video autoplay loop muted playsinline>
     <source src="/hero.mp4" type="video/mp4">
@@ -778,28 +1146,161 @@ body.has-cursor button { cursor: none !important; }
   <div class="hero-scroll-hint" aria-hidden="true">Scroll to explore ↓</div>
 </section>
 
-<!-- ===================== SECTION 2 — PROBLEM ===================== -->
-<section class="problem-video" id="problem" data-theme="terra" data-reveal>
-  <video autoplay loop muted playsinline>
-    <source src="/problem.mp4" type="video/mp4">
-  </video>
-  <div class="problem-overlay"></div>
-  <div class="problem-content">
-    <h2 class="r">Your agents are acting. Nobody can prove who authorized what.</h2>
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 2 — PROBLEM
+     Pinned. Sentences reveal word-by-word as user scrolls.
+═══════════════════════════════════════════════════════════ -->
+<section id="problem" data-theme="terra">
+  <div class="prob-inner">
+    <p class="prob-text" id="prob-text" aria-label="Your agents are calling Stripe. Reading medical records. Executing legal documents. Nobody can prove who authorized any of it.">
+      <span class="prob-sentence" id="ps-1">Your agents are calling Stripe.</span>
+      <span class="prob-sentence" id="ps-2">Reading medical records.</span>
+      <span class="prob-sentence" id="ps-3">Executing legal documents.</span>
+      <span class="prob-sentence" id="ps-4">Nobody can prove who authorized any of it.</span>
+    </p>
   </div>
 </section>
 
-<!-- ===================== SECTION 3 — CTA ===================== -->
-<span class="contact-anchor" id="contact" aria-hidden="true"></span>
-<section class="cta-section" data-theme="terra" data-reveal>
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 3 — SOLUTION
+     Cards stagger in as user scrolls.
+═══════════════════════════════════════════════════════════ -->
+<section id="solution" data-theme="terra">
+  <div class="sol-inner">
+    <div class="sol-label" id="sol-label">The fix</div>
+    <h2 class="sol-headline" id="sol-headline">Vane fixes this.</h2>
+    <div class="sol-cards">
+      <article class="sol-card" id="sol-c1">
+        <div class="sol-card-num">01</div>
+        <h3>Issue Passport</h3>
+        <p>Every agent receives an Ed25519-signed credential at registration. The passport encodes its identity, issuer, and authorized scope — immutably.</p>
+      </article>
+      <article class="sol-card" id="sol-c2">
+        <div class="sol-card-num">02</div>
+        <h3>Attest Action</h3>
+        <p>Each action is attested in real time: who authorized it, what parameters were passed, and what was returned. Every record is Merkle-hashed.</p>
+      </article>
+      <article class="sol-card" id="sol-c3">
+        <div class="sol-card-num">03</div>
+        <h3>Verify Anywhere</h3>
+        <p>Any party — a regulator, an auditor, a counterpart — can verify any attested action without access to your systems. Proofs are self-contained.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 4 — PASSPORT
+     Pinned. Card fields build field-by-field on scroll.
+═══════════════════════════════════════════════════════════ -->
+<section id="passport" data-theme="paper">
+  <div class="pass-inner">
+    <div class="pass-left">
+      <div class="pass-eyebrow" id="pass-eyebrow">Agent credential</div>
+      <h2 class="pass-headline" id="pass-headline">One passport.<br>Everything proven.</h2>
+      <p class="pass-sub" id="pass-sub">A single signed document contains the agent's identity, its authorized actions, the parameters used, and a cryptographic chain back to your organization.</p>
+    </div>
+    <div class="pass-card" id="pass-card">
+      <div class="pass-card-header">
+        <span class="pass-card-badge">VANE AGENT PASSPORT · v1</span>
+        <span class="pass-card-status">VALID</span>
+      </div>
+      <div class="pass-fields">
+        <div class="pass-field pf-0"><span class="pass-k">sub</span><span class="pass-v">spiffe://vane.local/org/meridian-ai/agent/research-001</span></div>
+        <div class="pass-field pf-1"><span class="pass-k">iss</span><span class="pass-v hl">vane.build</span></div>
+        <div class="pass-field pf-2"><span class="pass-k">iat</span><span class="pass-v">2025-09-15T14:32:19Z</span></div>
+        <div class="pass-field pf-3"><span class="pass-k">exp</span><span class="pass-v">2025-09-15T22:32:19Z</span></div>
+        <div class="pass-field pf-4"><span class="pass-k">act</span><span class="pass-v hl">stripe.charge.create</span></div>
+        <div class="pass-field pf-5"><span class="pass-k">amt</span><span class="pass-v hl">$47.23</span></div>
+        <div class="pass-field pf-6"><span class="pass-k">auth</span><span class="pass-v">user:pablo@meridian.ai</span></div>
+        <div class="pass-field pf-7"><span class="pass-k">root</span><span class="pass-v">sha256:9f4c2b8a1d3e...</span></div>
+        <div class="pass-field pf-8"><span class="pass-k">sig</span><span class="pass-v">ed25519:a7f2c9b4d1e8f3a6...</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 5 — CODE
+     Pinned. Lines reveal in sequence on scroll.
+═══════════════════════════════════════════════════════════ -->
+<section id="code-section" data-theme="terra">
+  <div class="code-inner">
+    <div class="code-eyebrow" id="code-eyebrow">Integration</div>
+    <h2 class="code-headline" id="code-headline">Three lines<br>of code.</h2>
+    <div class="code-block-wrap" id="code-block">
+      <div class="code-block-bar">
+        <span class="code-dot code-dot-r"></span>
+        <span class="code-dot code-dot-y"></span>
+        <span class="code-dot code-dot-g"></span>
+        <span class="code-file">agent.ts</span>
+      </div>
+      <pre class="code-pre"><code><span class="cl cl-1"><span class="ct-kw">import</span> { passport } <span class="ct-kw">from</span> <span class="ct-str">"@vane.build/sdk"</span>;</span>
+<span class="cl cl-2">&nbsp;</span>
+<span class="cl cl-3"><span class="ct-kw">const</span> pass = <span class="ct-kw">await</span> passport.<span class="ct-fn">issue</span>({ <span class="ct-pk">agentId</span>, <span class="ct-pk">action</span> });</span>
+<span class="cl cl-4"><span class="ct-kw">await</span> pass.<span class="ct-fn">attest</span>({ <span class="ct-pk">result</span>, <span class="ct-pk">context</span> }); <span class="ct-cm">// verifiable by anyone</span></span></code></pre>
+    </div>
+    <div class="code-ecosystem" id="code-ecosystem">
+      <span class="code-eco-label">Works with</span>
+      <span class="code-eco-item">LangChain</span>
+      <span class="code-eco-sep">·</span>
+      <span class="code-eco-item">CrewAI</span>
+      <span class="code-eco-sep">·</span>
+      <span class="code-eco-item">OpenAI Agents SDK</span>
+      <span class="code-eco-sep">·</span>
+      <span class="code-eco-item">MCP</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 6 — REGULATORS
+     Pinned. EU AI Act timeline draws itself on scroll.
+═══════════════════════════════════════════════════════════ -->
+<section id="regulators" data-theme="terra">
+  <div class="reg-inner">
+    <div class="reg-eyebrow" id="reg-eyebrow">EU AI Act</div>
+    <h2 class="reg-headline" id="reg-headline">Regulators<br>are watching.</h2>
+    <div class="reg-timeline">
+      <div class="reg-line-track">
+        <div class="reg-line-fill" id="reg-line"></div>
+      </div>
+      <div class="reg-milestones">
+        <div class="reg-ms" id="reg-ms-1">
+          <div class="reg-date">Feb 2025</div>
+          <div class="reg-event-name">Phase 1</div>
+          <div class="reg-label">GPAI model obligations in force</div>
+        </div>
+        <div class="reg-ms" id="reg-ms-2">
+          <div class="reg-date">Aug 2026</div>
+          <div class="reg-event-name">Phase 2</div>
+          <div class="reg-label">High-risk AI system requirements</div>
+        </div>
+        <div class="reg-ms" id="reg-ms-3">
+          <div class="reg-date">Dec 2027</div>
+          <div class="reg-event-name">Phase 3</div>
+          <div class="reg-label">Full compliance required</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 7 — CTA  (#contact anchor lives here)
+═══════════════════════════════════════════════════════════ -->
+<section id="contact" data-theme="terra">
   <div class="cta-inner">
-    <div class="cta-primary r">
+    <div class="cta-eyebrow" id="cta-eyebrow">Ready?</div>
+    <h2 class="cta-headline" id="cta-headline">See how<br>it works.</h2>
+    <div class="cta-primary" id="cta-primary">
       <a class="btn btn-arrow" href="/product">See how it works →</a>
     </div>
-    <div class="cta-divider r"></div>
-    <div class="cta-book-label r">Or book a 30-minute demo</div>
+    <div class="cta-divider" id="cta-divider"></div>
+    <div class="cta-book-label" id="cta-book-label">Or book a 30-minute demo</div>
     <a
-      class="cta-cal-link r"
+      class="cta-cal-link"
+      id="cta-cal-link"
       href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo"
       target="_blank"
       rel="noopener noreferrer"
@@ -807,7 +1308,7 @@ body.has-cursor button { cursor: none !important; }
   </div>
 </section>
 
-<!-- ===================== FOOTER ===================== -->
+<!-- FOOTER -->
 <footer id="footer" data-theme="paper">
   <div class="rule"></div>
   <div class="inner">
@@ -835,81 +1336,11 @@ body.has-cursor button { cursor: none !important; }
   </div>
 </footer>
 
-</div><!-- /#smooth-wrapper -->
+</main><!-- /#smooth-wrapper -->
 
-<!-- ===================== MAIN SCRIPT ===================== -->
-<script>
-(function(){
-  'use strict';
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  /* ── Custom cursor ────────────────────────────────── */
-  (function(){
-    if(reduceMotion || window.matchMedia('(hover:none)').matches) return;
-    const el = document.getElementById('vane-cursor');
-    if(!el) return;
-    document.body.classList.add('has-cursor');
-    let cx=-200,cy=-200,mx=-200,my=-200;
-    window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;},{passive:true});
-    document.querySelectorAll('.btn,button,.nav a,.cta-cal-link').forEach(b=>{
-      b.addEventListener('mouseenter',()=>el.classList.add('big'),{passive:true});
-      b.addEventListener('mouseleave',()=>el.classList.remove('big'),{passive:true});
-    });
-    (function tick(){ requestAnimationFrame(tick); cx+=(mx-cx)*.15; cy+=(my-cy)*.15; el.style.transform=`translate(${cx}px,${cy}px)`; })();
-  })();
-
-  /* ── Reveal on scroll ─────────────────────────────── */
-  (function(){
-    const groups = document.querySelectorAll('[data-reveal]');
-    if(reduceMotion){ groups.forEach(g=>g.classList.add('in')); return; }
-    const io = new IntersectionObserver(entries=>{
-      entries.forEach(e=>{
-        if(e.isIntersecting){
-          e.target.querySelectorAll('.r').forEach((it,i)=>{ it.style.transitionDelay=(i*.12)+'s'; });
-          e.target.classList.add('in');
-          io.unobserve(e.target);
-        }
-      });
-    },{threshold:.14});
-    groups.forEach(g=>io.observe(g));
-  })();
-
-  /* ── Logo + nav follow active section ────────────── */
-  (function(){
-    const logo=document.querySelector('.logo');
-    const nav=document.querySelector('.nav');
-    const sections=document.querySelectorAll('[data-theme]');
-    if(!logo||!sections.length) return;
-    const io=new IntersectionObserver(entries=>{
-      entries.forEach(e=>{
-        if(e.isIntersecting&&e.intersectionRatio>0.5){
-          const t=e.target.getAttribute('data-theme')==='terra';
-          logo.classList.toggle('on-terra',t);
-          if(nav) nav.classList.toggle('on-terra',t);
-        }
-      });
-    },{threshold:[.5]});
-    sections.forEach(s=>io.observe(s));
-  })();
-
-  /* ── Smooth anchor scrolling ──────────────────────── */
-  (function(){
-    document.querySelectorAll('a[href^="#"]').forEach(a=>{
-      a.addEventListener('click',e=>{
-        const id=a.getAttribute('href').slice(1);
-        if(!id) return;
-        const target=document.getElementById(id);
-        if(!target) return;
-        e.preventDefault();
-        window.scrollTo(0,target.offsetTop);
-      });
-    });
-  })();
-
-})();
-</script>
-
-<!-- ===================== NAV — dropdowns, hamburger, scroll state ===================== -->
+<!-- ════════════════════════════════════════════════════════════
+     NAV SCRIPT — dropdowns, hamburger, scroll state
+════════════════════════════════════════════════════════════ -->
 <script>
 (function(){
   'use strict';
@@ -918,9 +1349,7 @@ body.has-cursor button { cursor: none !important; }
   const mobile = document.getElementById('nav-mobile');
   const items  = Array.from(document.querySelectorAll('.nav-item.has-dropdown'));
   if(!nav) return;
-
   const NAV_H = 84;
-
   function closeDropdowns(except){
     items.forEach(it=>{
       if(it===except) return;
@@ -940,7 +1369,6 @@ body.has-cursor button { cursor: none !important; }
       trigger.setAttribute('aria-expanded',String(willOpen));
     });
   });
-
   function closeMobile(){
     if(!mobile||!burger) return;
     mobile.classList.remove('open');
@@ -955,76 +1383,324 @@ body.has-cursor button { cursor: none !important; }
     burger.setAttribute('aria-expanded','true');
     burger.setAttribute('aria-label','Close menu');
   }
-  if(burger){
-    burger.addEventListener('click',()=>{
-      mobile.classList.contains('open') ? closeMobile() : openMobile();
-    });
-  }
+  if(burger){ burger.addEventListener('click',()=>{ mobile.classList.contains('open')?closeMobile():openMobile(); }); }
   window.addEventListener('resize',()=>{ if(window.innerWidth>900) closeMobile(); });
-
   function scrollToEl(el){
-    const y = Math.max(0, el.getBoundingClientRect().top + window.scrollY - NAV_H);
-    window.scrollTo(0, y);
+    const y=Math.max(0,el.getBoundingClientRect().top+window.scrollY-NAV_H);
+    window.scrollTo(0,y);
   }
   function onNavLink(e){
-    const a = e.target.closest('a');
+    const a=e.target.closest('a');
     if(!a) return;
-    closeDropdowns(null);
-    closeMobile();
-    const href = a.getAttribute('href') || '';
-    if(href.charAt(0) === '#'){
-      const target = document.getElementById(href.slice(1));
-      if(target){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        scrollToEl(target);
-      }
+    closeDropdowns(null); closeMobile();
+    const href=a.getAttribute('href')||'';
+    if(href.charAt(0)==='#'){
+      const target=document.getElementById(href.slice(1));
+      if(target){ e.preventDefault(); e.stopImmediatePropagation(); scrollToEl(target); }
     }
   }
-  nav.addEventListener('click', onNavLink, true);
-  if(mobile) mobile.addEventListener('click', onNavLink, true);
-
-  document.addEventListener('click',e=>{
-    if(!e.target.closest('.nav-item.has-dropdown')) closeDropdowns(null);
-  });
-  document.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){ closeDropdowns(null); closeMobile(); }
-  });
-
+  nav.addEventListener('click',onNavLink,true);
+  if(mobile) mobile.addEventListener('click',onNavLink,true);
+  document.addEventListener('click',e=>{ if(!e.target.closest('.nav-item.has-dropdown')) closeDropdowns(null); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeDropdowns(null); closeMobile(); } });
   let ticking=false;
   function onScroll(){
     if(ticking) return;
     ticking=true;
-    requestAnimationFrame(()=>{
-      nav.classList.toggle('scrolled',window.scrollY>50);
-      ticking=false;
-    });
+    requestAnimationFrame(()=>{ nav.classList.toggle('scrolled',window.scrollY>50); ticking=false; });
   }
   window.addEventListener('scroll',onScroll,{passive:true});
   onScroll();
 })();
 </script>
 
-<!-- ===================== LENIS — smooth scroll ===================== -->
+<!-- ════════════════════════════════════════════════════════════
+     LENIS
+════════════════════════════════════════════════════════════ -->
 <script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
-<script>
-  (function () {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if (typeof Lenis === 'undefined') return;
 
-    const lenis = new Lenis({
-      duration: 1.0,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+<!-- ════════════════════════════════════════════════════════════
+     GSAP + LENIS INTEGRATION + ALL SCROLL ANIMATIONS
+════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── Custom cursor ──────────────────────────────────── */
+  (function(){
+    if(reduceMotion || window.matchMedia('(hover:none)').matches) return;
+    const el = document.getElementById('vane-cursor');
+    if(!el) return;
+    document.body.classList.add('has-cursor');
+    let cx=-200,cy=-200,mx=-200,my=-200;
+    window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;},{passive:true});
+    document.querySelectorAll('.btn,button,.nav a,.cta-cal-link,.code-eco-item').forEach(b=>{
+      b.addEventListener('mouseenter',()=>el.classList.add('big'),{passive:true});
+      b.addEventListener('mouseleave',()=>el.classList.remove('big'),{passive:true});
+    });
+    (function tick(){ requestAnimationFrame(tick); cx+=(mx-cx)*.15; cy+=(my-cy)*.15; el.style.transform=`translate(${cx}px,${cy}px)`; })();
+  })();
+
+  /* ── Logo theme follow ──────────────────────────────── */
+  (function(){
+    const logo=document.querySelector('.logo');
+    const nav=document.querySelector('.nav');
+    const sections=document.querySelectorAll('[data-theme]');
+    if(!logo||!sections.length) return;
+    const io=new IntersectionObserver(entries=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting&&e.intersectionRatio>0.4){
+          const terra=e.target.getAttribute('data-theme')==='terra';
+          logo.classList.toggle('on-terra',terra);
+          if(nav) nav.classList.toggle('on-terra',terra);
+        }
+      });
+    },{threshold:[.4]});
+    sections.forEach(s=>io.observe(s));
+  })();
+
+  /* ── GSAP register ──────────────────────────────────── */
+  if(typeof gsap==='undefined'||typeof ScrollTrigger==='undefined') return;
+  gsap.registerPlugin(ScrollTrigger);
+
+  /* ── Lenis init + GSAP ticker integration ───────────── */
+  let lenis;
+  if(!reduceMotion && typeof Lenis!=='undefined'){
+    lenis = new Lenis({
+      duration: 1.1,
+      easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       smoothWheel: true,
       smoothTouch: false,
     });
 
-    function raf(time) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
-    }
-    requestAnimationFrame(raf);
+    /* Critical: drive Lenis from GSAP ticker so ScrollTrigger stays in sync */
+    gsap.ticker.add(time => lenis.raf(time * 1000));
+    gsap.ticker.lagSmoothing(0);
+
+    /* Tell ScrollTrigger to update every time Lenis scrolls */
+    lenis.on('scroll', ScrollTrigger.update);
+  }
+
+  /* ── Reduced motion: reveal everything immediately ──── */
+  if(reduceMotion){
+    document.querySelectorAll('.word-wrap .wd, .pass-field, .sol-card, .reg-ms').forEach(el=>{
+      el.style.opacity='1';
+      el.style.transform='none';
+    });
+    return;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 2 — PROBLEM: word-mask sentence reveal
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const sentences = document.querySelectorAll('.prob-sentence');
+    /* Split each sentence into word-wrap spans */
+    sentences.forEach(sent=>{
+      const raw = sent.textContent.trim();
+      const words = raw.split(/\s+/);
+      sent.innerHTML = words.map(w=>`<span class="word-wrap"><span class="wd">${w}</span></span>`).join(' ');
+    });
+
+    /* Build pinned timeline — each sentence is a chapter */
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#problem',
+        start: 'top top',
+        end: '+=2400',
+        scrub: 1.4,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+      }
+    });
+
+    /* Animate words in, sentence by sentence */
+    sentences.forEach((sent, si) => {
+      const words = sent.querySelectorAll('.wd');
+      /* Incoming words slide up from overflow:hidden parent */
+      tl.from(words, {
+        yPercent: 105,
+        ease: 'power3.out',
+        stagger: 0.035,
+        duration: 0.7,
+      }, si === 0 ? 0.1 : `>-0.1`);
+    });
   })();
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 3 — SOLUTION: headline + staggered cards
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const q = s => document.querySelector(s);
+
+    /* Headline fade-up */
+    gsap.from('#sol-label', {
+      scrollTrigger: { trigger: '#solution', start: 'top 80%', end: 'top 40%', scrub: 0.8 },
+      opacity: 0, y: 30, ease: 'power2.out',
+    });
+    gsap.from('#sol-headline', {
+      scrollTrigger: { trigger: '#solution', start: 'top 75%', end: 'top 30%', scrub: 0.9 },
+      opacity: 0, y: 50, ease: 'power3.out',
+    });
+
+    /* Cards stagger — scrubbed so each card follows scroll progress */
+    const cards = ['#sol-c1','#sol-c2','#sol-c3'];
+    const cardTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '.sol-cards',
+        start: 'top 85%',
+        end: 'bottom 40%',
+        scrub: 1,
+      }
+    });
+    cards.forEach((id, i) => {
+      cardTl.from(id, {
+        opacity: 0,
+        y: 60,
+        ease: 'power2.out',
+        duration: 0.6,
+      }, i * 0.25);
+    });
+  })();
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 4 — PASSPORT: pinned card field reveal
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const fields = document.querySelectorAll('#pass-card .pass-field');
+
+    /* Set all fields invisible initially */
+    gsap.set(fields, { opacity: 0, x: 16 });
+
+    const passTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#passport',
+        start: 'top top',
+        end: '+=1800',
+        scrub: 1.2,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+      }
+    });
+
+    /* Left column reveals first */
+    passTl
+      .from('#pass-eyebrow',  { opacity: 0, y: 24, ease: 'power2.out', duration: 0.5 })
+      .from('#pass-headline', { opacity: 0, y: 40, ease: 'power3.out', duration: 0.7 }, '-=0.2')
+      .from('#pass-sub',      { opacity: 0, y: 24, ease: 'power2.out', duration: 0.5 }, '-=0.2')
+      .from('#pass-card',     { opacity: 0, y: 30, ease: 'power2.out', duration: 0.5 }, '-=0.3');
+
+    /* Fields build in one by one */
+    fields.forEach((field, i) => {
+      passTl.to(field, {
+        opacity: 1,
+        x: 0,
+        ease: 'power2.out',
+        duration: 0.4,
+      }, `-=${i === 0 ? 0.1 : 0.25}`);
+    });
+  })();
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 5 — CODE: pinned, lines type in on scroll
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const lines = document.querySelectorAll('#code-block .cl');
+    gsap.set(lines, { opacity: 0, x: -12 });
+
+    const codeTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#code-section',
+        start: 'top top',
+        end: '+=1400',
+        scrub: 1.2,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+      }
+    });
+
+    codeTl
+      .from('#code-eyebrow',   { opacity: 0, y: 20, ease: 'power2.out', duration: 0.5 })
+      .from('#code-headline',  { opacity: 0, y: 40, ease: 'power3.out', duration: 0.7 }, '-=0.2');
+
+    /* Reveal code lines sequentially */
+    lines.forEach((line, i) => {
+      codeTl.to(line, {
+        opacity: 1,
+        x: 0,
+        ease: 'power2.out',
+        duration: 0.5,
+      }, `>-0.15`);
+    });
+
+    codeTl.from('#code-ecosystem', {
+      opacity: 0,
+      y: 20,
+      ease: 'power2.out',
+      duration: 0.5,
+    }, '>');
+  })();
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 6 — REGULATORS: pinned timeline draw
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const regTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#regulators',
+        start: 'top top',
+        end: '+=1400',
+        scrub: 1.2,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+      }
+    });
+
+    regTl
+      .from('#reg-eyebrow',  { opacity: 0, y: 20, ease: 'power2.out', duration: 0.4 })
+      .from('#reg-headline', { opacity: 0, y: 50, ease: 'power3.out', duration: 0.7 }, '-=0.2')
+      /* Draw the timeline line left → right */
+      .to('#reg-line', {
+        scaleX: 1,
+        transformOrigin: 'left center',
+        ease: 'none',
+        duration: 1,
+      }, '>-0.1')
+      /* Milestones appear in sequence */
+      .from('#reg-ms-1', { opacity: 0, y: 30, ease: 'power2.out', duration: 0.5 }, '-=0.6')
+      .from('#reg-ms-2', { opacity: 0, y: 30, ease: 'power2.out', duration: 0.5 }, '-=0.35')
+      .from('#reg-ms-3', { opacity: 0, y: 30, ease: 'power2.out', duration: 0.5 }, '-=0.35');
+  })();
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 7 — CTA: simple stagger fade-up
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const ctaTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#contact',
+        start: 'top 80%',
+        end: 'top 30%',
+        scrub: 0.9,
+      }
+    });
+
+    ctaTl
+      .from('#cta-eyebrow',    { opacity: 0, y: 20, ease: 'power2.out', duration: 0.4 })
+      .from('#cta-headline',   { opacity: 0, y: 50, ease: 'power3.out', duration: 0.7 }, '-=0.2')
+      .from('#cta-primary',    { opacity: 0, y: 30, ease: 'power2.out', duration: 0.5 }, '-=0.2')
+      .from('#cta-divider',    { opacity: 0, scaleY: 0, transformOrigin: 'top', ease: 'power2.out', duration: 0.4 }, '-=0.1')
+      .from('#cta-book-label', { opacity: 0, y: 10, ease: 'power2.out', duration: 0.3 }, '-=0.1')
+      .from('#cta-cal-link',   { opacity: 0, y: 10, ease: 'power2.out', duration: 0.3 }, '-=0.1');
+  })();
+
+})();
 </script>
 </body>
 </html>
