@@ -28,8 +28,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
-<!-- Spline viewer -->
-
 <style>
 /* ============================================================
    DESIGN TOKENS
@@ -391,356 +389,66 @@ body {
 }
 
 /* ============================================================
-   HERO — split layout, CSS background
+   HERO — full-bleed video
    ============================================================ */
-.hero {
+.hero-video {
   position: relative;
   min-height: 100dvh;
   width: 100%;
   overflow: hidden;
   display: flex;
   align-items: center;
+  justify-content: center;
   z-index: 1;
-  background:
-    radial-gradient(ellipse 80% 60% at 75% 20%, rgba(200,85,42,.22) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 50% at 20% 75%, rgba(154,55,22,.18) 0%, transparent 60%),
-    linear-gradient(rgba(154,55,22,.09) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(154,55,22,.09) 1px, transparent 1px),
-    var(--clay);
-  background-size: 100% 100%, 100% 100%, 72px 72px, 72px 72px;
 }
-
-.hero-layout {
-  position: relative;
-  z-index: 3;
+.hero-video video {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  padding: 9vh 7vw;
-  padding-top: clamp(100px, 12vh, 140px);
-  display: flex;
-  align-items: center;
-  gap: 4vw;
-  max-width: 1440px;
-  margin: 0 auto;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
 }
-
-.hero-copy { flex: 1 1 0; min-width: 0; }
-.hero-pg   { flex: 0 0 auto; width: min(460px, 45vw); }
-
-/* Hero entrance — CSS-only stagger */
-.hero-copy .eyebrow {
-  color: rgba(245,240,232,.7);
-  margin-bottom: 1.8rem;
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 22, 40, 0.62);
+  z-index: 1;
 }
-
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 2rem 7vw;
+  max-width: 900px;
+}
+.hero-content h1 {
+  font-weight: 800;
+  font-size: clamp(2.6rem, 6.5vw, 6.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  color: var(--off-white);
+}
+.hero-content .hero-cta {
+  margin-top: 2.8rem;
+}
+.hero-scroll-hint {
+  position: absolute;
+  bottom: 36px; right: 7vw;
+  z-index: 3;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .18em;
+  color: rgba(245, 240, 232, .4);
+}
 @media (prefers-reduced-motion: no-preference) {
-  .hero-copy .eyebrow  { opacity:0; transform:translateY(20px); animation: hFadeUp .55s var(--ease-out) .04s forwards; }
-  .hero-copy h1        { opacity:0; transform:translateY(28px); animation: hFadeUp .65s var(--ease-out) .14s forwards; }
-  .hero-copy p.lede    { opacity:0; transform:translateY(24px); animation: hFadeUp .65s var(--ease-out) .28s forwards; }
-  .hero-copy .actions  { opacity:0; transform:translateY(20px); animation: hFadeUp .6s  var(--ease-out) .42s forwards; }
-  .hero-pg             { opacity:0; transform:translateY(32px); animation: hFadeUp .8s  var(--ease-out) .56s forwards; }
+  .hero-content h1        { opacity: 0; transform: translateY(24px); animation: hFadeUp .65s var(--ease-out) .1s  forwards; }
+  .hero-content .hero-cta { opacity: 0; transform: translateY(20px); animation: hFadeUp .6s  var(--ease-out) .32s forwards; }
+  .hero-scroll-hint       { opacity: 0;                               animation: hFadeUp .6s  var(--ease-out) .6s  forwards; }
 }
 @keyframes hFadeUp {
   to { opacity: 1; transform: translateY(0); }
 }
-
-.hero-copy h1 {
-  font-weight: 800;
-  font-size: clamp(3.2rem, 8vw, 8.5rem);
-  line-height: 0.91;
-  letter-spacing: -0.03em;
-  color: var(--off-white);
-}
-.hero-copy h1 .line1, .hero-copy h1 .line2 { display: block; }
-
-.hero-copy p.lede {
-  margin-top: 1.8rem;
-  font-size: clamp(.98rem, 1.3vw, 1.15rem);
-  line-height: 1.65;
-  max-width: 34ch;
-  color: rgba(245,240,232,.72);
-}
-.hero-copy .actions {
-  margin-top: 2.4rem;
-  display: flex;
-  gap: .85rem;
-  flex-wrap: wrap;
-}
-
-/* Scroll indicator */
-.scroll-ind {
-  position: absolute;
-  left: 7vw; bottom: 36px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .85rem;
-}
-.scroll-ind .track {
-  position: relative;
-  width: 1px; height: 56px;
-  background: rgba(245,240,232,.2);
-  overflow: hidden;
-}
-.scroll-ind .dot {
-  position: absolute;
-  left: 50%; top: 0;
-  width: 4px; height: 4px;
-  margin-left: -2px;
-  border-radius: 50%;
-  background: var(--off-white);
-  animation: scrolldot 2.4s var(--ease-in-out) infinite;
-}
-@keyframes scrolldot {
-  0%  { top:-6px; opacity:0 }
-  25% { opacity:1 }
-  75% { opacity:1 }
-  100%{ top:56px; opacity:0 }
-}
-.scroll-ind .label {
-  font-family: var(--font-mono);
-  font-size: .62rem;
-  letter-spacing: .25em;
-  color: rgba(245,240,232,.35);
-  writing-mode: vertical-rl;
-}
-
-/* ============================================================
-   PASSPORT PLAYGROUND — THE CENTERPIECE
-   ============================================================ */
-.pg-card {
-  background: #060d18;
-  border: 1px solid rgba(181,69,27,.35);
-  box-shadow:
-    0 40px 80px rgba(0,0,0,.55),
-    0 0 0 1px rgba(181,69,27,.08),
-    inset 0 1px 0 rgba(255,255,255,.04);
-  width: 100%;
-}
-
-.pg-hdr {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  padding: .8rem 1.2rem;
-  background: rgba(181,69,27,.1);
-  border-bottom: 1px solid rgba(181,69,27,.18);
-}
-.pg-live {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: #22c55e;
-  flex-shrink: 0;
-  animation: pgLive 2.2s ease-in-out infinite;
-}
-@keyframes pgLive {
-  0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.5); }
-  50%     { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
-}
-.pg-hdr-title {
-  font-family: var(--font-mono);
-  font-size: .62rem;
-  letter-spacing: .16em;
-  color: var(--off-white);
-  text-transform: uppercase;
-  flex: 1;
-}
-.pg-hdr-badge {
-  font-family: var(--font-mono);
-  font-size: .58rem;
-  letter-spacing: .07em;
-  color: var(--off-white);
-}
-
-.pg-body {
-  padding: 1.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.pg-field { display: flex; flex-direction: column; gap: .4rem; }
-
-.pg-lbl {
-  font-family: var(--font-mono);
-  font-size: .6rem;
-  letter-spacing: .13em;
-  text-transform: uppercase;
-  color: var(--off-white);
-}
-.pg-lbl .opt { text-transform: none; letter-spacing: 0; opacity: .7; }
-
-.pg-inp {
-  width: 100%;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(245,240,232,.1);
-  color: var(--off-white);
-  font-family: var(--font-mono);
-  font-size: max(16px, .8rem);
-  padding: .58rem .8rem;
-  outline: none;
-  transition: border-color 180ms ease-out;
-}
-.pg-inp:focus { border-color: rgba(181,69,27,.55); }
-.pg-inp::placeholder { color: rgba(245,240,232,.28); }
-
-.pg-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
-.pg-chip {
-  font-family: var(--font-mono);
-  font-size: .68rem;
-  letter-spacing: .05em;
-  padding: .28rem .6rem;
-  border: 1px solid rgba(245,240,232,.15);
-  background: transparent;
-  color: var(--off-white);
-  cursor: pointer;
-  border-radius: 2px;
-  transition: background 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out, transform 100ms ease-out;
-  white-space: nowrap;
-}
-.pg-chip:hover  { border-color: rgba(181,69,27,.4); color: var(--off-white); }
-.pg-chip.on     { background: rgba(181,69,27,.22); border-color: rgba(181,69,27,.55); color: var(--off-white); }
-.pg-chip:active { transform: scale(0.96); }
-
-.pg-issue {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .55rem;
-  width: 100%;
-  padding: .8rem;
-  background: var(--clay);
-  color: var(--off-white);
-  border: none;
-  font-family: var(--font-mono);
-  font-size: .78rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background 200ms ease-out, transform 150ms ease-out, opacity 200ms ease;
-}
-.pg-issue:hover  { background: var(--clay-light); }
-.pg-issue:active { transform: scale(0.97); }
-.pg-issue.busy   { opacity: .55; pointer-events: none; }
-
-/* Token area — transitions from hidden to visible */
-.pg-token-area {
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition: max-height .5s var(--ease-out), opacity .4s ease-out;
-}
-.pg-token-area.show {
-  max-height: 260px;
-  opacity: 1;
-}
-
-.pg-tok-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: .5rem;
-}
-.pg-tok-lbl {
-  font-family: var(--font-mono);
-  font-size: .58rem;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: rgba(245,240,232,.38);
-}
-.pg-copy {
-  font-family: var(--font-mono);
-  font-size: .58rem;
-  letter-spacing: .1em;
-  padding: .18rem .5rem;
-  border: 1px solid rgba(245,240,232,.18);
-  background: transparent;
-  color: rgba(245,240,232,.45);
-  cursor: pointer;
-  transition: color 150ms ease, border-color 150ms ease, transform 100ms ease;
-}
-.pg-copy:hover  { color: var(--off-white); border-color: rgba(245,240,232,.4); }
-.pg-copy:active { transform: scale(0.96); }
-
-.pg-tok-box {
-  font-family: var(--font-mono);
-  font-size: .64rem;
-  line-height: 1.55;
-  word-break: break-all;
-  background: rgba(0,0,0,.22);
-  border: 1px solid rgba(245,240,232,.06);
-  padding: .75rem .85rem;
-  max-height: 110px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(181,69,27,.4) transparent;
-}
-.jwt-h   { color: rgba(245,240,232,.42); }
-.jwt-dot { color: var(--clay); font-weight: 600; }
-.jwt-p   { color: rgba(245,240,232,.88); }
-.jwt-s   { color: rgba(245,240,232,.32); }
-.jwt-p.tampered { color: #e0442e; text-decoration: line-through; }
-
-.pg-tok-btns {
-  display: flex;
-  gap: .55rem;
-  margin-top: .65rem;
-}
-.pg-verify, .pg-tamper {
-  flex: 1;
-  padding: .5rem;
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  letter-spacing: .07em;
-  cursor: pointer;
-  border: 1px solid;
-  background: transparent;
-  transition: background 150ms ease, transform 100ms ease;
-  border-radius: 2px;
-}
-.pg-verify         { color: #22c55e; border-color: rgba(34,197,94,.35); }
-.pg-verify:hover   { background: rgba(34,197,94,.08); }
-.pg-tamper         { color: #f59e0b; border-color: rgba(245,158,11,.35); }
-.pg-tamper:hover   { background: rgba(245,158,11,.08); }
-.pg-verify:active, .pg-tamper:active { transform: scale(0.97); }
-
-/* Result panel */
-.pg-result {
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: max-height .4s var(--ease-out), opacity .3s ease;
-}
-.pg-result.show { max-height: 240px; opacity: 1; }
-
-.pg-result-inner {
-  padding: .75rem .85rem;
-  border-left: 2px solid;
-  margin-top: .6rem;
-}
-.pg-result.ok  .pg-result-inner { border-color:#22c55e; background:rgba(34,197,94,.06); }
-.pg-result.err .pg-result-inner { border-color:#e0442e; background:rgba(224,68,46,.06); }
-
-.pg-result-status {
-  font-family: var(--font-mono);
-  font-size: .74rem;
-  letter-spacing: .07em;
-  font-weight: 600;
-  margin-bottom: .45rem;
-}
-.pg-result.ok  .pg-result-status { color: #22c55e; }
-.pg-result.err .pg-result-status { color: #e0442e; }
-
-.pg-result-row {
-  display: flex;
-  gap: .55rem;
-  font-family: var(--font-mono);
-  font-size: .62rem;
-  padding: .12rem 0;
-  color: rgba(245,240,232,.7);
-}
-.pg-rk { opacity: .48; min-width: 70px; text-transform: uppercase; letter-spacing: .05em; }
-.pg-rv { color: var(--clay); word-break: break-word; }
 
 /* ============================================================
    BUTTONS — shared
@@ -858,11 +566,21 @@ body {
 .merkle-wrap {
   width: 100%;
   background: transparent;
+  position: relative;
 }
 /* Re-enable pointer events for Spline's internal iframe so Lenis scroll
    capture doesn't swallow interaction with the 3D scene */
 .lenis.lenis-smooth .merkle-wrap iframe,
 .lenis.lenis-smooth spline-viewer iframe { pointer-events: auto; }
+/* Cover the "Built with Spline" badge injected into the iframe */
+.spline-badge-cover {
+  position: absolute;
+  right: 0; bottom: 0;
+  width: 240px; height: 56px;
+  background: var(--navy);
+  pointer-events: none;
+  z-index: 2;
+}
 
 .how-steps {
   margin-top: 3rem;
@@ -1226,10 +944,6 @@ body.has-cursor button { cursor:none !important; }
 /* ============================================================
    RESPONSIVE
    ============================================================ */
-@media (max-width:1000px) {
-  .hero-layout { flex-direction:column; padding-top:clamp(90px,13vh,130px); padding-bottom:8vh; gap:2.5rem; }
-  .hero-pg     { width:min(480px,94vw); }
-}
 @media (max-width:900px) {
   .stats-grid         { grid-template-columns:repeat(2,1fr); gap:2.5rem 2rem; }
   .problem-grid,
@@ -1250,7 +964,6 @@ body.has-cursor button { cursor:none !important; }
 @media (max-width:560px) {
   .stats-grid            { grid-template-columns:1fr; }
   .section               { padding:10vh 6vw; }
-  .hero-copy .actions    { flex-direction:column; align-items:flex-start; }
 }
 
 /* ============================================================
@@ -1263,19 +976,6 @@ body.has-cursor button { cursor:none !important; }
   .section { padding: 8vh 6vw; }
   .sec-num { top: 8vh; left: 6vw; }
 
-  /* HERO */
-  .hero-layout         { padding-left: 6vw; padding-right: 6vw; }
-  .hero-copy h1        { font-size: clamp(2.6rem, 13vw, 3.5rem); }
-  .hero-copy p.lede    { font-size: clamp(1rem, 4vw, 1.25rem); max-width: 100%; }
-  .hero-copy .actions  { flex-direction: column; align-items: stretch; gap: .8rem; }
-  .hero-copy .actions .btn {
-    width: 100%;
-    min-height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
   /* CODE SNIPPET — never overflow horizontally */
   .code-card     { padding: 1.4rem 1.2rem; }
   .code-card pre { white-space: pre-wrap; word-break: break-word; font-size: .8rem; }
@@ -1284,14 +984,6 @@ body.has-cursor button { cursor:none !important; }
   .cal-wrap, #cal-booking { min-height: 500px; }
 
   /* TOUCH TARGETS — Apple 44px minimum */
-  .pg-verify, .pg-tamper, .pg-copy {
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .pg-issue                   { min-height: 52px; }
-  .pg-chip                    { min-height: 40px; display: inline-flex; align-items: center; }
   .nav-mobile a               { min-height: 44px; display: flex; align-items: center; }
   .nav-mobile .mob-actions a  { min-height: 48px; justify-content: center; }
   footer .links a             { display: inline-block; padding: .5rem .35rem; }
@@ -1304,8 +996,6 @@ body.has-cursor button { cursor:none !important; }
 
 @media (max-width: 480px) {
   .section          { padding: 7vh 6vw; }
-  .hero-copy h1     { font-size: clamp(2.2rem, 12.5vw, 3rem); }
-  .hero-copy p.lede { font-size: 1.02rem; }
 
   /* Passport card — tighten field rows so values don't crush */
   .card .row    { grid-template-columns: 92px 1fr; gap: .7rem; }
@@ -1327,8 +1017,6 @@ body.has-cursor button { cursor:none !important; }
   .r { opacity:1 !important; transform:none !important; transition:none !important; }
   .card { transition:none !important; }
   html { scroll-behavior:auto; }
-  .pg-token-area,
-  .pg-result { transition:none !important; max-height:none !important; opacity:1 !important; }
 }
 </style>
 
@@ -1440,85 +1128,18 @@ body.has-cursor button { cursor:none !important; }
 <div id="smooth-wrapper">
 
 <!-- ===================== HERO ===================== -->
-<section class="hero" id="top" data-theme="terra">
-  <div class="hero-layout">
-
-    <!-- LEFT: copy -->
-    <div class="hero-copy">
-      <div class="eyebrow">Agent Identity Infrastructure</div>
-      <h1>
-        <span class="line1">Give your</span>
-        <span class="line2">agents</span>
-        <span class="line2">identity.</span>
-      </h1>
-      <p class="lede">Cryptographic passports for AI agents. Ed25519-signed, Merkle-attested. Verifiable by anyone.</p>
-      <div class="actions">
-        <a class="btn btn-light-navy" href="#start">Start building</a>
-        <a class="btn btn-ghost" href="https://docs.vane.build">Read the docs →</a>
-      </div>
-    </div>
-
-    <!-- RIGHT: live playground -->
-    <div class="hero-pg" aria-label="Live Passport Playground">
-      <div class="pg-card">
-        <div class="pg-hdr">
-          <span class="pg-live" aria-hidden="true"></span>
-          <span class="pg-hdr-title">Live Passport Playground</span>
-          <span class="pg-hdr-badge">Ed25519 · In-browser</span>
-        </div>
-        <div class="pg-body">
-          <!-- Agent name -->
-          <div class="pg-field">
-            <label class="pg-lbl" for="pg-agent">Agent name</label>
-            <input class="pg-inp" id="pg-agent" type="text" value="billing-agent-001" spellcheck="false" autocomplete="off">
-          </div>
-          <!-- Scopes -->
-          <div class="pg-field">
-            <span class="pg-lbl">Scopes</span>
-            <div class="pg-chips" id="pg-chips" role="group" aria-label="Scope toggles">
-              <button class="pg-chip on" data-scope="attest:write"     type="button">attest:write</button>
-              <button class="pg-chip on" data-scope="financial:read"   type="button">financial:read</button>
-              <button class="pg-chip on" data-scope="tool:*"           type="button">tool:*</button>
-              <button class="pg-chip"    data-scope="data:read"        type="button">data:read</button>
-              <button class="pg-chip"    data-scope="webhook:trigger"  type="button">webhook:trigger</button>
-              <button class="pg-chip"    data-scope="admin:agents"     type="button">admin:agents</button>
-            </div>
-          </div>
-          <!-- Delegation -->
-          <div class="pg-field">
-            <label class="pg-lbl" for="pg-deleg">Delegation chain <span class="opt">(optional)</span></label>
-            <input class="pg-inp" id="pg-deleg" type="text" placeholder="e.g. CFO → Engineering Lead" autocomplete="off">
-          </div>
-          <!-- Issue button -->
-          <button class="pg-issue" id="pg-issue" type="button">
-            <span aria-hidden="true">⚡</span>
-            <span id="pg-issue-txt">Issue Passport</span>
-          </button>
-
-          <!-- Token area (hidden until issued) -->
-          <div class="pg-token-area" id="pg-token-area" aria-live="polite">
-            <div class="pg-tok-bar">
-              <span class="pg-tok-lbl">Signed Token</span>
-              <button class="pg-copy" id="pg-tok-copy" type="button">Copy</button>
-            </div>
-            <div class="pg-tok-box" id="pg-tok-box" aria-label="JWT token"></div>
-            <div class="pg-tok-btns">
-              <button class="pg-verify" id="pg-verify" type="button">✓ Verify</button>
-              <button class="pg-tamper" id="pg-tamper" type="button">⚠ Tamper Demo</button>
-            </div>
-          </div>
-
-          <!-- Result -->
-          <div class="pg-result" id="pg-result" role="status" aria-live="polite"></div>
-        </div>
-      </div>
+<section class="hero-video" id="top" data-theme="terra">
+  <video autoplay loop muted playsinline>
+    <source src="/hero.mp4" type="video/mp4">
+  </video>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <h1>Every agent action.<br>Signed. Attested. Proven.</h1>
+    <div class="hero-cta">
+      <a class="btn btn-clay" href="#contact">Request Access</a>
     </div>
   </div>
-
-  <div class="scroll-ind" aria-hidden="true">
-    <div class="track"><span class="dot"></span></div>
-    <span class="label">SCROLL</span>
-  </div>
+  <div class="hero-scroll-hint" aria-hidden="true">Scroll to explore ↓</div>
 </section>
 
 <!-- ===================== PROBLEM //01 ===================== -->
@@ -1547,6 +1168,7 @@ body.has-cursor button { cursor:none !important; }
   <!-- Spline 3D robot -->
   <div class="merkle-wrap r" id="attestation">
     <iframe src='https://my.spline.design/nexbotrobotcharacterconcept-UM32zcuBV7mYrOPw8TwBaIKr/' frameborder='0' width='100%' height='600px' style='border:none;background:transparent;'></iframe>
+    <div class="spline-badge-cover" aria-hidden="true"></div>
   </div>
 
   <div class="how-steps r">
@@ -1775,139 +1397,6 @@ body.has-cursor button { cursor:none !important; }
 </footer>
 </div><!-- /#smooth-wrapper -->
 
-<!-- ===================== PLAYGROUND — real Ed25519 ===================== -->
-<script type="module">
-import {
-  generateKeyPair, buildPassportClaims, signPassport,
-  verifyPassport, tamperToken, decodePayload
-} from './passport-crypto.js';
-
-const $ = id => document.getElementById(id);
-let currentKp = null, currentToken = null, isTampered = false;
-
-/* Scope chip toggle */
-document.querySelectorAll('.pg-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    chip.classList.toggle('on');
-    chip.setAttribute('aria-pressed', chip.classList.contains('on'));
-  });
-});
-
-/* Issue passport */
-$('pg-issue').addEventListener('click', async () => {
-  const agentName = $('pg-agent').value.trim() || 'demo-agent';
-  const scopes    = [...document.querySelectorAll('.pg-chip.on')].map(c => c.dataset.scope);
-  if (!scopes.length) scopes.push('attest:write');
-  const delegation = $('pg-deleg').value.trim() || undefined;
-
-  /* Loading state */
-  const btn = $('pg-issue');
-  const lbl = $('pg-issue-txt');
-  btn.classList.add('busy');
-  lbl.textContent = 'Generating keys…';
-
-  try {
-    /* brief pause so user sees the "real crypto" moment */
-    currentKp    = await generateKeyPair();
-    lbl.textContent = 'Signing…';
-    await new Promise(r => setTimeout(r, 220));
-
-    const claims   = buildPassportClaims({ agentName, scopes, delegation, companyId: 'demo' });
-    currentToken   = await signPassport(claims, currentKp.privateKey);
-    isTampered     = false;
-
-    renderToken(currentToken, false);
-    showTokenArea();
-    hideResult();
-  } catch (e) {
-    showResult(false, 'Crypto error: ' + e.message);
-  } finally {
-    btn.classList.remove('busy');
-    lbl.textContent = 'Issue Passport';
-  }
-});
-
-/* Render token in colored segments */
-function renderToken(token, tampered) {
-  const box = $('pg-tok-box');
-  const [h, p, s] = token.split('.');
-  box.innerHTML =
-    `<span class="jwt-h">${h}</span>` +
-    `<span class="jwt-dot">.</span>` +
-    `<span class="jwt-p${tampered ? ' tampered' : ''}">${p}</span>` +
-    `<span class="jwt-dot">.</span>` +
-    `<span class="jwt-s">${s}</span>`;
-}
-
-function showTokenArea() {
-  $('pg-token-area').classList.add('show');
-}
-
-/* Verify */
-$('pg-verify').addEventListener('click', async () => {
-  if (!currentToken || !currentKp) return;
-  const token = isTampered ? tamperToken(currentToken) : currentToken;
-  const result = await verifyPassport(token, currentKp.publicKey);
-  if (result.valid) {
-    const c = result.claims;
-    const rows = [
-      ['agent',  c.vane?.agentId  || '—'],
-      ['org',    c.vane?.org      || '—'],
-      ['scopes', (c.vane?.scopes || []).join(', ')],
-      ['exp',    new Date(c.exp * 1000).toISOString().replace('T',' ').slice(0,19) + 'Z'],
-    ];
-    showResult(true, '✓ Ed25519 signature valid', rows);
-  } else {
-    showResult(false, '✕ Signature verification failed', [['reason', result.error || 'invalid']]);
-  }
-});
-
-/* Tamper demo */
-$('pg-tamper').addEventListener('click', async () => {
-  if (!currentToken || !currentKp) return;
-  isTampered = !isTampered;
-  renderToken(currentToken, isTampered);
-  $('pg-tamper').textContent = isTampered ? '↩ Restore' : '⚠ Tamper Demo';
-  hideResult();
-
-  if (isTampered) {
-    /* auto-verify after a beat so user sees the effect */
-    await new Promise(r => setTimeout(r, 350));
-    const tampered = tamperToken(currentToken);
-    const result   = await verifyPassport(tampered, currentKp.publicKey);
-    showResult(false, '✕ Payload was tampered — signature invalid', [['details', 'one byte flipped in the payload segment']]);
-  }
-});
-
-/* Copy token */
-$('pg-tok-copy').addEventListener('click', async () => {
-  if (!currentToken) return;
-  try { await navigator.clipboard.writeText(currentToken); }
-  catch (_) {
-    const ta = document.createElement('textarea');
-    ta.value = currentToken; document.body.appendChild(ta); ta.select();
-    document.execCommand('copy'); document.body.removeChild(ta);
-  }
-  const btn = $('pg-tok-copy');
-  btn.textContent = 'Copied ✓';
-  setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
-});
-
-function showResult(ok, status, rows = []) {
-  const el = $('pg-result');
-  el.className = 'pg-result show ' + (ok ? 'ok' : 'err');
-  el.innerHTML = `<div class="pg-result-inner">
-    <div class="pg-result-status">${status}</div>
-    ${rows.map(([k,v]) => `<div class="pg-result-row"><span class="pg-rk">${k}</span><span class="pg-rv">${v}</span></div>`).join('')}
-  </div>`;
-}
-function hideResult() {
-  const el = $('pg-result');
-  el.className = 'pg-result';
-  el.innerHTML = '';
-}
-</script>
-
 <!-- ===================== MAIN SCRIPT ===================== -->
 <script>
 (function(){
@@ -1937,7 +1426,7 @@ function hideResult() {
     document.body.classList.add('has-cursor');
     let cx=-200,cy=-200,mx=-200,my=-200;
     window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;},{passive:true});
-    document.querySelectorAll('.btn,button,.nav a,.pg-chip,.pg-issue').forEach(b=>{
+    document.querySelectorAll('.btn,button,.nav a').forEach(b=>{
       b.addEventListener('mouseenter',()=>el.classList.add('big'),{passive:true});
       b.addEventListener('mouseleave',()=>el.classList.remove('big'),{passive:true});
     });
@@ -2204,19 +1693,12 @@ Cal("ui", {
     }
     requestAnimationFrame(raf);
 
-    /* ── Parallax — fine-pointer (mouse) only, mirroring the original effect.
-       Original multipliers preserved exactly (they reproduce the old
-       wrapper-compensation parallax 1:1):
-         .hero-layout → scroll * 0.12                       (absolute)
-         .pp-scene    → (scroll − passport.offsetTop) * 0.1 (relative to its section)
-       Selectors cached outside the listener so they aren't re-queried per event. */
+    /* ── Parallax — passport card on fine-pointer devices ── */
     if (window.matchMedia('(pointer: fine)').matches) {
-      const heroInner = document.querySelector('.hero-layout');
       const ppScene   = document.querySelector('.pp-scene');
       const ppSection = document.querySelector('.passport');
 
       lenis.on('scroll', ({ scroll }) => {
-        if (heroInner) heroInner.style.transform = `translateY(${scroll * 0.12}px)`;
         if (ppScene && ppSection) {
           ppScene.style.transform = `translateY(${(scroll - ppSection.offsetTop) * 0.1}px)`;
         }
