@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How It Works — Vane</title>
+<meta name="description" content="From dead, anonymous agents to cryptographically verifiable identity. See how Vane issues every agent a signed passport, attests every action, and lets anyone verify — no network call required." />
+<meta property="og:type"        content="website" />
+<meta property="og:title"       content="How It Works — Vane" />
+<meta property="og:description" content="Give your agents identity. Ed25519-signed passports, Merkle-attested actions, verifiable by anyone." />
+<meta property="og:image"       content="/og.svg" />
+<meta property="og:url"         content="https://vane.build/product" />
+<meta name="twitter:card"        content="summary_large_image" />
+<meta name="twitter:title"       content="How It Works — Vane" />
+<meta name="twitter:description" content="Give your agents identity. Signed, attested, verifiable anywhere." />
+<meta name="twitter:image"       content="/og.svg" />
+<meta name="theme-color" content="#0a1628" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<!-- GSAP + ScrollTrigger — loaded at top per spec -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+<!-- Lenis stylesheet -->
+<link rel="stylesheet" href="https://unpkg.com/lenis@1.1.14/dist/lenis.css" />
+
+<style>
+/* ============================================================
+   DESIGN TOKENS  (shared with index.html)
+   ============================================================ */
+:root {
+  --clay:        #b5451b;
+  --clay-light:  #c8552a;
+  --clay-dark:   #9a3716;
+  --warm-gray:   #f0ede8;
+  --navy:        #0a1628;
+  --ink-body:    #3d2e1e;
+  --off-white:   #f5f0e8;
+  --warm-white:  #ede8e0;
+  --green-ok:    #3fae6b;
+  --red-deny:    #e0492f;
+  --font-sans:   'Bricolage Grotesque', system-ui, sans-serif;
+  --font-mono:   'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-power:  cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================================
+   RESET + BASE
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: auto;
+  font-optical-sizing: auto;
+}
+body {
+  font-family: var(--font-sans);
+  background: var(--navy);
+  color: var(--off-white);
+  overflow-x: hidden;
+}
+::selection { background: var(--clay); color: var(--off-white); }
+
+/* ============================================================
+   LOGO — fixed
+   ============================================================ */
+.logo {
+  position: fixed;
+  top: 32px; left: 7vw;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none;
+}
+.logo svg { display: block; transition: transform .4s var(--ease-out); }
+.logo:hover svg { transform: rotate(45deg); }
+.logo .mark line { stroke: var(--clay); stroke-width: 2; transition: stroke .3s ease; }
+.logo .word {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  transform: translateY(1px);
+  color: var(--navy);
+  transition: color .3s ease;
+}
+.logo.on-terra .mark line { stroke: var(--off-white); }
+.logo.on-terra .word     { color: var(--off-white); }
+
+/* ============================================================
+   NAV  (identical structure to index.html)
+   ============================================================ */
+.nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  width: 100%;
+  height: 84px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1.4rem;
+  padding: 0 7vw;
+  background: rgba(10, 22, 40, 0.16);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border-bottom: 1px solid transparent;
+  transition: background .3s var(--ease-out), border-color .3s var(--ease-out);
+}
+.nav.scrolled {
+  background: rgba(10, 22, 40, 0.88);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-bottom: 1px solid rgba(181, 69, 27, 0.28);
+}
+.nav-menu {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0; padding: 0;
+}
+.nav-item { position: relative; display: flex; align-items: center; height: 100%; }
+.nav-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  color: var(--off-white);
+  opacity: 0.82;
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0.7rem;
+  cursor: pointer;
+  transition: color .2s ease, opacity .2s ease;
+}
+.nav-trigger:hover,
+.nav-item.open > .nav-trigger { color: var(--clay-light); opacity: 1; }
+.nav-trigger:focus-visible { outline: 1px solid var(--clay-light); outline-offset: 3px; opacity: 1; }
+.nav-trigger .caret {
+  width: 6px; height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform .2s var(--ease-out);
+  opacity: 0.65;
+}
+.nav-item.open > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem;
+  background: rgba(10, 22, 40, 0.96);
+  border: 1px solid rgba(181, 69, 27, 0.3);
+  border-radius: 4px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateX(-50%) translateY(-6px) scale(0.98);
+  transform-origin: top center;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s linear .2s;
+}
+.nav-item.open > .nav-dropdown {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-item.has-dropdown:hover > .nav-dropdown {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
+  }
+  .nav-item.has-dropdown:hover > .nav-trigger { color: var(--clay-light); opacity: 1; }
+  .nav-item.has-dropdown:hover > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
+}
+.nav-dropdown a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  color: rgba(245, 240, 232, 0.82);
+  padding: 0.6rem 0.7rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease, transform .12s ease;
+}
+.nav-dropdown a:hover  { background: rgba(181, 69, 27, 0.18); color: var(--off-white); }
+.nav-dropdown a:active { transform: scale(0.985); }
+.nav-dropdown a .ext   { opacity: 0.5; font-size: 0.85em; }
+.nav-actions { display: flex; align-items: center; gap: 0.7rem; margin-left: 0.4rem; }
+.nav-demo {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  padding: 0.55rem 1rem;
+  text-decoration: none;
+  background: transparent;
+  color: var(--off-white);
+  border: 1px solid rgba(245, 240, 232, 0.4);
+  border-radius: 3px;
+  transition: background .2s ease, border-color .2s ease, transform .15s ease;
+}
+.nav-demo:hover  { background: rgba(245, 240, 232, 0.1); border-color: var(--off-white); }
+.nav-demo:active { transform: scale(0.97); }
+.nav-cta {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  padding: 0.58rem 1.1rem;
+  text-decoration: none;
+  background: var(--clay);
+  color: var(--off-white);
+  border: 1px solid var(--clay);
+  border-radius: 3px;
+  transition: background .2s ease, transform .15s ease;
+}
+.nav-cta:hover  { background: var(--clay-light); border-color: var(--clay-light); }
+.nav-cta:active { transform: scale(0.97); }
+.nav-burger {
+  display: none;
+  position: relative;
+  width: 30px; height: 30px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.nav-burger span {
+  position: absolute;
+  left: 5px; right: 5px;
+  height: 2px;
+  background: var(--off-white);
+  border-radius: 2px;
+  transition: transform .25s var(--ease-out), opacity .2s ease-out, top .25s var(--ease-out);
+}
+.nav-burger span:nth-child(1) { top: 9px; }
+.nav-burger span:nth-child(2) { top: 14px; }
+.nav-burger span:nth-child(3) { top: 19px; }
+.nav-burger.open span:nth-child(1) { top: 14px; transform: rotate(45deg); }
+.nav-burger.open span:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
+.nav-burger.open span:nth-child(3) { top: 14px; transform: rotate(-45deg); }
+.nav-mobile {
+  position: fixed;
+  top: 84px; left: 0; right: 0;
+  z-index: 89;
+  background: rgba(10, 22, 40, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(181, 69, 27, 0.3);
+  padding: 1.4rem 7vw 2rem;
+  max-height: calc(100dvh - 84px);
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateY(-12px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .25s var(--ease-out), transform .25s var(--ease-out), visibility 0s linear .25s;
+}
+.nav-mobile.open {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .25s var(--ease-out), transform .25s var(--ease-out), visibility 0s;
+}
+.nav-mobile .mob-group { margin-bottom: 1.3rem; }
+.nav-mobile .mob-head {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--clay-light);
+  margin-bottom: 0.4rem;
+}
+.nav-mobile a {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  color: rgba(245, 240, 232, 0.86);
+  padding: 0.48rem 0;
+  transition: color .15s ease, transform .12s ease;
+}
+.nav-mobile a:hover  { color: var(--clay-light); }
+.nav-mobile a:active { transform: translateX(3px); }
+.nav-mobile .mob-actions { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 0.4rem; }
+.nav-mobile .mob-actions a { text-align: center; padding: 0.85rem; border-radius: 3px; }
+@media (max-width: 900px) {
+  .nav-menu, .nav-actions { display: none; }
+  .nav-burger { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav, .nav-dropdown, .nav-mobile, .nav-burger span, .nav-trigger .caret {
+    transition: opacity .15s ease, background-color .15s ease, border-color .15s ease, visibility 0s !important;
+  }
+  .nav-mobile, .nav-mobile.open { transform: none !important; }
+}
+
+/* ============================================================
+   BUTTONS  (shared with index.html)
+   ============================================================ */
+.btn {
+  font-family: var(--font-mono);
+  font-size: .83rem;
+  letter-spacing: .06em;
+  padding: .95rem 1.9rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: background .2s ease, color .2s ease, border-color .2s ease, transform .15s ease;
+}
+.btn:active          { transform: scale(0.97); }
+.btn-clay            { background: var(--clay); color: var(--off-white); border-color: var(--clay); }
+.btn-clay:hover      { background: var(--clay-light); border-color: var(--clay-light); }
+.btn-ghost           { background: transparent; color: var(--off-white); border-color: rgba(245,240,232,.35); }
+.btn-ghost:hover     { border-color: var(--off-white); background: rgba(245,240,232,.06); }
+.btn-light           { background: var(--off-white); color: var(--clay-dark); }
+.btn-light:hover     { background: var(--warm-white); }
+.btn-arrow {
+  background: var(--off-white);
+  color: var(--clay-dark);
+  border-color: var(--off-white);
+  font-size: .9rem;
+  padding: 1.05rem 2.2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .65rem;
+  transition: background .2s ease, color .2s ease, transform .15s ease, gap .2s var(--ease-spring);
+}
+.btn-arrow:hover { background: var(--warm-white); border-color: var(--warm-white); gap: .95rem; }
+.btn-arrow:active { transform: scale(0.97); }
+
+/* ============================================================
+   SCENE PRIMITIVES  (product page)
+   ============================================================ */
+.scene {
+  position: relative;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+.spline-stage { position: absolute; inset: 0; z-index: 0; }
+.spline-stage iframe {
+  width: 100%; height: 100%;
+  border: 0; display: block;
+  pointer-events: none; /* let scroll pass through the 3D canvas */
+}
+/* mask the "Built with Spline" corner badge with the scene background */
+.spline-mask {
+  position: absolute;
+  right: 0; bottom: 0;
+  width: 168px; height: 52px;
+  z-index: 1;
+  pointer-events: none;
+  background: var(--navy);
+}
+.scene-scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.scene-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 7vw;
+}
+.scene-eyebrow {
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--clay-light);
+  margin-bottom: 1.5rem;
+}
+.scene-h {
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  color: var(--off-white);
+  text-wrap: balance;
+}
+.scene-body {
+  font-size: clamp(1.05rem, 1.5vw, 1.38rem);
+  line-height: 1.6;
+  color: rgba(245, 240, 232, 0.74);
+  max-width: 46ch;
+  margin-top: 1.7rem;
+}
+
+/* word-mask reveal (shared technique with index.html) */
+.word-wrap {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  line-height: 1.12;
+  margin-right: 0.26em;
+}
+.word-wrap .wd {
+  display: inline-block;
+  will-change: transform;
+}
+
+/* status badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .7rem;
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  padding: .62rem 1.15rem;
+  border-radius: 3px;
+  margin-top: 2.2rem;
+  will-change: transform, opacity;
+}
+.badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+.badge-deny {
+  color: #ff7b6b;
+  border: 1px solid rgba(224, 73, 47, 0.55);
+  background: rgba(224, 73, 47, 0.10);
+}
+.badge-deny .dot { background: var(--red-deny); box-shadow: 0 0 12px rgba(224, 73, 47, 0.9); }
+.badge-ok {
+  color: #74e6a4;
+  border: 1px solid rgba(63, 174, 107, 0.55);
+  background: rgba(63, 174, 107, 0.10);
+}
+.badge-ok .dot { background: var(--green-ok); box-shadow: 0 0 12px rgba(63, 174, 107, 0.9); }
+
+/* ── SCENE 1 — PROBLEM ─────────────────────────────────── */
+#scene-problem { background: var(--navy); }
+#scene-problem .spline-stage { transform-origin: center; }
+#scene-problem .spline-stage iframe {
+  filter: grayscale(1) brightness(0.6) contrast(0.92);
+}
+#scene-problem .scene-scrim {
+  background: linear-gradient(100deg,
+    rgba(10, 22, 40, 0.94) 0%,
+    rgba(10, 22, 40, 0.78) 36%,
+    rgba(10, 22, 40, 0.32) 58%,
+    rgba(10, 22, 40, 0) 80%);
+}
+.prob-col { max-width: 640px; }
+#prob-h { font-size: clamp(2.4rem, 5.2vw, 4.8rem); }
+#prob-h .word-wrap { line-height: 1.06; }
+
+/* ── SCENE 2 — QUESTION ────────────────────────────────── */
+#scene-question { background: #000000; justify-content: center; text-align: center; }
+#scene-question .scene-content { max-width: 1100px; text-align: center; }
+#q-h {
+  font-weight: 800;
+  font-size: clamp(2.6rem, 7vw, 7rem);
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--off-white);
+  max-width: 18ch;
+  margin: 0 auto;
+}
+#q-h .word-wrap { line-height: 1.08; }
+
+/* ── SCENE 3 — TRANSFORMATION ──────────────────────────── */
+#scene-transform { background: #000000; }
+#scene-transform .scene-scrim {
+  background: linear-gradient(260deg,
+    rgba(10, 22, 40, 0.92) 0%,
+    rgba(10, 22, 40, 0.74) 36%,
+    rgba(10, 22, 40, 0.30) 58%,
+    rgba(10, 22, 40, 0) 80%);
+}
+#scene-transform .scene-content { display: flex; justify-content: flex-end; }
+.trans-col { max-width: 600px; text-align: left; }
+#trans-h { font-size: clamp(2.2rem, 4.6vw, 4.4rem); }
+#trans-h .word-wrap { line-height: 1.08; }
+#trans-robot { position: absolute; inset: 0; z-index: 0; will-change: transform, opacity; }
+
+/* ── SCENE 4 — HOW IT WORKS ────────────────────────────── */
+#scene-how { background: var(--navy); }
+.how-inner { max-width: 1080px; margin: 0 auto; }
+.how-headline {
+  font-weight: 800;
+  font-size: clamp(2.2rem, 4.4vw, 4rem);
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  color: var(--off-white);
+  margin-bottom: 0.6rem;
+}
+.how-steps { display: flex; flex-direction: column; margin-top: 2.6rem; }
+.how-step {
+  display: grid;
+  grid-template-columns: clamp(3rem, 6vw, 5.5rem) 1fr;
+  gap: clamp(1.4rem, 3vw, 2.6rem);
+  align-items: start;
+  padding: 2.1rem 0;
+  border-top: 1px solid rgba(245, 240, 232, 0.14);
+  will-change: transform, opacity;
+}
+.how-step:last-child { border-bottom: 1px solid rgba(245, 240, 232, 0.14); }
+.how-step-num {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: clamp(1.9rem, 3.2vw, 3rem);
+  color: var(--clay);
+  line-height: 1;
+}
+.how-step h3 {
+  font-weight: 700;
+  font-size: clamp(1.45rem, 2.4vw, 2.15rem);
+  letter-spacing: -0.02em;
+  color: var(--off-white);
+  margin-bottom: 0.7rem;
+}
+.how-step-lead {
+  display: block;
+  font-size: clamp(1.02rem, 1.4vw, 1.22rem);
+  line-height: 1.5;
+  color: rgba(245, 240, 232, 0.9);
+}
+.how-step-sub {
+  display: block;
+  margin-top: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: clamp(0.82rem, 1.05vw, 0.95rem);
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  color: rgba(245, 240, 232, 0.5);
+}
+
+/* ── SCENE 5 — CTA ─────────────────────────────────────── */
+#scene-cta { background: var(--clay); justify-content: center; text-align: center; }
+#scene-cta .scene-content { max-width: 980px; text-align: center; }
+.cta2-eyebrow {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: rgba(245, 240, 232, 0.6);
+  margin-bottom: 1.7rem;
+}
+#cta2-h {
+  font-weight: 800;
+  font-size: clamp(2.6rem, 6vw, 6rem);
+  letter-spacing: -0.04em;
+  line-height: 1.0;
+  color: var(--off-white);
+  text-wrap: balance;
+}
+#cta2-actions {
+  display: flex;
+  gap: 1.6rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2.8rem;
+  flex-wrap: wrap;
+}
+.cta2-docs {
+  font-family: var(--font-mono);
+  font-size: .85rem;
+  letter-spacing: .04em;
+  color: var(--off-white);
+  text-decoration: none;
+  opacity: 0.85;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.4);
+  padding-bottom: 3px;
+  transition: opacity .2s ease, border-color .2s ease, gap .2s ease;
+}
+.cta2-docs:hover { opacity: 1; border-color: var(--off-white); }
+
+/* ============================================================
+   FOOTER  (shared with index.html)
+   ============================================================ */
+footer { background: var(--warm-gray); color: var(--navy); position: relative; z-index: 2; }
+footer .rule { height: 1px; background: var(--clay); }
+footer .inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 2rem;
+  padding: 2.8rem 7vw;
+}
+footer .f-logo { display: flex; align-items: center; gap: 11px; }
+footer .f-logo svg { display: block; }
+footer .f-logo .word { font-weight: 700; font-size: 1rem; letter-spacing: .08em; line-height: 1; transform: translateY(1px); color: var(--navy); }
+footer .f-logo line { stroke: var(--clay); stroke-width: 2; }
+footer .links { text-align: center; font-family: var(--font-mono); font-size: .78rem; letter-spacing: .06em; }
+footer .links a { color: var(--navy); text-decoration: none; opacity: .82; }
+footer .links a:hover { color: var(--clay); opacity: 1; }
+footer .built { text-align: right; font-family: var(--font-mono); font-size: .76rem; letter-spacing: .06em; color: var(--ink-body); }
+
+/* ============================================================
+   CUSTOM CURSOR  (shared with index.html)
+   ============================================================ */
+#vane-cursor {
+  position: fixed; top: 0; left: 0;
+  width: 8px; height: 8px;
+  margin: -4px 0 0 -4px;
+  background: #b5451b;
+  opacity: .9;
+  box-shadow: 0 0 0 1.5px rgba(245, 240, 232, .9);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+  display: none;
+  transition: width .22s ease, height .22s ease, margin .22s ease;
+}
+body.has-cursor #vane-cursor { display: block; }
+body.has-cursor,
+body.has-cursor a,
+body.has-cursor button { cursor: none !important; }
+#vane-cursor.big { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px) {
+  #scene-transform .scene-content { justify-content: flex-start; }
+  #scene-problem .scene-scrim {
+    background: linear-gradient(180deg,
+      rgba(10, 22, 40, 0.55) 0%,
+      rgba(10, 22, 40, 0.82) 55%,
+      rgba(10, 22, 40, 0.94) 100%);
+  }
+  #scene-transform .scene-scrim {
+    background: linear-gradient(180deg,
+      rgba(10, 22, 40, 0.55) 0%,
+      rgba(10, 22, 40, 0.82) 55%,
+      rgba(10, 22, 40, 0.94) 100%);
+  }
+  .scene { align-items: flex-end; }
+  .scene-content { padding-bottom: 14vh; }
+  #scene-question, #scene-how, #scene-cta { align-items: center; }
+  #scene-question .scene-content, #scene-cta .scene-content { padding-bottom: 0; }
+}
+@media (max-width: 768px) {
+  footer .inner       { grid-template-columns: 1fr; text-align: center; gap: 1.3rem; }
+  footer .f-logo,
+  footer .built,
+  footer .links       { justify-content: center; text-align: center; }
+  footer .links a     { display: inline-block; padding: .5rem .35rem; }
+  .nav-mobile a       { min-height: 44px; display: flex; align-items: center; }
+  .nav-mobile .mob-actions a { min-height: 48px; justify-content: center; }
+  .how-step { grid-template-columns: 1fr; gap: 0.5rem; }
+  .how-step-num { margin-bottom: 0.2rem; }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition-duration: .01ms !important; }
+  .word-wrap .wd { opacity: 1 !important; transform: none !important; }
+  .scene-eyebrow, .scene-h, .scene-body, .badge, .how-step,
+  .how-headline, #cta2-h, #cta2-actions, #trans-robot {
+    opacity: 1 !important; transform: none !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="vane-cursor" aria-hidden="true"></div>
+
+<!-- LOGO -->
+<a class="logo on-terra" href="/" aria-label="Vane home">
+  <svg class="mark" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+    <line x1="11" y1="2"  x2="11" y2="20" />
+    <line x1="2"  y1="11" x2="20" y2="11" />
+    <line x1="20" y1="11" x2="16" y2="8"  />
+    <line x1="20" y1="11" x2="16" y2="14" />
+    <line x1="11" y1="2"  x2="8"  y2="6"  />
+    <line x1="11" y1="2"  x2="14" y2="6"  />
+  </svg>
+  <span class="word">VANE</span>
+</a>
+
+<!-- NAV -->
+<nav class="nav on-terra" aria-label="Primary">
+  <ul class="nav-menu">
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Product <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="/product">How It Works</a>
+        <a role="menuitem" href="/product#passports">Agent Passports</a>
+        <a role="menuitem" href="/product#attestation">Attestation</a>
+        <a role="menuitem" href="/product#how">Verify Anywhere</a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Security <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="/security">Security</a>
+        <a role="menuitem" href="/security#cryptographic-primitives">Cryptography</a>
+        <a role="menuitem" href="/security#verification-model">Merkle Tree</a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Developers <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://npmjs.com/package/@vane.build/sdk" target="_blank" rel="noopener noreferrer">npm Package <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://github.com/vane-build/vane" target="_blank" rel="noopener noreferrer">GitHub <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">SDK Reference <span class="ext" aria-hidden="true">↗</span></a>
+      </div>
+    </li>
+    <li class="nav-item">
+      <a class="nav-trigger" href="/#contact">Contact</a>
+    </li>
+  </ul>
+  <div class="nav-actions">
+    <a class="nav-demo" href="/#contact">Book a demo</a>
+    <a class="nav-cta"  href="/#contact">Request Access</a>
+  </div>
+  <button class="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-mobile">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MOBILE NAV -->
+<div class="nav-mobile" id="nav-mobile">
+  <div class="mob-group">
+    <div class="mob-head">Product</div>
+    <a href="/product">How It Works</a>
+    <a href="/product#passports">Agent Passports</a>
+    <a href="/product#attestation">Attestation</a>
+    <a href="/product#how">Verify Anywhere</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Security</div>
+    <a href="/security">Security</a>
+    <a href="/security#cryptographic-primitives">Cryptography</a>
+    <a href="/security#verification-model">Merkle Tree</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Developers</div>
+    <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation ↗</a>
+    <a href="https://npmjs.com/package/@vane.build/sdk" target="_blank" rel="noopener noreferrer">npm Package ↗</a>
+    <a href="https://github.com/vane-build/vane" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Contact</div>
+    <a href="/#contact">Contact</a>
+  </div>
+  <div class="mob-actions">
+    <a class="nav-demo" href="/#contact">Book a demo</a>
+    <a class="nav-cta"  href="/#contact">Request Access</a>
+  </div>
+</div>
+
+<main>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 1 — THE PROBLEM
+     Pinned. Dead grey robot. Text + ACCESS DENIED reveal on scroll.
+═══════════════════════════════════════════════════════════ -->
+<section class="scene" id="scene-problem" data-theme="terra">
+  <div class="spline-stage" aria-hidden="true">
+    <iframe src="https://my.spline.design/nexbotrobotcharacterconcept-c5A6tuQDgGMrD5xUY2MZ5rek/"
+            title="Anonymous agent, no identity" loading="lazy"
+            allow="autoplay; fullscreen"></iframe>
+    <div class="spline-mask"></div>
+  </div>
+  <div class="scene-scrim"></div>
+  <div class="scene-content">
+    <div class="prob-col">
+      <div class="scene-eyebrow" id="prob-eyebrow">The state of agents today</div>
+      <h2 class="scene-h" id="prob-h">No identity. No authorization. No trust.</h2>
+      <p class="scene-body" id="prob-body">Your agent just called Stripe. Nobody can prove who sent it, what it was allowed to do, or whether that authorization is still valid.</p>
+      <div class="badge badge-deny" id="prob-badge">
+        <span class="dot" aria-hidden="true"></span>Access Denied
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 2 — THE QUESTION
+     Pinned. Pure black. Word-by-word reveal.
+═══════════════════════════════════════════════════════════ -->
+<section class="scene" id="scene-question" data-theme="terra">
+  <div class="scene-content">
+    <h2 id="q-h">What if your agents had identity?</h2>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 3 — THE TRANSFORMATION
+     Pinned. Vane robot fades in. Background black → navy. VERIFIED.
+═══════════════════════════════════════════════════════════ -->
+<section class="scene" id="scene-transform" data-theme="terra">
+  <div class="spline-stage" id="trans-robot" aria-hidden="true">
+    <iframe src="https://my.spline.design/nexbotrobotcharacterconcept-UM32zcuBV7mYrOPw8TwBaIKr/"
+            title="Vane agent with cryptographic identity" loading="lazy"
+            allow="autoplay; fullscreen"></iframe>
+    <div class="spline-mask"></div>
+  </div>
+  <div class="scene-scrim"></div>
+  <div class="scene-content">
+    <div class="trans-col" id="passports">
+      <div class="scene-eyebrow" id="trans-eyebrow">Identity, issued</div>
+      <h2 class="scene-h" id="trans-h">Vane issues every agent a cryptographic passport. Every action signed. Every authorization proven.</h2>
+      <div class="badge badge-ok" id="trans-badge">
+        <span class="dot" aria-hidden="true"></span>Verified
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 4 — HOW IT WORKS
+     Pinned. Three steps reveal sequentially on scroll.
+═══════════════════════════════════════════════════════════ -->
+<section class="scene" id="scene-how" data-theme="terra">
+  <div class="scene-content">
+    <div class="how-inner">
+      <div class="scene-eyebrow" id="how-eyebrow">How it works</div>
+      <h2 class="how-headline" id="how-headline">Three primitives. End-to-end proof.</h2>
+      <div class="how-steps" id="attestation">
+        <div class="how-step">
+          <div class="how-step-num">01</div>
+          <div class="how-step-body">
+            <h3>Issue Passport</h3>
+            <span class="how-step-lead">Ed25519-signed credential.</span>
+            <span class="how-step-sub">Agent identity, scopes, delegation chain.</span>
+          </div>
+        </div>
+        <div class="how-step">
+          <div class="how-step-num">02</div>
+          <div class="how-step-body">
+            <h3>Attest Action</h3>
+            <span class="how-step-lead">Every action anchored to a SHA-256 Merkle tree.</span>
+            <span class="how-step-sub">Tamper-evident, append-only.</span>
+          </div>
+        </div>
+        <div class="how-step" id="how">
+          <div class="how-step-num">03</div>
+          <div class="how-step-body">
+            <h3>Verify Anywhere</h3>
+            <span class="how-step-lead">Any third party verifies with only the CA public key.</span>
+            <span class="how-step-sub">No network call to Vane required.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCENE 5 — CTA
+     Terracotta. Headline + Request Access + Read the docs.
+═══════════════════════════════════════════════════════════ -->
+<section class="scene" id="scene-cta" data-theme="terra">
+  <div class="scene-content">
+    <div class="cta2-eyebrow">Ready when you are</div>
+    <h2 id="cta2-h">Give your agents identity.</h2>
+    <div id="cta2-actions">
+      <a class="btn btn-light" href="/#contact">Request Access</a>
+      <a class="cta2-docs" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Read the docs →</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer id="footer" data-theme="paper">
+  <div class="rule"></div>
+  <div class="inner">
+    <div class="f-logo">
+      <svg width="20" height="20" viewBox="0 0 22 22" aria-hidden="true">
+        <line x1="11" y1="2"  x2="11" y2="20" />
+        <line x1="2"  y1="11" x2="20" y2="11" />
+        <line x1="20" y1="11" x2="16" y2="8"  />
+        <line x1="20" y1="11" x2="16" y2="14" />
+        <line x1="11" y1="2"  x2="8"  y2="6"  />
+        <line x1="11" y1="2"  x2="14" y2="6"  />
+      </svg>
+      <span class="word">VANE</span>
+    </div>
+    <div class="links">
+      <a href="https://docs.vane.build">docs.vane.build</a> ·
+      <a href="https://github.com/vane-build/vane">GitHub</a> ·
+      <a href="https://npmjs.com/package/@vane.build/sdk">npm</a> ·
+      <a href="/privacy">Privacy</a> ·
+      <a href="/terms">Terms</a> ·
+      <a href="/changelog">Changelog</a> ·
+      <a href="https://x.com/vane_build">@vane.build</a>
+    </div>
+    <div class="built">Built in Puerto Rico.</div>
+  </div>
+</footer>
+
+</main>
+
+<!-- ════════════════════════════════════════════════════════════
+     NAV SCRIPT — dropdowns, hamburger, scroll state
+     (identical behaviour to index.html)
+════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+  const nav    = document.querySelector('.nav');
+  const burger = document.querySelector('.nav-burger');
+  const mobile = document.getElementById('nav-mobile');
+  const items  = Array.from(document.querySelectorAll('.nav-item.has-dropdown'));
+  if(!nav) return;
+  const NAV_H = 84;
+  function closeDropdowns(except){
+    items.forEach(it=>{
+      if(it===except) return;
+      it.classList.remove('open');
+      const t=it.querySelector('.nav-trigger');
+      if(t) t.setAttribute('aria-expanded','false');
+    });
+  }
+  items.forEach(it=>{
+    const trigger=it.querySelector('.nav-trigger');
+    if(!trigger) return;
+    trigger.addEventListener('click',e=>{
+      e.preventDefault();
+      const willOpen=!it.classList.contains('open');
+      closeDropdowns(it);
+      it.classList.toggle('open',willOpen);
+      trigger.setAttribute('aria-expanded',String(willOpen));
+    });
+  });
+  function closeMobile(){
+    if(!mobile||!burger) return;
+    mobile.classList.remove('open');
+    burger.classList.remove('open');
+    burger.setAttribute('aria-expanded','false');
+    burger.setAttribute('aria-label','Open menu');
+  }
+  function openMobile(){
+    if(!mobile||!burger) return;
+    mobile.classList.add('open');
+    burger.classList.add('open');
+    burger.setAttribute('aria-expanded','true');
+    burger.setAttribute('aria-label','Close menu');
+  }
+  if(burger){ burger.addEventListener('click',()=>{ mobile.classList.contains('open')?closeMobile():openMobile(); }); }
+  window.addEventListener('resize',()=>{ if(window.innerWidth>900) closeMobile(); });
+  function scrollToEl(el){
+    const y=Math.max(0,el.getBoundingClientRect().top+window.scrollY-NAV_H);
+    window.scrollTo(0,y);
+  }
+  function onNavLink(e){
+    const a=e.target.closest('a');
+    if(!a) return;
+    closeDropdowns(null); closeMobile();
+    const href=a.getAttribute('href')||'';
+    if(href.charAt(0)==='#'){
+      const target=document.getElementById(href.slice(1));
+      if(target){ e.preventDefault(); e.stopImmediatePropagation(); scrollToEl(target); }
+    }
+  }
+  nav.addEventListener('click',onNavLink,true);
+  if(mobile) mobile.addEventListener('click',onNavLink,true);
+  document.addEventListener('click',e=>{ if(!e.target.closest('.nav-item.has-dropdown')) closeDropdowns(null); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeDropdowns(null); closeMobile(); } });
+  let ticking=false;
+  function onScroll(){
+    if(ticking) return;
+    ticking=true;
+    requestAnimationFrame(()=>{ nav.classList.toggle('scrolled',window.scrollY>50); ticking=false; });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  onScroll();
+})();
+</script>
+
+<!-- ════════════════════════════════════════════════════════════
+     LENIS
+════════════════════════════════════════════════════════════ -->
+<script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
+
+<!-- ════════════════════════════════════════════════════════════
+     GSAP + LENIS INTEGRATION + SCROLL-DRIVEN SCENE ANIMATIONS
+════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── Custom cursor ──────────────────────────────────── */
+  (function(){
+    if(reduceMotion || window.matchMedia('(hover:none)').matches) return;
+    const el = document.getElementById('vane-cursor');
+    if(!el) return;
+    document.body.classList.add('has-cursor');
+    let cx=-200,cy=-200,mx=-200,my=-200;
+    window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;},{passive:true});
+    document.querySelectorAll('.btn,button,.nav a,.cta2-docs').forEach(b=>{
+      b.addEventListener('mouseenter',()=>el.classList.add('big'),{passive:true});
+      b.addEventListener('mouseleave',()=>el.classList.remove('big'),{passive:true});
+    });
+    (function tick(){ requestAnimationFrame(tick); cx+=(mx-cx)*.15; cy+=(my-cy)*.15; el.style.transform=`translate(${cx}px,${cy}px)`; })();
+  })();
+
+  /* ── Logo / nav theme follow ────────────────────────── */
+  (function(){
+    const logo=document.querySelector('.logo');
+    const nav=document.querySelector('.nav');
+    const sections=document.querySelectorAll('[data-theme]');
+    if(!logo||!sections.length) return;
+    const io=new IntersectionObserver(entries=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting&&e.intersectionRatio>0.4){
+          const terra=e.target.getAttribute('data-theme')==='terra';
+          logo.classList.toggle('on-terra',terra);
+          if(nav) nav.classList.toggle('on-terra',terra);
+        }
+      });
+    },{threshold:[.4]});
+    sections.forEach(s=>io.observe(s));
+  })();
+
+  /* ── GSAP register ──────────────────────────────────── */
+  if(typeof gsap==='undefined'||typeof ScrollTrigger==='undefined') return;
+  gsap.registerPlugin(ScrollTrigger);
+
+  /* ── Lenis init + GSAP ticker integration ───────────── */
+  let lenis;
+  if(!reduceMotion && typeof Lenis!=='undefined'){
+    lenis = new Lenis({
+      duration: 1.1,
+      easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      smoothTouch: false,
+    });
+
+    /* Critical: drive Lenis from GSAP ticker so ScrollTrigger stays in sync */
+    gsap.ticker.add(time => lenis.raf(time * 1000));
+    gsap.ticker.lagSmoothing(0);
+
+    /* Tell ScrollTrigger to update every time Lenis scrolls */
+    lenis.on('scroll', ScrollTrigger.update);
+  }
+
+  /* ── Reduced motion: everything visible, no scroll FX ── */
+  if(reduceMotion){
+    const tr = document.getElementById('scene-transform');
+    if(tr) tr.style.backgroundColor = '#0a1628';
+    return;
+  }
+
+  /* ── Word-mask split helper ─────────────────────────── */
+  function splitWords(el){
+    const raw = el.textContent.trim();
+    const words = raw.split(/\s+/);
+    el.innerHTML = words.map(w=>`<span class="word-wrap"><span class="wd">${w}</span></span>`).join(' ');
+    return el.querySelectorAll('.wd');
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SCENE 1 — PROBLEM
+     Pinned: headline words mask in, body fades up,
+     dead robot eases to rest, ACCESS DENIED snaps in.
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const stage = document.getElementById('scene-problem');
+    if(!stage) return;
+    const words = splitWords(document.getElementById('prob-h'));
+    gsap.set('#prob-eyebrow', { opacity: 0, y: 20 });
+    gsap.set(words, { yPercent: 110 });
+    gsap.set('#prob-body', { opacity: 0, y: 30 });
+    gsap.set('#prob-badge', { opacity: 0, scale: 0.82 });
+    gsap.set('#scene-problem .spline-stage', { scale: 1.08 });
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#scene-problem',
+        start: 'top top',
+        end: '+=1900',
+        scrub: 1.2,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+      }
+    });
+    tl.to('#scene-problem .spline-stage', { scale: 1, ease: 'none', duration: 1 }, 0)
+      .to('#prob-eyebrow', { opacity: 1, y: 0, ease: 'power2.out', duration: 0.5 }, 0.05)
+      .to(words, { yPercent: 0, ease: 'power3.out', stagger: 0.05, duration: 0.7 }, 0.15)
+      .to('#prob-body', { opacity: 1, y: 0, ease: 'power2.out', duration: 0.6 }, '>-0.15')
+      .to('#prob-badge', { opacity: 1, scale: 1, ease: 'back.out(1.6)', duration: 0.6 }, '>-0.05');
+  })();
+
+  /* ═══════════════════════════════════════════════════════
+     SCENE 2 — QUESTION
+     Pinned: massive headline reveals word by word.
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const stage = document.getElementById('scene-question');
+    if(!stage) return;
+    const words = splitWords(document.getElementById('q-h'));
+    gsap.set(words, { yPercent: 110, opacity: 0 });
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#scene-question',
+        start: 'top top',
+        end: '+=1300',
+        scrub: 1.2,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+      }
+    });
+    tl.to(words, { yPercent: 0, opacity: 1, ease: 'power3.out', stagger: 0.13, duration: 0.9 }, 0.1);
+  })();
+
+  /* ═══════════════════════════════════════════════════════
+     SCENE 3 — TRANSFORMATION
+     Pinned: background black → navy, Vane robot fades in,
+     right-side text masks in, VERIFIED snaps in.
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const stage = document.getElementById('scene-transform');
+    if(!stage) return;
+    const words = splitWords(document.getElementById('trans-h'));
+    gsap.set('#trans-robot', { opacity: 0, scale: 1.1 });
+    gsap.set('#trans-eyebrow', { opacity: 0, y: 20 });
+    gsap.set(words, { yPercent: 110 });
+    gsap.set('#trans-badge', { opacity: 0, scale: 0.82 });
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#scene-transform',
+        start: 'top top',
+        end: '+=2000',
+        scrub: 1.2,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+      }
+    });
+    tl.to('#scene-transform', { backgroundColor: '#0a1628', ease: 'none', duration: 1 }, 0)
+      .to('#trans-robot', { opacity: 1, scale: 1, ease: 'power2.out', duration: 0.9 }, 0.05)
+      .to('#trans-eyebrow', { opacity: 1, y: 0, ease: 'power2.out', duration: 0.5 }, 0.25)
+      .to(words, { yPercent: 0, ease: 'power3.out', stagger: 0.05, duration: 0.7 }, 0.35)
+      .to('#trans-badge', { opacity: 1, scale: 1, ease: 'back.out(1.6)', duration: 0.6 }, '>-0.05');
+  })();
+
+  /* ═══════════════════════════════════════════════════════
+     SCENE 4 — HOW IT WORKS
+     Pinned: three steps reveal sequentially with scroll.
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const stage = document.getElementById('scene-how');
+    if(!stage) return;
+    gsap.set('#how-eyebrow', { opacity: 0, y: 20 });
+    gsap.set('#how-headline', { opacity: 0, y: 40 });
+    gsap.set('.how-step', { opacity: 0, y: 50 });
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#scene-how',
+        start: 'top top',
+        end: '+=2400',
+        scrub: 1.1,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+      }
+    });
+    tl.to('#how-eyebrow', { opacity: 1, y: 0, ease: 'power2.out', duration: 0.5 }, 0)
+      .to('#how-headline', { opacity: 1, y: 0, ease: 'power3.out', duration: 0.6 }, 0.1);
+    gsap.utils.toArray('.how-step').forEach((step, i) => {
+      tl.to(step, { opacity: 1, y: 0, ease: 'power2.out', duration: 0.7 }, 0.6 + i * 0.7);
+    });
+  })();
+
+  /* ═══════════════════════════════════════════════════════
+     SCENE 5 — CTA  (not pinned, scrubbed fade-up on enter)
+  ═══════════════════════════════════════════════════════ */
+  (function(){
+    const stage = document.getElementById('scene-cta');
+    if(!stage) return;
+    gsap.from('#cta2-h', {
+      scrollTrigger: { trigger: '#scene-cta', start: 'top 78%', end: 'top 38%', scrub: 0.9 },
+      opacity: 0, y: 50, ease: 'power3.out',
+    });
+    gsap.from('#cta2-actions', {
+      scrollTrigger: { trigger: '#scene-cta', start: 'top 68%', end: 'top 32%', scrub: 0.9 },
+      opacity: 0, y: 30, ease: 'power2.out',
+    });
+  })();
+
+  /* Recalculate after Spline iframes settle */
+  window.addEventListener('load', () => ScrollTrigger.refresh());
+
+})();
+</script>
+
+</body>
+</html>
