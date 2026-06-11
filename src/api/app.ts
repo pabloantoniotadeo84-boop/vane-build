@@ -213,6 +213,8 @@ const STATIC_MIME: Record<string, string> = {
   json: 'application/json',
   ico:  'image/x-icon',
   webp: 'image/webp',
+  mp4:  'video/mp4',
+  webm: 'video/webm',
 };
 
 // Clean ("extensionless") URLs for HTML pages:
