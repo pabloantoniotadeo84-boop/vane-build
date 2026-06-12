@@ -458,18 +458,19 @@ body {
 .badge-ok .dot { background: var(--green-ok); box-shadow: 0 0 12px rgba(63, 174, 107, 0.9); }
 
 /* ── SCENE 1 — PROBLEM ─────────────────────────────────── */
-#scene-problem { background: var(--navy); }
+#scene-problem { background: var(--clay); }
 #scene-problem .spline-stage { transform-origin: center; }
 #scene-problem .spline-stage iframe {
   filter: grayscale(1) brightness(0.6) contrast(0.92);
 }
 #scene-problem .scene-scrim {
   background: linear-gradient(100deg,
-    rgba(10, 22, 40, 0.94) 0%,
-    rgba(10, 22, 40, 0.78) 36%,
-    rgba(10, 22, 40, 0.32) 58%,
-    rgba(10, 22, 40, 0) 80%);
+    rgba(181, 69, 27, 0.94) 0%,
+    rgba(181, 69, 27, 0.78) 36%,
+    rgba(181, 69, 27, 0.32) 58%,
+    rgba(181, 69, 27, 0) 80%);
 }
+#scene-problem .scene-eyebrow { color: rgba(245, 240, 232, 0.72); }
 .prob-col { max-width: 640px; }
 #prob-h { font-size: clamp(2.4rem, 5.2vw, 4.8rem); }
 #prob-h .word-wrap { line-height: 1.06; }
@@ -504,7 +505,8 @@ body {
 #trans-robot { position: absolute; inset: 0; z-index: 0; will-change: transform, opacity; }
 
 /* ── SCENE 4 — HOW IT WORKS ────────────────────────────── */
-#scene-how { background: var(--navy); }
+#scene-how { background: var(--clay); }
+#scene-how .scene-eyebrow { color: rgba(245, 240, 232, 0.72); }
 .how-inner { max-width: 1080px; margin: 0 auto; }
 .how-headline {
   font-weight: 800;
@@ -521,15 +523,15 @@ body {
   gap: clamp(1.4rem, 3vw, 2.6rem);
   align-items: start;
   padding: 2.1rem 0;
-  border-top: 1px solid rgba(245, 240, 232, 0.14);
+  border-top: 1px solid rgba(245, 240, 232, 0.28);
   will-change: transform, opacity;
 }
-.how-step:last-child { border-bottom: 1px solid rgba(245, 240, 232, 0.14); }
+.how-step:last-child { border-bottom: 1px solid rgba(245, 240, 232, 0.28); }
 .how-step-num {
   font-family: var(--font-mono);
   font-weight: 600;
   font-size: clamp(1.9rem, 3.2vw, 3rem);
-  color: var(--clay);
+  color: var(--navy);
   line-height: 1;
 }
 .how-step h3 {
@@ -552,7 +554,7 @@ body {
   font-size: clamp(0.82rem, 1.05vw, 0.95rem);
   letter-spacing: 0.02em;
   line-height: 1.5;
-  color: rgba(245, 240, 232, 0.5);
+  color: rgba(245, 240, 232, 0.66);
 }
 
 /* ── SCENE 5 — CTA ─────────────────────────────────────── */
@@ -646,9 +648,9 @@ body.has-cursor button { cursor: none !important; }
   #scene-transform .scene-content { justify-content: flex-start; }
   #scene-problem .scene-scrim {
     background: linear-gradient(180deg,
-      rgba(10, 22, 40, 0.55) 0%,
-      rgba(10, 22, 40, 0.82) 55%,
-      rgba(10, 22, 40, 0.94) 100%);
+      rgba(181, 69, 27, 0.55) 0%,
+      rgba(181, 69, 27, 0.82) 55%,
+      rgba(181, 69, 27, 0.94) 100%);
   }
   #scene-transform .scene-scrim {
     background: linear-gradient(180deg,
