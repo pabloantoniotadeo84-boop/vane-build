@@ -349,9 +349,11 @@ body {
    ============================================================ */
 .about-hero {
   position: relative;
+  min-height: 100vh;
   min-height: 100dvh;
   background: var(--clay);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -804,8 +806,8 @@ body.has-cursor button { cursor: none !important; }
 ═══════════════════════════════════════════════════════════ -->
 <section class="about-hero" id="about-top" data-theme="terra">
   <div class="about-hero-content">
-    <h1>The identity layer<br>for the age of<br>autonomous agents.</h1>
-    <p class="about-hero-sub">Cryptographic passports for AI agents. Built for a world where software acts, not just responds.</p>
+    <h1 id="about-hero-headline">The identity layer<br>for the age of<br>autonomous agents.</h1>
+    <p class="about-hero-sub" id="about-hero-sub">Cryptographic passports for AI agents. Built for a world where software acts, not just responds.</p>
   </div>
 </section>
 
@@ -816,8 +818,8 @@ body.has-cursor button { cursor: none !important; }
   <div class="shift-inner">
     <div class="shift-eyebrow" id="shift-eyebrow">Why now</div>
     <div class="shift-grid">
-      <div class="shift-statement" id="shift-statement">Agents don't just process requests. They call APIs. Move money. Make decisions. Nobody built trust infrastructure for them.</div>
-      <p class="shift-body" id="shift-body">For thirty years, identity infrastructure was built for humans. Passwords, SSO, MFA — all assume a person is on the other end. AI agents broke that assumption. They act autonomously, at scale, across organizational boundaries. The audit trail, the authorization proof, the chain of custody — none of it exists. Vane builds that layer.</p>
+      <div class="shift-statement" id="shift-left">Agents don't just process requests. They call APIs. Move money. Make decisions. Nobody built trust infrastructure for them.</div>
+      <p class="shift-body" id="shift-right">For thirty years, identity infrastructure was built for humans. Passwords, SSO, MFA — all assume a person is on the other end. AI agents broke that assumption. They act autonomously, at scale, across organizational boundaries. The audit trail, the authorization proof, the chain of custody — none of it exists. Vane builds that layer.</p>
     </div>
   </div>
 </section>
@@ -879,15 +881,15 @@ body.has-cursor button { cursor: none !important; }
   <div class="principles-inner">
     <div class="principles-eyebrow" id="principles-eyebrow">How we build</div>
     <div class="principles-grid">
-      <div class="principle" id="principle-1">
+      <div class="principle" id="prin-1">
         <div class="principle-title">Independent verifiability</div>
         <p class="principle-body">Any party can verify any attested action with only a public key. No call to Vane required. No trust in us required.</p>
       </div>
-      <div class="principle" id="principle-2">
+      <div class="principle" id="prin-2">
         <div class="principle-title">Developer-first</div>
         <p class="principle-body">Three lines of code. Zero infrastructure to manage. Works with LangChain, CrewAI, OpenAI Agents SDK, and MCP out of the box.</p>
       </div>
-      <div class="principle" id="principle-3">
+      <div class="principle" id="prin-3">
         <div class="principle-title">No trust required</div>
         <p class="principle-body">Cryptographic proof replaces institutional trust. Regulators, auditors, and counterparties verify independently. The math is the guarantee.</p>
       </div>
@@ -1081,88 +1083,58 @@ body.has-cursor button { cursor: none !important; }
 
   if(reduceMotion) return;
 
-  /* ═══════════════════════════════════════════════════════
-     SECTION 2 — THE SHIFT: fade-up on enter
-  ═══════════════════════════════════════════════════════ */
-  (function(){
-    gsap.timeline({
-      scrollTrigger: {
-        trigger: '.shift-section',
-        start: 'top 80%',
-        toggleActions: 'play none none none',
-      }
-    })
-    .from('#shift-eyebrow',   { opacity: 0, y: 20, ease: 'power2.out', duration: 0.5 })
-    .from('#shift-statement', { opacity: 0, y: 30, ease: 'power3.out', duration: 0.7 }, '-=0.2')
-    .from('#shift-body',      { opacity: 0, y: 24, ease: 'power2.out', duration: 0.6 }, '-=0.3');
-  })();
+  /* ── WHY NOW ────────────────────────────────────────── */
+  gsap.from('#shift-eyebrow', {
+    scrollTrigger: { trigger: '#shift-eyebrow', start: 'top 85%', end: 'top 40%', scrub: 0.8 },
+    opacity: 0, y: 20, ease: 'power2.out',
+  });
+  const shiftTl = gsap.timeline({
+    scrollTrigger: { trigger: '#shift-left', start: 'top 80%', end: 'bottom 40%', scrub: 1 }
+  });
+  shiftTl
+    .from('#shift-left',  { opacity: 0, y: 50, ease: 'power3.out', duration: 0.7 })
+    .from('#shift-right', { opacity: 0, y: 30, ease: 'power2.out', duration: 0.6 }, '-=0.3');
 
-  /* ═══════════════════════════════════════════════════════
-     SECTION 3 — WHAT WE BUILT: staggered cards
-  ═══════════════════════════════════════════════════════ */
-  (function(){
-    gsap.timeline({
-      scrollTrigger: {
-        trigger: '.built-section',
-        start: 'top 80%',
-        toggleActions: 'play none none none',
-      }
-    })
-    .from('#built-eyebrow', { opacity: 0, y: 20, ease: 'power2.out', duration: 0.5 })
-    .from('#built-c1', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.2')
-    .from('#built-c2', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.3')
-    .from('#built-c3', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.3');
-  })();
+  /* ── INFRASTRUCTURE ─────────────────────────────────── */
+  gsap.from('#built-eyebrow', {
+    scrollTrigger: { trigger: '#built-eyebrow', start: 'top 85%', end: 'top 40%', scrub: 0.8 },
+    opacity: 0, y: 20, ease: 'power2.out',
+  });
+  const builtTl = gsap.timeline({
+    scrollTrigger: { trigger: '#built-c1', start: 'top 85%', end: 'bottom 40%', scrub: 1 }
+  });
+  ['#built-c1','#built-c2','#built-c3'].forEach((id, i) => {
+    builtTl.from(id, { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, i * 0.25);
+  });
 
-  /* ═══════════════════════════════════════════════════════
-     SECTION 4 — THE MOMENT: headline + stagger cards
-  ═══════════════════════════════════════════════════════ */
-  (function(){
-    gsap.timeline({
-      scrollTrigger: {
-        trigger: '.moment-section',
-        start: 'top 80%',
-        toggleActions: 'play none none none',
-      }
-    })
+  /* ── RIGHT NOW ──────────────────────────────────────── */
+  const momentTl = gsap.timeline({
+    scrollTrigger: { trigger: '#moment-eyebrow', start: 'top 80%', end: 'bottom 30%', scrub: 1 }
+  });
+  momentTl
     .from('#moment-eyebrow',  { opacity: 0, y: 20, ease: 'power2.out', duration: 0.4 })
     .from('#moment-headline', { opacity: 0, y: 50, ease: 'power3.out', duration: 0.7 }, '-=0.2')
-    .from('#moment-c1', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.2')
-    .from('#moment-c2', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.4')
-    .from('#moment-c3', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.4');
-  })();
+    .from('#moment-c1', { opacity: 0, y: 40, ease: 'power2.out', duration: 0.5 }, '-=0.2')
+    .from('#moment-c2', { opacity: 0, y: 40, ease: 'power2.out', duration: 0.5 }, '-=0.35')
+    .from('#moment-c3', { opacity: 0, y: 40, ease: 'power2.out', duration: 0.5 }, '-=0.35');
 
-  /* ═══════════════════════════════════════════════════════
-     SECTION 5 — THREE PRINCIPLES: stagger fade-up
-  ═══════════════════════════════════════════════════════ */
-  (function(){
-    gsap.timeline({
-      scrollTrigger: {
-        trigger: '.principles-section',
-        start: 'top 80%',
-        toggleActions: 'play none none none',
-      }
-    })
-    .from('#principles-eyebrow', { opacity: 0, y: 20, ease: 'power2.out', duration: 0.5 })
-    .from('#principle-1', { opacity: 0, y: 50, ease: 'power2.out', duration: 0.6 }, '-=0.2')
-    .from('#principle-2', { opacity: 0, y: 50, ease: 'power2.out', duration: 0.6 }, '-=0.3')
-    .from('#principle-3', { opacity: 0, y: 50, ease: 'power2.out', duration: 0.6 }, '-=0.3');
-  })();
+  /* ── HOW WE BUILD ───────────────────────────────────── */
+  const prinTl = gsap.timeline({
+    scrollTrigger: { trigger: '#principles-eyebrow', start: 'top 80%', end: 'bottom 30%', scrub: 1 }
+  });
+  prinTl
+    .from('#principles-eyebrow', { opacity: 0, y: 20, ease: 'power2.out', duration: 0.4 })
+    .from('#prin-1', { opacity: 0, y: 40, ease: 'power2.out', duration: 0.5 }, '-=0.1')
+    .from('#prin-2', { opacity: 0, y: 40, ease: 'power2.out', duration: 0.5 }, '-=0.35')
+    .from('#prin-3', { opacity: 0, y: 40, ease: 'power2.out', duration: 0.5 }, '-=0.35');
 
-  /* ═══════════════════════════════════════════════════════
-     SECTION 6 — CTA: simple stagger fade-up
-  ═══════════════════════════════════════════════════════ */
-  (function(){
-    gsap.timeline({
-      scrollTrigger: {
-        trigger: '.about-cta-section',
-        start: 'top 80%',
-        toggleActions: 'play none none none',
-      }
-    })
+  /* ── CTA ────────────────────────────────────────────── */
+  const aboutCtaTl = gsap.timeline({
+    scrollTrigger: { trigger: '#about-cta-headline', start: 'top 80%', end: 'top 30%', scrub: 0.9 }
+  });
+  aboutCtaTl
     .from('#about-cta-headline', { opacity: 0, y: 50, ease: 'power3.out', duration: 0.7 })
     .from('#about-cta-buttons',  { opacity: 0, y: 30, ease: 'power2.out', duration: 0.5 }, '-=0.2');
-  })();
 
 })();
 </script>
