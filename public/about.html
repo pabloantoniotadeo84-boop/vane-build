@@ -345,12 +345,12 @@ body {
 .btn-ghost:hover  { border-color: var(--off-white); background: rgba(245,240,232,.06); }
 
 /* ============================================================
-   SECTION 1 — HERO (navy)
+   SECTION 1 — HERO (terracotta)
    ============================================================ */
 .about-hero {
   position: relative;
   min-height: 100dvh;
-  background: var(--navy);
+  background: var(--clay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -429,10 +429,10 @@ body {
 }
 
 /* ============================================================
-   SECTION 3 — WHAT WE BUILT (navy)
+   SECTION 3 — WHAT WE BUILT (off-white)
    ============================================================ */
 .built-section {
-  background: var(--navy);
+  background: var(--off-white);
   padding: 14vh 7vw 12vh;
 }
 .built-inner { max-width: 1200px; margin: 0 auto; }
@@ -451,8 +451,8 @@ body {
   gap: 1.5rem;
 }
 .built-card {
-  background: rgba(245, 240, 232, 0.04);
-  border: 1px solid rgba(245, 240, 232, 0.08);
+  background: #ffffff;
+  border: 1px solid rgba(10, 22, 40, 0.1);
   padding: 2.4rem 2rem;
   position: relative;
   will-change: transform;
@@ -480,7 +480,7 @@ body {
   font-weight: 700;
   font-size: 1.15rem;
   letter-spacing: -0.02em;
-  color: var(--off-white);
+  color: var(--navy);
   margin-bottom: 1rem;
   line-height: 1.2;
 }
@@ -488,7 +488,7 @@ body {
   font-family: var(--font-mono);
   font-size: .7rem;
   line-height: 1.75;
-  color: rgba(245, 240, 232, 0.38);
+  color: rgba(61, 46, 30, 0.55);
   letter-spacing: .02em;
 }
 @media (max-width: 900px) {
@@ -587,8 +587,8 @@ body {
 }
 .principle { will-change: transform; }
 .principle-title {
-  font-weight: 700;
-  font-size: clamp(1.15rem, 1.8vw, 1.45rem);
+  font-weight: 800;
+  font-size: 1.35rem;
   letter-spacing: -0.02em;
   color: var(--navy);
   margin-bottom: 1rem;
@@ -825,7 +825,7 @@ body.has-cursor button { cursor: none !important; }
 <!-- ═══════════════════════════════════════════════════════════
      SECTION 3 — WHAT WE BUILT
 ═══════════════════════════════════════════════════════════ -->
-<section class="built-section" data-theme="terra">
+<section class="built-section" data-theme="paper">
   <div class="built-inner">
     <div class="built-eyebrow" id="built-eyebrow">The infrastructure</div>
     <div class="built-cards">
@@ -1085,102 +1085,83 @@ body.has-cursor button { cursor: none !important; }
      SECTION 2 — THE SHIFT: fade-up on enter
   ═══════════════════════════════════════════════════════ */
   (function(){
-    const tl = gsap.timeline({
+    gsap.timeline({
       scrollTrigger: {
         trigger: '.shift-section',
         start: 'top 80%',
-        end: 'top 25%',
-        scrub: 0.9,
+        toggleActions: 'play none none none',
       }
-    });
-    tl
-      .from('#shift-eyebrow',   { opacity: 0, y: 20, ease: 'power2.out', duration: 0.4 })
-      .from('#shift-statement', { opacity: 0, y: 50, ease: 'power3.out', duration: 0.7 }, '-=0.2')
-      .from('#shift-body',      { opacity: 0, y: 30, ease: 'power2.out', duration: 0.5 }, '-=0.4');
+    })
+    .from('#shift-eyebrow',   { opacity: 0, y: 20, ease: 'power2.out', duration: 0.5 })
+    .from('#shift-statement', { opacity: 0, y: 30, ease: 'power3.out', duration: 0.7 }, '-=0.2')
+    .from('#shift-body',      { opacity: 0, y: 24, ease: 'power2.out', duration: 0.6 }, '-=0.3');
   })();
 
   /* ═══════════════════════════════════════════════════════
      SECTION 3 — WHAT WE BUILT: staggered cards
   ═══════════════════════════════════════════════════════ */
   (function(){
-    gsap.from('#built-eyebrow', {
-      scrollTrigger: { trigger: '.built-section', start: 'top 80%', end: 'top 40%', scrub: 0.8 },
-      opacity: 0, y: 30, ease: 'power2.out',
-    });
-    const cardTl = gsap.timeline({
+    gsap.timeline({
       scrollTrigger: {
-        trigger: '.built-cards',
-        start: 'top 85%',
-        end: 'bottom 40%',
-        scrub: 1,
+        trigger: '.built-section',
+        start: 'top 80%',
+        toggleActions: 'play none none none',
       }
-    });
-    ['#built-c1','#built-c2','#built-c3'].forEach((id, i) => {
-      cardTl.from(id, { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, i * 0.25);
-    });
+    })
+    .from('#built-eyebrow', { opacity: 0, y: 20, ease: 'power2.out', duration: 0.5 })
+    .from('#built-c1', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.2')
+    .from('#built-c2', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.3')
+    .from('#built-c3', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.3');
   })();
 
   /* ═══════════════════════════════════════════════════════
      SECTION 4 — THE MOMENT: headline + stagger cards
   ═══════════════════════════════════════════════════════ */
   (function(){
-    gsap.from('#moment-eyebrow', {
-      scrollTrigger: { trigger: '.moment-section', start: 'top 80%', end: 'top 40%', scrub: 0.8 },
-      opacity: 0, y: 20, ease: 'power2.out',
-    });
-    gsap.from('#moment-headline', {
-      scrollTrigger: { trigger: '.moment-section', start: 'top 75%', end: 'top 30%', scrub: 0.9 },
-      opacity: 0, y: 50, ease: 'power3.out',
-    });
-    const cardTl = gsap.timeline({
+    gsap.timeline({
       scrollTrigger: {
-        trigger: '.moment-cards',
-        start: 'top 85%',
-        end: 'bottom 40%',
-        scrub: 1,
+        trigger: '.moment-section',
+        start: 'top 80%',
+        toggleActions: 'play none none none',
       }
-    });
-    ['#moment-c1','#moment-c2','#moment-c3'].forEach((id, i) => {
-      cardTl.from(id, { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, i * 0.25);
-    });
+    })
+    .from('#moment-eyebrow',  { opacity: 0, y: 20, ease: 'power2.out', duration: 0.4 })
+    .from('#moment-headline', { opacity: 0, y: 50, ease: 'power3.out', duration: 0.7 }, '-=0.2')
+    .from('#moment-c1', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.2')
+    .from('#moment-c2', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.4')
+    .from('#moment-c3', { opacity: 0, y: 60, ease: 'power2.out', duration: 0.6 }, '-=0.4');
   })();
 
   /* ═══════════════════════════════════════════════════════
      SECTION 5 — THREE PRINCIPLES: stagger fade-up
   ═══════════════════════════════════════════════════════ */
   (function(){
-    gsap.from('#principles-eyebrow', {
-      scrollTrigger: { trigger: '.principles-section', start: 'top 80%', end: 'top 40%', scrub: 0.8 },
-      opacity: 0, y: 20, ease: 'power2.out',
-    });
-    const princTl = gsap.timeline({
+    gsap.timeline({
       scrollTrigger: {
-        trigger: '.principles-grid',
-        start: 'top 85%',
-        end: 'bottom 40%',
-        scrub: 1,
+        trigger: '.principles-section',
+        start: 'top 80%',
+        toggleActions: 'play none none none',
       }
-    });
-    ['#principle-1','#principle-2','#principle-3'].forEach((id, i) => {
-      princTl.from(id, { opacity: 0, y: 50, ease: 'power2.out', duration: 0.6 }, i * 0.25);
-    });
+    })
+    .from('#principles-eyebrow', { opacity: 0, y: 20, ease: 'power2.out', duration: 0.5 })
+    .from('#principle-1', { opacity: 0, y: 50, ease: 'power2.out', duration: 0.6 }, '-=0.2')
+    .from('#principle-2', { opacity: 0, y: 50, ease: 'power2.out', duration: 0.6 }, '-=0.3')
+    .from('#principle-3', { opacity: 0, y: 50, ease: 'power2.out', duration: 0.6 }, '-=0.3');
   })();
 
   /* ═══════════════════════════════════════════════════════
      SECTION 6 — CTA: simple stagger fade-up
   ═══════════════════════════════════════════════════════ */
   (function(){
-    const ctaTl = gsap.timeline({
+    gsap.timeline({
       scrollTrigger: {
         trigger: '.about-cta-section',
         start: 'top 80%',
-        end: 'top 30%',
-        scrub: 0.9,
+        toggleActions: 'play none none none',
       }
-    });
-    ctaTl
-      .from('#about-cta-headline', { opacity: 0, y: 50, ease: 'power3.out', duration: 0.7 })
-      .from('#about-cta-buttons',  { opacity: 0, y: 30, ease: 'power2.out', duration: 0.5 }, '-=0.2');
+    })
+    .from('#about-cta-headline', { opacity: 0, y: 50, ease: 'power3.out', duration: 0.7 })
+    .from('#about-cta-buttons',  { opacity: 0, y: 30, ease: 'power2.out', duration: 0.5 }, '-=0.2');
   })();
 
 })();
