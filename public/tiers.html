@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pricing — Vane</title>
+<meta name="description" content="Vane plans and pricing. Start free with full cryptographic primitives. Scale from Developer to Enterprise." />
+<meta property="og:type"        content="website" />
+<meta property="og:title"       content="Pricing — Vane" />
+<meta property="og:description" content="Start free. Scale when agents do." />
+<meta property="og:image"       content="/og.svg" />
+<meta property="og:url"         content="https://vane.build/tiers" />
+<meta name="twitter:card"        content="summary_large_image" />
+<meta name="twitter:title"       content="Pricing — Vane" />
+<meta name="twitter:description" content="Start free. Scale when agents do." />
+<meta name="twitter:image"       content="/og.svg" />
+<meta name="theme-color" content="#b5451b" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<!-- GSAP + ScrollTrigger — loaded at top per spec -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+<!-- Lenis stylesheet -->
+<link rel="stylesheet" href="https://unpkg.com/lenis@1.1.14/dist/lenis.css" />
+
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  --clay:        #b5451b;
+  --clay-light:  #c8552a;
+  --clay-dark:   #9a3716;
+  --warm-gray:   #f0ede8;
+  --navy:        #0a1628;
+  --ink-body:    #3d2e1e;
+  --off-white:   #f5f0e8;
+  --warm-white:  #ede8e0;
+  --font-sans:   'Bricolage Grotesque', system-ui, sans-serif;
+  --font-mono:   'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-power:  cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================================
+   RESET + BASE
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: auto;
+  font-optical-sizing: auto;
+}
+body {
+  font-family: var(--font-sans);
+  background: var(--navy);
+  color: var(--off-white);
+  overflow-x: hidden;
+}
+::selection { background: var(--clay); color: var(--off-white); }
+
+/* ============================================================
+   LOGO — fixed
+   ============================================================ */
+.logo {
+  position: fixed;
+  top: 32px; left: 7vw;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none;
+}
+.logo svg { display: block; transition: transform .4s var(--ease-out); }
+.logo:hover svg { transform: rotate(45deg); }
+.logo .mark line { stroke: var(--clay); stroke-width: 2; transition: stroke .3s ease; }
+.logo .word {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  transform: translateY(1px);
+  color: var(--navy);
+  transition: color .3s ease;
+}
+.logo.on-terra .mark line { stroke: var(--off-white); }
+.logo.on-terra .word     { color: var(--off-white); }
+
+/* ============================================================
+   NAV
+   ============================================================ */
+.nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  width: 100%;
+  height: 84px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1.4rem;
+  padding: 0 7vw;
+  background: rgba(10, 22, 40, 0.16);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border-bottom: 1px solid transparent;
+  transition: background .3s var(--ease-out), border-color .3s var(--ease-out);
+}
+.nav.scrolled {
+  background: rgba(10, 22, 40, 0.88);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-bottom: 1px solid rgba(181, 69, 27, 0.28);
+}
+.nav-menu {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0; padding: 0;
+}
+.nav-item { position: relative; display: flex; align-items: center; height: 100%; }
+.nav-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  color: var(--off-white);
+  opacity: 0.82;
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0.7rem;
+  cursor: pointer;
+  transition: color .2s ease, opacity .2s ease;
+}
+.nav-trigger:hover,
+.nav-item.open > .nav-trigger { color: var(--clay-light); opacity: 1; }
+.nav-trigger:focus-visible { outline: 1px solid var(--clay-light); outline-offset: 3px; opacity: 1; }
+.nav-trigger .caret {
+  width: 6px; height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform .2s var(--ease-out);
+  opacity: 0.65;
+}
+.nav-item.open > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem;
+  background: rgba(10, 22, 40, 0.96);
+  border: 1px solid rgba(181, 69, 27, 0.3);
+  border-radius: 4px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateX(-50%) translateY(-6px) scale(0.98);
+  transform-origin: top center;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s linear .2s;
+}
+.nav-item.open > .nav-dropdown {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-item.has-dropdown:hover > .nav-dropdown {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
+  }
+  .nav-item.has-dropdown:hover > .nav-trigger { color: var(--clay-light); opacity: 1; }
+  .nav-item.has-dropdown:hover > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
+}
+.nav-dropdown a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  color: rgba(245, 240, 232, 0.82);
+  padding: 0.6rem 0.7rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease, transform .12s ease;
+}
+.nav-dropdown a:hover  { background: rgba(181, 69, 27, 0.18); color: var(--off-white); }
+.nav-dropdown a:active { transform: scale(0.985); }
+.nav-dropdown a .ext   { opacity: 0.5; font-size: 0.85em; }
+.nav-actions { display: flex; align-items: center; gap: 0.7rem; margin-left: 0.4rem; }
+.nav-demo {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  padding: 0.55rem 1rem;
+  text-decoration: none;
+  background: transparent;
+  color: var(--off-white);
+  border: 1px solid rgba(245, 240, 232, 0.4);
+  border-radius: 3px;
+  transition: background .2s ease, border-color .2s ease, transform .15s ease;
+}
+.nav-demo:hover  { background: rgba(245, 240, 232, 0.1); border-color: var(--off-white); }
+.nav-demo:active { transform: scale(0.97); }
+.nav-cta {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  padding: 0.58rem 1.1rem;
+  text-decoration: none;
+  background: var(--clay);
+  color: var(--off-white);
+  border: 1px solid var(--clay);
+  border-radius: 3px;
+  transition: background .2s ease, transform .15s ease;
+}
+.nav-cta:hover  { background: var(--clay-light); border-color: var(--clay-light); }
+.nav-cta:active { transform: scale(0.97); }
+.nav-burger {
+  display: none;
+  position: relative;
+  width: 30px; height: 30px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.nav-burger span {
+  position: absolute;
+  left: 5px; right: 5px;
+  height: 2px;
+  background: var(--off-white);
+  border-radius: 2px;
+  transition: transform .25s var(--ease-out), opacity .2s ease-out, top .25s var(--ease-out);
+}
+.nav-burger span:nth-child(1) { top: 9px; }
+.nav-burger span:nth-child(2) { top: 14px; }
+.nav-burger span:nth-child(3) { top: 19px; }
+.nav-burger.open span:nth-child(1) { top: 14px; transform: rotate(45deg); }
+.nav-burger.open span:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
+.nav-burger.open span:nth-child(3) { top: 14px; transform: rotate(-45deg); }
+.nav-mobile {
+  position: fixed;
+  top: 84px; left: 0; right: 0;
+  z-index: 89;
+  background: rgba(10, 22, 40, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(181, 69, 27, 0.3);
+  padding: 1.4rem 7vw 2rem;
+  max-height: calc(100dvh - 84px);
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateY(-12px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .25s var(--ease-out), transform .25s var(--ease-out), visibility 0s linear .25s;
+}
+.nav-mobile.open {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .25s var(--ease-out), transform .25s var(--ease-out), visibility 0s;
+}
+.nav-mobile .mob-group { margin-bottom: 1.3rem; }
+.nav-mobile .mob-head {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--clay-light);
+  margin-bottom: 0.4rem;
+}
+.nav-mobile a {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  color: rgba(245, 240, 232, 0.86);
+  padding: 0.48rem 0;
+  transition: color .15s ease, transform .12s ease;
+}
+.nav-mobile a:hover  { color: var(--clay-light); }
+.nav-mobile a:active { transform: translateX(3px); }
+.nav-mobile .mob-actions { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 0.4rem; }
+.nav-mobile .mob-actions a { text-align: center; padding: 0.85rem; border-radius: 3px; }
+@media (max-width: 900px) {
+  .nav-menu, .nav-actions { display: none; }
+  .nav-burger { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav, .nav-dropdown, .nav-mobile, .nav-burger span, .nav-trigger .caret {
+    transition: opacity .15s ease, background-color .15s ease, border-color .15s ease, visibility 0s !important;
+  }
+  .nav-dropdown,
+  .nav-item.open > .nav-dropdown,
+  .nav-item.has-dropdown:hover > .nav-dropdown { transform: translateX(-50%) !important; }
+  .nav-mobile, .nav-mobile.open { transform: none !important; }
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  font-family: var(--font-mono);
+  font-size: .83rem;
+  letter-spacing: .06em;
+  padding: .95rem 1.9rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: background .2s ease, color .2s ease, border-color .2s ease, transform .15s ease;
+}
+.btn:active          { transform: scale(0.97); }
+.btn-clay            { background: var(--clay); color: var(--off-white); border-color: var(--clay); }
+.btn-clay:hover      { background: var(--clay-light); border-color: var(--clay-light); }
+.btn-ghost           { background: transparent; color: var(--off-white); border-color: rgba(245,240,232,.35); }
+.btn-ghost:hover     { border-color: var(--off-white); background: rgba(245,240,232,.06); }
+.btn-light           { background: var(--off-white); color: var(--clay-dark); border-color: var(--off-white); }
+.btn-light:hover     { background: var(--warm-white); border-color: var(--warm-white); }
+.btn-navy            { background: var(--navy); color: var(--off-white); border-color: var(--navy); }
+.btn-navy:hover      { background: #13233f; border-color: #13233f; }
+
+/* ============================================================
+   SECTION 1 — HERO (terracotta)
+   ============================================================ */
+.tiers-hero {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--clay);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  text-align: center;
+}
+.tiers-hero-content {
+  position: relative;
+  z-index: 1;
+  padding: 2rem 8vw;
+  max-width: 900px;
+}
+.tiers-eyebrow {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(245, 240, 232, 0.6);
+  margin-bottom: 1.6rem;
+  will-change: transform, opacity;
+}
+.tiers-headline {
+  font-weight: 800;
+  font-size: clamp(2.8rem, 6.5vw, 6.5rem);
+  line-height: 1.0;
+  letter-spacing: -0.04em;
+  color: var(--off-white);
+  text-wrap: balance;
+  margin-bottom: 2rem;
+  will-change: transform, opacity;
+}
+.tiers-sub {
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
+  line-height: 1.65;
+  color: rgba(245, 240, 232, 0.6);
+  max-width: 54ch;
+  margin: 0 auto;
+  will-change: transform, opacity;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tiers-eyebrow  { opacity: 0; transform: translateY(16px); animation: hFadeUp .6s  var(--ease-out) 0s   forwards; }
+  .tiers-headline { opacity: 0; transform: translateY(28px); animation: hFadeUp .7s  var(--ease-out) .2s  forwards; }
+  .tiers-sub      { opacity: 0; transform: translateY(20px); animation: hFadeUp .65s var(--ease-out) .4s  forwards; }
+}
+@keyframes hFadeUp { to { opacity: 1; transform: translateY(0); } }
+
+/* ============================================================
+   TIER SECTIONS — SHARED
+   ============================================================ */
+.tier-section {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.tier-navy  { background: var(--navy); }
+.tier-terra { background: var(--clay); }
+
+.tier-inner {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 8vh 7vw;
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  gap: 7vw;
+  align-items: start;
+  position: relative;
+  z-index: 1;
+}
+
+/* Left column */
+.tier-left { position: relative; }
+
+.tier-num {
+  position: absolute;
+  top: -0.28em;
+  left: -0.12em;
+  font-weight: 800;
+  font-size: clamp(120px, 18vw, 210px);
+  letter-spacing: -0.07em;
+  line-height: 0.85;
+  color: var(--off-white);
+  opacity: 0.13;
+  user-select: none;
+  pointer-events: none;
+  will-change: transform, opacity;
+  z-index: 0;
+}
+
+.tier-left-content {
+  position: relative;
+  z-index: 1;
+}
+
+.tier-name {
+  font-weight: 800;
+  font-size: clamp(2.6rem, 4vw, 4.8rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--off-white);
+  margin-bottom: 0.75rem;
+  will-change: transform, opacity;
+}
+
+.tier-price {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  color: rgba(245, 240, 232, 0.5);
+  margin-bottom: 1.6rem;
+  will-change: transform, opacity;
+}
+
+.tier-desc {
+  font-size: clamp(.92rem, 1.1vw, 1rem);
+  line-height: 1.7;
+  color: rgba(245, 240, 232, 0.72);
+  max-width: 34ch;
+  margin-bottom: 2.2rem;
+  will-change: transform, opacity;
+}
+
+.tier-cta { will-change: transform, opacity; }
+
+/* Right column — feature list */
+.tier-features {
+  list-style: none;
+  align-self: center;
+}
+
+.tier-feat {
+  display: flex;
+  align-items: baseline;
+  gap: 1.1rem;
+  padding: 1.1rem 0;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.1);
+  font-size: clamp(1rem, 1.25vw, 1.1rem);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--off-white);
+  will-change: transform, opacity;
+}
+.tier-feat:first-child { border-top: 1px solid rgba(245, 240, 232, 0.1); }
+
+.tier-feat::before {
+  content: '—';
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  flex-shrink: 0;
+}
+.tier-navy  .tier-feat::before { color: var(--clay-light); }
+.tier-terra .tier-feat::before { color: rgba(245, 240, 232, 0.4); }
+
+/* ============================================================
+   SECTION 6 — CLOSING CTA (off-white)
+   ============================================================ */
+.tiers-cta-section {
+  background: var(--off-white);
+  padding: 16vh 7vw 14vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.tiers-cta-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.tiers-cta-headline {
+  font-weight: 800;
+  font-size: clamp(2.6rem, 5vw, 5.5rem);
+  letter-spacing: -0.04em;
+  line-height: 1.0;
+  color: var(--navy);
+  margin-bottom: 1.4rem;
+  will-change: transform, opacity;
+}
+.tiers-cta-sub {
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--ink-body);
+  margin-bottom: 2.8rem;
+  max-width: 38ch;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+footer { background: var(--warm-gray); color: var(--navy); position: relative; z-index: 2; }
+footer .rule { height: 1px; background: var(--clay); }
+footer .inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 2rem;
+  padding: 2.8rem 7vw;
+}
+footer .f-logo { display: flex; align-items: center; gap: 11px; }
+footer .f-logo svg { display: block; }
+footer .f-logo .word { font-weight: 700; font-size: 1rem; letter-spacing: .08em; line-height: 1; transform: translateY(1px); color: var(--navy); }
+footer .f-logo line { stroke: var(--clay); stroke-width: 2; }
+footer .links { text-align: center; font-family: var(--font-mono); font-size: .78rem; letter-spacing: .06em; }
+footer .links a { color: var(--navy); text-decoration: none; opacity: .82; }
+footer .links a:hover { color: var(--clay); opacity: 1; }
+footer .built { text-align: right; font-family: var(--font-mono); font-size: .76rem; letter-spacing: .06em; color: var(--ink-body); }
+@media (max-width: 768px) {
+  footer .inner     { grid-template-columns: 1fr; text-align: center; gap: 1.3rem; }
+  footer .f-logo,
+  footer .built,
+  footer .links     { justify-content: center; text-align: center; }
+  footer .links a   { display: inline-block; padding: .5rem .35rem; }
+  .nav-mobile a     { min-height: 44px; display: flex; align-items: center; }
+  .nav-mobile .mob-actions a { min-height: 48px; justify-content: center; }
+}
+
+/* ============================================================
+   CUSTOM CURSOR
+   ============================================================ */
+#vane-cursor {
+  position: fixed; top: 0; left: 0;
+  width: 8px; height: 8px;
+  margin: -4px 0 0 -4px;
+  background: #b5451b;
+  opacity: .9;
+  box-shadow: 0 0 0 1.5px rgba(245, 240, 232, .9);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+  display: none;
+  transition: width .22s ease, height .22s ease, margin .22s ease;
+}
+body.has-cursor #vane-cursor { display: block; }
+body.has-cursor,
+body.has-cursor a,
+body.has-cursor button { cursor: none !important; }
+#vane-cursor.big { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px) {
+  .tier-inner {
+    grid-template-columns: 1fr;
+    gap: 3.5rem;
+    padding: 10vh 7vw;
+  }
+  .tier-num { font-size: clamp(80px, 22vw, 120px); }
+  .tier-features { align-self: auto; }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition-duration: .01ms !important; }
+  .tiers-eyebrow, .tiers-headline, .tiers-sub {
+    opacity: 1 !important; transform: none !important;
+  }
+  .tier-name, .tier-price, .tier-desc, .tier-cta,
+  .tier-feat,
+  .tiers-cta-headline, #tiers-cta-btn {
+    opacity: 1 !important; transform: none !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="vane-cursor" aria-hidden="true"></div>
+
+<!-- LOGO -->
+<a class="logo on-terra" href="/" aria-label="Vane home">
+  <svg class="mark" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+    <line x1="11" y1="2"  x2="11" y2="20" />
+    <line x1="2"  y1="11" x2="20" y2="11" />
+    <line x1="20" y1="11" x2="16" y2="8"  />
+    <line x1="20" y1="11" x2="16" y2="14" />
+    <line x1="11" y1="2"  x2="8"  y2="6"  />
+    <line x1="11" y1="2"  x2="14" y2="6"  />
+  </svg>
+  <span class="word">VANE</span>
+</a>
+
+<!-- NAV -->
+<nav class="nav on-terra" aria-label="Primary">
+  <ul class="nav-menu">
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Product <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="/product">How It Works</a>
+        <a role="menuitem" href="/product#passports">Agent Passports</a>
+        <a role="menuitem" href="/product#attestation">Attestation</a>
+        <a role="menuitem" href="/product#sdk">SDK</a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Security <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="/security">Security</a>
+        <a role="menuitem" href="/security#cryptographic-primitives">Cryptography</a>
+        <a role="menuitem" href="/security#verification-model">Merkle Tree</a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Developers <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://npmjs.com/package/@vane.build/sdk" target="_blank" rel="noopener noreferrer">npm Package <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://github.com/vane-build/vane" target="_blank" rel="noopener noreferrer">GitHub <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">SDK Reference <span class="ext" aria-hidden="true">↗</span></a>
+      </div>
+    </li>
+    <li class="nav-item">
+      <a class="nav-trigger" href="/#contact">Contact</a>
+    </li>
+  </ul>
+  <div class="nav-actions">
+    <a class="nav-demo" href="/#contact">Book a demo</a>
+    <a class="nav-cta"  href="/#contact">Request Access</a>
+  </div>
+  <button class="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-mobile">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MOBILE NAV -->
+<div class="nav-mobile" id="nav-mobile">
+  <div class="mob-group">
+    <div class="mob-head">Product</div>
+    <a href="/product">How It Works</a>
+    <a href="/product#passports">Agent Passports</a>
+    <a href="/product#attestation">Attestation</a>
+    <a href="/product#sdk">SDK</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Security</div>
+    <a href="/security">Security</a>
+    <a href="/security#cryptographic-primitives">Cryptography</a>
+    <a href="/security#verification-model">Merkle Tree</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Developers</div>
+    <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation ↗</a>
+    <a href="https://npmjs.com/package/@vane.build/sdk" target="_blank" rel="noopener noreferrer">npm Package ↗</a>
+    <a href="https://github.com/vane-build/vane" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Contact</div>
+    <a href="/#contact">Contact</a>
+  </div>
+  <div class="mob-actions">
+    <a class="nav-demo" href="/#contact">Book a demo</a>
+    <a class="nav-cta"  href="/#contact">Request Access</a>
+  </div>
+</div>
+
+<main id="smooth-wrapper">
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 1 — HERO
+═══════════════════════════════════════════════════════════ -->
+<section class="tiers-hero" id="tiers-top" data-theme="terra">
+  <div class="tiers-hero-content">
+    <div class="tiers-eyebrow" id="tiers-eyebrow">Plans &amp; Tiers</div>
+    <h1 class="tiers-headline" id="tiers-headline">Start free. Scale when agents do.</h1>
+    <p class="tiers-sub" id="tiers-sub">Every tier includes Ed25519 passport issuance, Merkle attestation, and offline verification. No lock-in. No surprises.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 2 — DEVELOPER TIER (navy)
+═══════════════════════════════════════════════════════════ -->
+<section class="tier-section tier-navy" id="tier-dev" data-theme="terra">
+  <div class="tier-inner">
+    <div class="tier-left">
+      <div class="tier-num" id="dev-label">01</div>
+      <div class="tier-left-content">
+        <div class="tier-name" id="dev-tier">Developer</div>
+        <div class="tier-price" id="dev-price">$0 / forever</div>
+        <p class="tier-desc" id="dev-desc">For engineers who want to build and test before committing. Full cryptographic primitives, no time limit.</p>
+        <a class="btn btn-ghost tier-cta" id="dev-cta" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Start building →</a>
+      </div>
+    </div>
+    <ul class="tier-features" aria-label="Developer tier features">
+      <li class="tier-feat" id="dev-f1">10,000 attestations per month</li>
+      <li class="tier-feat" id="dev-f2">Ed25519 passport issuance</li>
+      <li class="tier-feat" id="dev-f3">SHA-256 Merkle attestation</li>
+      <li class="tier-feat" id="dev-f4">@vane.build/sdk access</li>
+      <li class="tier-feat" id="dev-f5">API access</li>
+      <li class="tier-feat" id="dev-f6">Community support</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 3 — STARTUP TIER (terracotta)
+═══════════════════════════════════════════════════════════ -->
+<section class="tier-section tier-terra" id="tier-startup" data-theme="terra">
+  <div class="tier-inner">
+    <div class="tier-left">
+      <div class="tier-num" id="startup-label">02</div>
+      <div class="tier-left-content">
+        <div class="tier-name" id="startup-tier">Startup</div>
+        <div class="tier-price" id="startup-price">$99 / month</div>
+        <p class="tier-desc" id="startup-desc">For teams shipping agents to production. Unlimited agents, high volume, full integration support.</p>
+        <a class="btn btn-light tier-cta" id="startup-cta" href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">Request Access →</a>
+      </div>
+    </div>
+    <ul class="tier-features" aria-label="Startup tier features">
+      <li class="tier-feat" id="startup-f1">500,000 attestations per month</li>
+      <li class="tier-feat" id="startup-f2">Unlimited agents</li>
+      <li class="tier-feat" id="startup-f3">Everything in Developer</li>
+      <li class="tier-feat" id="startup-f4">Priority email support</li>
+      <li class="tier-feat" id="startup-f5">Audit log export</li>
+      <li class="tier-feat" id="startup-f6">LangChain · OpenAI Agents · MCP integrations</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 4 — GROWTH TIER (navy)
+═══════════════════════════════════════════════════════════ -->
+<section class="tier-section tier-navy" id="tier-growth" data-theme="terra">
+  <div class="tier-inner">
+    <div class="tier-left">
+      <div class="tier-num" id="growth-label">03</div>
+      <div class="tier-left-content">
+        <div class="tier-name" id="growth-tier">Growth</div>
+        <div class="tier-price" id="growth-price">$499 / month</div>
+        <p class="tier-desc" id="growth-desc">For scaling deployments hitting compliance gates. SLA-backed, team-ready, audit-export included.</p>
+        <a class="btn btn-ghost tier-cta" id="growth-cta" href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">Request Access →</a>
+      </div>
+    </div>
+    <ul class="tier-features" aria-label="Growth tier features">
+      <li class="tier-feat" id="growth-f1">2,000,000 attestations per month</li>
+      <li class="tier-feat" id="growth-f2">Unlimited agents</li>
+      <li class="tier-feat" id="growth-f3">Everything in Startup</li>
+      <li class="tier-feat" id="growth-f4">Up to 10 team seats</li>
+      <li class="tier-feat" id="growth-f5">Slack support channel</li>
+      <li class="tier-feat" id="growth-f6">99.9% uptime SLA</li>
+      <li class="tier-feat" id="growth-f7">SOC 2 audit log export</li>
+      <li class="tier-feat" id="growth-f8">Custom retention policy</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 5 — ENTERPRISE TIER (terracotta)
+═══════════════════════════════════════════════════════════ -->
+<section class="tier-section tier-terra" id="tier-ent" data-theme="terra">
+  <div class="tier-inner">
+    <div class="tier-left">
+      <div class="tier-num" id="ent-label">04</div>
+      <div class="tier-left-content">
+        <div class="tier-name" id="ent-tier">Enterprise</div>
+        <div class="tier-price" id="ent-price">Custom</div>
+        <p class="tier-desc" id="ent-desc">For regulated industries and large-scale deployments. Custom contracts, dedicated support, on-prem available.</p>
+        <a class="btn btn-light tier-cta" id="ent-cta" href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">Talk to us →</a>
+      </div>
+    </div>
+    <ul class="tier-features" aria-label="Enterprise tier features">
+      <li class="tier-feat" id="ent-f1">Unlimited attestations</li>
+      <li class="tier-feat" id="ent-f2">Unlimited agents</li>
+      <li class="tier-feat" id="ent-f3">Everything in Growth</li>
+      <li class="tier-feat" id="ent-f4">Unlimited team seats</li>
+      <li class="tier-feat" id="ent-f5">Dedicated support engineer</li>
+      <li class="tier-feat" id="ent-f6">Custom SLA</li>
+      <li class="tier-feat" id="ent-f7">On-prem deployment option</li>
+      <li class="tier-feat" id="ent-f8">EU AI Act compliance package</li>
+      <li class="tier-feat" id="ent-f9">Custom contract and invoicing</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 6 — CLOSING CTA (off-white)
+═══════════════════════════════════════════════════════════ -->
+<section class="tiers-cta-section" data-theme="paper">
+  <div class="tiers-cta-inner">
+    <h2 class="tiers-cta-headline" id="tiers-cta-headline">Not sure which tier fits?</h2>
+    <p class="tiers-cta-sub">Book a 15-minute call. We will figure it out together.</p>
+    <a class="btn btn-clay" id="tiers-cta-btn" href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">Book a call →</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer data-theme="paper">
+  <div class="rule"></div>
+  <div class="inner">
+    <div class="f-logo">
+      <svg width="20" height="20" viewBox="0 0 22 22" aria-hidden="true">
+        <line x1="11" y1="2"  x2="11" y2="20" />
+        <line x1="2"  y1="11" x2="20" y2="11" />
+        <line x1="20" y1="11" x2="16" y2="8"  />
+        <line x1="20" y1="11" x2="16" y2="14" />
+        <line x1="11" y1="2"  x2="8"  y2="6"  />
+        <line x1="11" y1="2"  x2="14" y2="6"  />
+      </svg>
+      <span class="word">VANE</span>
+    </div>
+    <div class="links">
+      <a href="https://docs.vane.build">docs.vane.build</a> ·
+      <a href="https://github.com/vane-build/vane">GitHub</a> ·
+      <a href="https://npmjs.com/package/@vane.build/sdk">npm</a> ·
+      <a href="/privacy">Privacy</a> ·
+      <a href="/terms">Terms</a> ·
+      <a href="/changelog">Changelog</a> ·
+      <a href="https://x.com/vane_build">@vane.build</a>
+    </div>
+    <div class="built">Built in Puerto Rico.</div>
+  </div>
+</footer>
+
+</main><!-- /#smooth-wrapper -->
+
+<!-- ════════════════════════════════════════════════════════════
+     NAV SCRIPT — dropdowns, hamburger, scroll state
+════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+  const nav    = document.querySelector('.nav');
+  const burger = document.querySelector('.nav-burger');
+  const mobile = document.getElementById('nav-mobile');
+  const items  = Array.from(document.querySelectorAll('.nav-item.has-dropdown'));
+  if(!nav) return;
+  const NAV_H = 84;
+  function closeDropdowns(except){
+    items.forEach(it=>{
+      if(it===except) return;
+      it.classList.remove('open');
+      const t=it.querySelector('.nav-trigger');
+      if(t) t.setAttribute('aria-expanded','false');
+    });
+  }
+  items.forEach(it=>{
+    const trigger=it.querySelector('.nav-trigger');
+    if(!trigger) return;
+    trigger.addEventListener('click',e=>{
+      e.preventDefault();
+      const willOpen=!it.classList.contains('open');
+      closeDropdowns(it);
+      it.classList.toggle('open',willOpen);
+      trigger.setAttribute('aria-expanded',String(willOpen));
+    });
+  });
+  function closeMobile(){
+    if(!mobile||!burger) return;
+    mobile.classList.remove('open');
+    burger.classList.remove('open');
+    burger.setAttribute('aria-expanded','false');
+    burger.setAttribute('aria-label','Open menu');
+  }
+  function openMobile(){
+    if(!mobile||!burger) return;
+    mobile.classList.add('open');
+    burger.classList.add('open');
+    burger.setAttribute('aria-expanded','true');
+    burger.setAttribute('aria-label','Close menu');
+  }
+  if(burger){ burger.addEventListener('click',()=>{ mobile.classList.contains('open')?closeMobile():openMobile(); }); }
+  window.addEventListener('resize',()=>{ if(window.innerWidth>900) closeMobile(); });
+  function scrollToEl(el){
+    const y=Math.max(0,el.getBoundingClientRect().top+window.scrollY-NAV_H);
+    window.scrollTo(0,y);
+  }
+  function onNavLink(e){
+    const a=e.target.closest('a');
+    if(!a) return;
+    closeDropdowns(null); closeMobile();
+    const href=a.getAttribute('href')||'';
+    if(href.charAt(0)==='#'){
+      const target=document.getElementById(href.slice(1));
+      if(target){ e.preventDefault(); e.stopImmediatePropagation(); scrollToEl(target); }
+    }
+  }
+  nav.addEventListener('click',onNavLink,true);
+  if(mobile) mobile.addEventListener('click',onNavLink,true);
+  document.addEventListener('click',e=>{ if(!e.target.closest('.nav-item.has-dropdown')) closeDropdowns(null); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeDropdowns(null); closeMobile(); } });
+  let ticking=false;
+  function onScroll(){
+    if(ticking) return;
+    ticking=true;
+    requestAnimationFrame(()=>{ nav.classList.toggle('scrolled',window.scrollY>50); ticking=false; });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  onScroll();
+})();
+</script>
+
+<!-- ════════════════════════════════════════════════════════════
+     LENIS
+════════════════════════════════════════════════════════════ -->
+<script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
+
+<!-- ════════════════════════════════════════════════════════════
+     GSAP + LENIS INTEGRATION + ALL SCROLL ANIMATIONS
+════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── Custom cursor ──────────────────────────────────── */
+  (function(){
+    if(reduceMotion || window.matchMedia('(hover:none)').matches) return;
+    const el = document.getElementById('vane-cursor');
+    if(!el) return;
+    document.body.classList.add('has-cursor');
+    let cx=-200,cy=-200,mx=-200,my=-200;
+    window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;},{passive:true});
+    document.querySelectorAll('.btn,button,.nav a,#tiers-cta-btn').forEach(b=>{
+      b.addEventListener('mouseenter',()=>el.classList.add('big'),{passive:true});
+      b.addEventListener('mouseleave',()=>el.classList.remove('big'),{passive:true});
+    });
+    (function tick(){ requestAnimationFrame(tick); cx+=(mx-cx)*.15; cy+=(my-cy)*.15; el.style.transform=`translate(${cx}px,${cy}px)`; })();
+  })();
+
+  /* ── Logo theme follow ──────────────────────────────── */
+  (function(){
+    const logo=document.querySelector('.logo');
+    const nav=document.querySelector('.nav');
+    const sections=document.querySelectorAll('[data-theme]');
+    if(!logo||!sections.length) return;
+    const io=new IntersectionObserver(entries=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting&&e.intersectionRatio>0.4){
+          const terra=e.target.getAttribute('data-theme')==='terra';
+          logo.classList.toggle('on-terra',terra);
+          if(nav) nav.classList.toggle('on-terra',terra);
+        }
+      });
+    },{threshold:[.4]});
+    sections.forEach(s=>io.observe(s));
+  })();
+
+  /* ── GSAP register ──────────────────────────────────── */
+  if(typeof gsap==='undefined'||typeof ScrollTrigger==='undefined') return;
+  gsap.registerPlugin(ScrollTrigger);
+
+  /* ── Lenis init + GSAP ticker integration ───────────── */
+  let lenis;
+  if(!reduceMotion && typeof Lenis!=='undefined'){
+    lenis = new Lenis({
+      duration: 1.1,
+      easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      smoothTouch: false,
+    });
+    gsap.ticker.add(time => lenis.raf(time * 1000));
+    gsap.ticker.lagSmoothing(0);
+    lenis.on('scroll', ScrollTrigger.update);
+  }
+
+  if(reduceMotion) return;
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 2 — DEVELOPER TIER
+  ═══════════════════════════════════════════════════════ */
+  gsap.set(['#dev-f1','#dev-f2','#dev-f3','#dev-f4','#dev-f5','#dev-f6'], { opacity: 0, x: 40 });
+  const devTl = gsap.timeline({
+    scrollTrigger: {
+      trigger: '#tier-dev',
+      start: 'top top',
+      end: '+=1200',
+      scrub: 1.2,
+      pin: true,
+      pinSpacing: true,
+      anticipatePin: 1,
+    }
+  });
+  devTl
+    .from('#dev-label', { opacity: 0, y: 60, ease: 'power3.out', duration: 0.6 })
+    .from('#dev-tier',  { opacity: 0, y: 40, ease: 'power2.out', duration: 0.5 }, '-=0.3')
+    .from('#dev-price', { opacity: 0, y: 30, ease: 'power2.out', duration: 0.4 }, '-=0.2')
+    .from('#dev-desc',  { opacity: 0, y: 20, ease: 'power2.out', duration: 0.4 }, '-=0.2')
+    .from('#dev-cta',   { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '-=0.1');
+  ['#dev-f1','#dev-f2','#dev-f3','#dev-f4','#dev-f5','#dev-f6'].forEach((id, i) => {
+    devTl.to(id, { opacity: 1, x: 0, ease: 'power2.out', duration: 0.4 }, '>-0.15');
+  });
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 3 — STARTUP TIER
+  ═══════════════════════════════════════════════════════ */
+  gsap.set(['#startup-f1','#startup-f2','#startup-f3','#startup-f4','#startup-f5','#startup-f6'], { opacity: 0, x: 40 });
+  const startupTl = gsap.timeline({
+    scrollTrigger: {
+      trigger: '#tier-startup',
+      start: 'top top',
+      end: '+=1200',
+      scrub: 1.2,
+      pin: true,
+      pinSpacing: true,
+      anticipatePin: 1,
+    }
+  });
+  startupTl
+    .from('#startup-label', { opacity: 0, y: 60, ease: 'power3.out', duration: 0.6 })
+    .from('#startup-tier',  { opacity: 0, y: 40, ease: 'power2.out', duration: 0.5 }, '-=0.3')
+    .from('#startup-price', { opacity: 0, y: 30, ease: 'power2.out', duration: 0.4 }, '-=0.2')
+    .from('#startup-desc',  { opacity: 0, y: 20, ease: 'power2.out', duration: 0.4 }, '-=0.2')
+    .from('#startup-cta',   { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '-=0.1');
+  ['#startup-f1','#startup-f2','#startup-f3','#startup-f4','#startup-f5','#startup-f6'].forEach(id => {
+    startupTl.to(id, { opacity: 1, x: 0, ease: 'power2.out', duration: 0.4 }, '>-0.15');
+  });
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 4 — GROWTH TIER
+  ═══════════════════════════════════════════════════════ */
+  gsap.set(['#growth-f1','#growth-f2','#growth-f3','#growth-f4','#growth-f5','#growth-f6','#growth-f7','#growth-f8'], { opacity: 0, x: 40 });
+  const growthTl = gsap.timeline({
+    scrollTrigger: {
+      trigger: '#tier-growth',
+      start: 'top top',
+      end: '+=1200',
+      scrub: 1.2,
+      pin: true,
+      pinSpacing: true,
+      anticipatePin: 1,
+    }
+  });
+  growthTl
+    .from('#growth-label', { opacity: 0, y: 60, ease: 'power3.out', duration: 0.6 })
+    .from('#growth-tier',  { opacity: 0, y: 40, ease: 'power2.out', duration: 0.5 }, '-=0.3')
+    .from('#growth-price', { opacity: 0, y: 30, ease: 'power2.out', duration: 0.4 }, '-=0.2')
+    .from('#growth-desc',  { opacity: 0, y: 20, ease: 'power2.out', duration: 0.4 }, '-=0.2')
+    .from('#growth-cta',   { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '-=0.1');
+  ['#growth-f1','#growth-f2','#growth-f3','#growth-f4','#growth-f5','#growth-f6','#growth-f7','#growth-f8'].forEach(id => {
+    growthTl.to(id, { opacity: 1, x: 0, ease: 'power2.out', duration: 0.4 }, '>-0.15');
+  });
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 5 — ENTERPRISE TIER
+  ═══════════════════════════════════════════════════════ */
+  gsap.set(['#ent-f1','#ent-f2','#ent-f3','#ent-f4','#ent-f5','#ent-f6','#ent-f7','#ent-f8','#ent-f9'], { opacity: 0, x: 40 });
+  const entTl = gsap.timeline({
+    scrollTrigger: {
+      trigger: '#tier-ent',
+      start: 'top top',
+      end: '+=1200',
+      scrub: 1.2,
+      pin: true,
+      pinSpacing: true,
+      anticipatePin: 1,
+    }
+  });
+  entTl
+    .from('#ent-label', { opacity: 0, y: 60, ease: 'power3.out', duration: 0.6 })
+    .from('#ent-tier',  { opacity: 0, y: 40, ease: 'power2.out', duration: 0.5 }, '-=0.3')
+    .from('#ent-price', { opacity: 0, y: 30, ease: 'power2.out', duration: 0.4 }, '-=0.2')
+    .from('#ent-desc',  { opacity: 0, y: 20, ease: 'power2.out', duration: 0.4 }, '-=0.2')
+    .from('#ent-cta',   { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '-=0.1');
+  ['#ent-f1','#ent-f2','#ent-f3','#ent-f4','#ent-f5','#ent-f6','#ent-f7','#ent-f8','#ent-f9'].forEach(id => {
+    entTl.to(id, { opacity: 1, x: 0, ease: 'power2.out', duration: 0.4 }, '>-0.15');
+  });
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 6 — CLOSING CTA
+  ═══════════════════════════════════════════════════════ */
+  gsap.timeline({
+    scrollTrigger: { trigger: '#tiers-cta-headline', start: 'top 80%', end: 'top 30%', scrub: 0.9 }
+  })
+  .from('#tiers-cta-headline', { opacity: 0, y: 50, ease: 'power3.out', duration: 0.7 })
+  .from('#tiers-cta-btn',      { opacity: 0, y: 30, ease: 'power2.out', duration: 0.5 }, '-=0.2');
+
+})();
+</script>
+</body>
+</html>
