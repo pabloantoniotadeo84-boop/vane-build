@@ -78,17 +78,19 @@ body {
 }
 .logo svg { display: block; transition: transform .4s var(--ease-out); }
 .logo:hover svg { transform: rotate(45deg); }
-.logo .mark line { stroke: var(--clay); stroke-width: 2; transition: stroke .3s ease; }
+.logo .mark line { stroke: var(--clay); stroke-width: 2; }
 .logo .word {
   font-weight: 700;
   font-size: 1.1rem;
   letter-spacing: 0.09em;
   line-height: 1;
   transform: translateY(1px);
-  color: var(--navy);
+  color: var(--off-white);
   transition: color .3s ease;
 }
-.logo.on-terra .mark line { stroke: var(--off-white); }
+/* Enterprise page: nav sits over dark backgrounds at all scroll positions.
+   Word stays off-white, mark stays terracotta — override the on-terra toggle. */
+.logo.on-terra .mark line { stroke: var(--clay); }
 .logo.on-terra .word     { color: var(--off-white); }
 
 /* ============================================================
@@ -1245,35 +1247,36 @@ footer .built { text-align: right; font-family: var(--font-mono); font-size: .76
   /* ═══════════════════════════════════════════════════════
      SECTION 4 — STACK: pinned on desktop, regular on mobile
   ═══════════════════════════════════════════════════════ */
-  ScrollTrigger.matchMedia({
-    '(min-width: 768px)': function(){
-      var tlStack = gsap.timeline({
-        scrollTrigger: {
-          trigger: '#stack-section',
-          start: 'top top',
-          end: '+=1800',
-          scrub: 1.2,
-          pin: true,
-          pinSpacing: true,
-          anticipatePin: 1,
-        }
-      });
-      tlStack
-        .from('#stack-title',    { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 })
-        .from('#stack-subtitle', { opacity: 0, y: 16, ease: 'power2.out', duration: 0.3 }, '-=0.1')
-        .from('#stack-diagram',  { opacity: 0, y: 24, ease: 'power2.out', duration: 0.4 }, '-=0.1')
-        .from('#callout-1',      { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '+=0.2')
-        .from('#callout-2',      { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '+=0.2')
-        .from('#callout-3',      { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '+=0.2');
-    },
-    '(max-width: 767px)': function(){
-      gsap.from('#stack-title',    { scrollTrigger: { trigger: '#stack-title',    start: 'top 85%', end: 'top 45%', scrub: 1.5 }, opacity: 0, y: 20, ease: 'power2.out' });
-      gsap.from('#stack-subtitle', { scrollTrigger: { trigger: '#stack-subtitle', start: 'top 85%', end: 'top 45%', scrub: 1.5 }, opacity: 0, y: 16, ease: 'power2.out' });
-      gsap.from('#stack-diagram',  { scrollTrigger: { trigger: '#stack-diagram',  start: 'top 85%', end: 'top 40%', scrub: 1.5 }, opacity: 0, y: 20, ease: 'power2.out' });
-      ['#callout-1','#callout-2','#callout-3'].forEach(function(id){
-        gsap.from(id, { scrollTrigger: { trigger: id, start: 'top 88%', end: 'top 50%', scrub: 1.5 }, opacity: 0, y: 16, ease: 'power2.out' });
-      });
-    }
+  /* gsap.matchMedia() is the correct API for GSAP 3.11+.
+     ScrollTrigger.matchMedia() was removed in 3.12.x. */
+  var mm = gsap.matchMedia();
+  mm.add('(min-width: 768px)', function(){
+    var tlStack = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#stack-section',
+        start: 'top top',
+        end: '+=1800',
+        scrub: 1.2,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+      }
+    });
+    tlStack
+      .from('#stack-title',    { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 })
+      .from('#stack-subtitle', { opacity: 0, y: 16, ease: 'power2.out', duration: 0.3 }, '-=0.1')
+      .from('#stack-diagram',  { opacity: 0, y: 24, ease: 'power2.out', duration: 0.4 }, '-=0.1')
+      .from('#callout-1',      { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '+=0.2')
+      .from('#callout-2',      { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '+=0.2')
+      .from('#callout-3',      { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '+=0.2');
+  });
+  mm.add('(max-width: 767px)', function(){
+    gsap.from('#stack-title',    { scrollTrigger: { trigger: '#stack-title',    start: 'top 85%', end: 'top 45%', scrub: 1.5 }, opacity: 0, y: 20, ease: 'power2.out' });
+    gsap.from('#stack-subtitle', { scrollTrigger: { trigger: '#stack-subtitle', start: 'top 85%', end: 'top 45%', scrub: 1.5 }, opacity: 0, y: 16, ease: 'power2.out' });
+    gsap.from('#stack-diagram',  { scrollTrigger: { trigger: '#stack-diagram',  start: 'top 85%', end: 'top 40%', scrub: 1.5 }, opacity: 0, y: 20, ease: 'power2.out' });
+    ['#callout-1','#callout-2','#callout-3'].forEach(function(id){
+      gsap.from(id, { scrollTrigger: { trigger: id, start: 'top 88%', end: 'top 50%', scrub: 1.5 }, opacity: 0, y: 16, ease: 'power2.out' });
+    });
   });
 
   /* ═══════════════════════════════════════════════════════
