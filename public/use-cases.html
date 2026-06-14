@@ -706,14 +706,90 @@ body.has-cursor button { cursor: none !important; }
 <!-- NAV -->
 <nav class="nav on-terra" aria-label="Primary">
   <ul class="nav-menu">
-    <li class="nav-item has-dropdown">
+    <li class="nav-item has-dropdown nav-item--active">
       <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Product <span class="caret" aria-hidden="true"></span></button>
       <div class="nav-dropdown" role="menu">
         <a role="menuitem" href="/product">How It Works</a>
-        <a role="menuitem" href="/product#passports">Agent Passports</a>
-        <a role="menuitem" href="/product#attestation">Attestation</a>
-        <a role="menuitem" href="/product#sdk">SDK</a>
+        <a role="menuitem" href="/use-cases">Use Cases</a>
+        <a role="menuitem" href="/why-vane">Why Vane</a>
+        <a role="menuitem" href="/changelog">Changelog</a>
       </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Developers <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://docs.vane.build/sdk" target="_blank" rel="noopener noreferrer">SDK Reference <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://github.com/pabloantoniotadeo84-boop/vane-build" target="_blank" rel="noopener noreferrer">GitHub <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://www.npmjs.com/org/vane.build" target="_blank" rel="noopener noreferrer">npm Packages <span class="ext" aria-hidden="true">↗</span></a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Security <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="/security">Security Overview</a>
+        <a role="menuitem" href="/security#crypto">Cryptographic Primitives</a>
+        <a role="menuitem" href="/security#compliance">Compliance</a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Company <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="/about">About</a>
+        <a role="menuitem" href="/blog">Blog</a>
+        <a role="menuitem" href="/changelog">Changelog</a>
+      </div>
+    </li>
+    <li class="nav-item">
+      <a class="nav-trigger" href="/tiers">Pricing</a>
+    </li>
+  </ul>
+  <div class="nav-actions">
+    <a class="nav-demo" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Docs →</a>
+    <a class="nav-cta"  href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">Request Access</a>
+  </div>
+  <button class="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-mobile">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MOBILE NAV -->
+<div class="nav-mobile" id="nav-mobile">
+  <div class="mob-group">
+    <div class="mob-head">Product</div>
+    <a href="/product">How It Works</a>
+    <a href="/use-cases">Use Cases</a>
+    <a href="/why-vane">Why Vane</a>
+    <a href="/changelog">Changelog</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Developers</div>
+    <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation ↗</a>
+    <a href="https://docs.vane.build/sdk" target="_blank" rel="noopener noreferrer">SDK Reference ↗</a>
+    <a href="https://github.com/pabloantoniotadeo84-boop/vane-build" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+    <a href="https://www.npmjs.com/org/vane.build" target="_blank" rel="noopener noreferrer">npm Packages ↗</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Security</div>
+    <a href="/security">Security Overview</a>
+    <a href="/security#crypto">Cryptographic Primitives</a>
+    <a href="/security#compliance">Compliance</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Company</div>
+    <a href="/about">About</a>
+    <a href="/blog">Blog</a>
+    <a href="/changelog">Changelog</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Pricing</div>
+    <a href="/tiers">Pricing</a>
+  </div>
+  <div class="mob-actions">
+    <a class="nav-demo" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Docs →</a>
+    <a class="nav-cta"  href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">Request Access</a>
+  </div>
+</div>
     </li>
     <li class="nav-item has-dropdown">
       <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Security <span class="caret" aria-hidden="true"></span></button>
