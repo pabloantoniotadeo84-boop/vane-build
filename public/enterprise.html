@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Enterprise — Vane Agent Identity Infrastructure</title>
+<meta name="description" content="Cryptographic identity for every AI agent in your stack. Ed25519-signed, Merkle-anchored, verifiable offline. Built for enterprise accountability." />
+<meta property="og:type"        content="website" />
+<meta property="og:title"       content="Enterprise — Vane Agent Identity Infrastructure" />
+<meta property="og:description" content="Your agents act. You stay accountable. Cryptographic identity for every AI agent in your stack." />
+<meta property="og:image"       content="/og.svg" />
+<meta property="og:url"         content="https://vane.build/enterprise" />
+<meta name="twitter:card"        content="summary_large_image" />
+<meta name="twitter:title"       content="Enterprise — Vane Agent Identity Infrastructure" />
+<meta name="twitter:description" content="Your agents act. You stay accountable." />
+<meta name="twitter:image"       content="/og.svg" />
+<meta name="theme-color" content="#b5451b" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/lenis@1.1.14/dist/lenis.css" />
+
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  --clay:        #b5451b;
+  --clay-light:  #c8552a;
+  --clay-dark:   #9a3716;
+  --warm-gray:   #f0ede8;
+  --navy:        #0a1628;
+  --ink-body:    #3d2e1e;
+  --off-white:   #f5f0e8;
+  --warm-white:  #ede8e0;
+  --near-black:  #0c0c0c;
+  --font-sans:   'Bricolage Grotesque', system-ui, sans-serif;
+  --font-mono:   'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-power:  cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================================
+   RESET + BASE
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: auto;
+  font-optical-sizing: auto;
+}
+body {
+  font-family: var(--font-sans);
+  background: var(--near-black);
+  color: var(--off-white);
+  overflow-x: hidden;
+}
+::selection { background: var(--clay); color: var(--off-white); }
+
+/* ============================================================
+   LOGO — fixed
+   ============================================================ */
+.logo {
+  position: fixed;
+  top: 32px; left: 7vw;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none;
+}
+.logo svg { display: block; transition: transform .4s var(--ease-out); }
+.logo:hover svg { transform: rotate(45deg); }
+.logo .mark line { stroke: var(--clay); stroke-width: 2; transition: stroke .3s ease; }
+.logo .word {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  transform: translateY(1px);
+  color: var(--navy);
+  transition: color .3s ease;
+}
+.logo.on-terra .mark line { stroke: var(--off-white); }
+.logo.on-terra .word     { color: var(--off-white); }
+
+/* ============================================================
+   NAV
+   ============================================================ */
+.nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  width: 100%;
+  height: 84px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1.4rem;
+  padding: 0 7vw;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background .3s var(--ease-out), border-color .3s var(--ease-out);
+}
+.nav.scrolled {
+  background: rgba(10, 22, 40, 0.92);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-bottom: 1px solid rgba(181, 69, 27, 0.28);
+}
+.nav-menu {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0; padding: 0;
+}
+.nav-item { position: relative; display: flex; align-items: center; height: 100%; }
+.nav-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  color: var(--off-white);
+  opacity: 0.82;
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0.7rem;
+  cursor: pointer;
+  transition: color .2s ease, opacity .2s ease;
+}
+.nav-trigger:hover,
+.nav-item.open > .nav-trigger { color: var(--clay-light); opacity: 1; }
+.nav-trigger:focus-visible { outline: 1px solid var(--clay-light); outline-offset: 3px; opacity: 1; }
+.nav-trigger .caret {
+  width: 6px; height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform .2s var(--ease-out);
+  opacity: 0.65;
+}
+.nav-item.open > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem;
+  background: rgba(10, 22, 40, 0.96);
+  border: 1px solid rgba(181, 69, 27, 0.3);
+  border-radius: 4px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateX(-50%) translateY(-6px) scale(0.98);
+  transform-origin: top center;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s linear .2s;
+}
+.nav-item.open > .nav-dropdown {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-item.has-dropdown:hover > .nav-dropdown {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity .2s var(--ease-out), transform .2s var(--ease-out), visibility 0s;
+  }
+  .nav-item.has-dropdown:hover > .nav-trigger { color: var(--clay-light); opacity: 1; }
+  .nav-item.has-dropdown:hover > .nav-trigger .caret { transform: translateY(1px) rotate(-135deg); }
+}
+.nav-dropdown a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  color: rgba(245, 240, 232, 0.82);
+  padding: 0.6rem 0.7rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease, transform .12s ease;
+}
+.nav-dropdown a:hover  { background: rgba(181, 69, 27, 0.18); color: var(--off-white); }
+.nav-dropdown a:active { transform: scale(0.985); }
+.nav-dropdown a .ext   { opacity: 0.5; font-size: 0.85em; }
+.nav-actions { display: flex; align-items: center; gap: 0.7rem; margin-left: 0.4rem; }
+.nav-demo {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  padding: 0.55rem 1rem;
+  text-decoration: none;
+  background: transparent;
+  color: var(--off-white);
+  border: 1px solid rgba(245, 240, 232, 0.4);
+  border-radius: 3px;
+  transition: background .2s ease, border-color .2s ease, transform .15s ease;
+}
+.nav-demo:hover  { background: rgba(245, 240, 232, 0.1); border-color: var(--off-white); }
+.nav-demo:active { transform: scale(0.97); }
+.nav-cta {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  padding: 0.58rem 1.1rem;
+  text-decoration: none;
+  background: var(--clay);
+  color: var(--off-white);
+  border: 1px solid var(--clay);
+  border-radius: 3px;
+  transition: background .2s ease, transform .15s ease;
+}
+.nav-cta:hover  { background: var(--clay-light); border-color: var(--clay-light); }
+.nav-cta:active { transform: scale(0.97); }
+.nav-item--active { position: relative; }
+.nav-item--active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0.5rem; right: 0.5rem;
+  height: 2px;
+  background: var(--clay-light);
+  border-radius: 1px;
+}
+.nav-item--active > .nav-trigger { color: var(--clay-light) !important; opacity: 1 !important; }
+.nav-burger {
+  display: none;
+  position: relative;
+  width: 30px; height: 30px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.nav-burger span {
+  position: absolute;
+  left: 5px; right: 5px;
+  height: 2px;
+  background: var(--off-white);
+  border-radius: 2px;
+  transition: transform .25s var(--ease-out), opacity .2s ease-out, top .25s var(--ease-out);
+}
+.nav-burger span:nth-child(1) { top: 9px; }
+.nav-burger span:nth-child(2) { top: 14px; }
+.nav-burger span:nth-child(3) { top: 19px; }
+.nav-burger.open span:nth-child(1) { top: 14px; transform: rotate(45deg); }
+.nav-burger.open span:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
+.nav-burger.open span:nth-child(3) { top: 14px; transform: rotate(-45deg); }
+.nav-mobile {
+  position: fixed;
+  top: 84px; left: 0; right: 0;
+  z-index: 89;
+  background: rgba(10, 22, 40, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(181, 69, 27, 0.3);
+  padding: 1.4rem 7vw 2rem;
+  max-height: calc(100dvh - 84px);
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateY(-12px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .25s var(--ease-out), transform .25s var(--ease-out), visibility 0s linear .25s;
+}
+.nav-mobile.open {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .25s var(--ease-out), transform .25s var(--ease-out), visibility 0s;
+}
+.nav-mobile .mob-group { margin-bottom: 1.3rem; }
+.nav-mobile .mob-head {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--clay-light);
+  margin-bottom: 0.4rem;
+}
+.nav-mobile a {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  color: rgba(245, 240, 232, 0.86);
+  padding: 0.48rem 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  transition: color .15s ease, transform .12s ease;
+}
+.nav-mobile a:hover  { color: var(--clay-light); }
+.nav-mobile a:active { transform: translateX(3px); }
+.nav-mobile .mob-actions { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 0.4rem; }
+.nav-mobile .mob-actions a { text-align: center; padding: 0.85rem; border-radius: 3px; min-height: 48px; justify-content: center; }
+@media (max-width: 900px) {
+  .nav-menu, .nav-actions { display: none; }
+  .nav-burger { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav, .nav-dropdown, .nav-mobile, .nav-burger span, .nav-trigger .caret {
+    transition: opacity .15s ease, background-color .15s ease, border-color .15s ease, visibility 0s !important;
+  }
+  .nav-dropdown,
+  .nav-item.open > .nav-dropdown,
+  .nav-item.has-dropdown:hover > .nav-dropdown { transform: translateX(-50%) !important; }
+  .nav-mobile, .nav-mobile.open { transform: none !important; }
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  font-family: var(--font-mono);
+  font-size: .83rem;
+  letter-spacing: .06em;
+  padding: .95rem 1.9rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: background .2s ease, color .2s ease, border-color .2s ease, transform .15s ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn-pill {
+  border-radius: 100px;
+  background: var(--clay);
+  color: var(--off-white);
+  border-color: var(--clay);
+  padding: 1rem 2.2rem;
+  font-size: .85rem;
+}
+.btn-pill:hover  { background: var(--clay-light); border-color: var(--clay-light); }
+.btn-pill:active { transform: scale(0.97); }
+.btn-ghost-pill {
+  border-radius: 100px;
+  background: transparent;
+  color: var(--off-white);
+  border-color: rgba(245,240,232,.35);
+  padding: 1rem 2.2rem;
+  font-size: .85rem;
+}
+.btn-ghost-pill:hover { border-color: rgba(245,240,232,.7); background: rgba(245,240,232,.06); }
+.btn-light {
+  background: var(--off-white);
+  color: var(--clay-dark);
+  border-color: var(--off-white);
+}
+.btn-light:hover { background: var(--warm-white); }
+
+/* ============================================================
+   hFadeUp KEYFRAME
+   ============================================================ */
+@keyframes hFadeUp { to { opacity: 1; transform: translateY(0); } }
+
+/* ============================================================
+   SECTION 1 — HERO
+   ============================================================ */
+#hero-ent {
+  min-height: 100dvh;
+  background: var(--near-black);
+  display: flex;
+  align-items: center;
+  padding: 14vh 7vw 10vh;
+  position: relative;
+}
+.hero-ent-inner {
+  max-width: 860px;
+  position: relative;
+  z-index: 1;
+}
+#ent-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--clay);
+  margin-bottom: 2.2rem;
+  display: block;
+}
+#ent-h1 {
+  font-weight: 700;
+  font-size: clamp(44px, 5.4vw, 72px);
+  line-height: 1.0;
+  letter-spacing: -0.035em;
+  color: var(--off-white);
+  margin-bottom: 2rem;
+}
+.h1-line { display: block; }
+#ent-subhead {
+  font-size: 18px;
+  line-height: 1.75;
+  color: rgba(245, 240, 232, 0.6);
+  max-width: 560px;
+  margin-bottom: 3.2rem;
+}
+#ent-cta-wrap {
+  display: flex;
+}
+@media (prefers-reduced-motion: no-preference) {
+  #ent-eyebrow   { opacity: 0; transform: translateY(18px); animation: hFadeUp .7s  var(--ease-out) .05s  forwards; }
+  #ent-h1-line1  { opacity: 0; transform: translateY(24px); animation: hFadeUp .75s var(--ease-out) .18s  forwards; }
+  #ent-h1-line2  { opacity: 0; transform: translateY(24px); animation: hFadeUp .75s var(--ease-out) .32s  forwards; }
+  #ent-subhead   { opacity: 0; transform: translateY(18px); animation: hFadeUp .7s  var(--ease-out) .48s  forwards; }
+  #ent-cta-wrap  { opacity: 0; transform: translateY(14px); animation: hFadeUp .65s var(--ease-out) .64s  forwards; }
+}
+
+/* ============================================================
+   SECTION 2 — URGENCY BAR
+   ============================================================ */
+#urgency-bar {
+  background: var(--clay);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7vw;
+  min-height: 64px;
+  gap: 2rem;
+}
+#urgency-bar .ub-left {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--off-white);
+  line-height: 1.4;
+}
+#urgency-bar .ub-sep {
+  width: 1px;
+  height: 28px;
+  background: rgba(245, 240, 232, 0.25);
+  flex-shrink: 0;
+}
+#urgency-bar .ub-right {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--off-white);
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+#urgency-bar .ub-count {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+@media (max-width: 600px) {
+  #urgency-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.2rem 7vw;
+    gap: 0.6rem;
+  }
+  #urgency-bar .ub-sep { display: none; }
+}
+
+/* ============================================================
+   SECTION 3 — PROOF ROWS
+   ============================================================ */
+#proof-section {
+  background: var(--off-white);
+  padding: 0;
+}
+.proof-rows {
+  max-width: 100%;
+  border-top: 0.5px solid rgba(10, 22, 40, 0.15);
+}
+.proof-row {
+  display: flex;
+  align-items: flex-start;
+  min-height: 80px;
+  border-bottom: 0.5px solid rgba(10, 22, 40, 0.15);
+  padding: 0 7vw;
+  gap: 0;
+  will-change: transform;
+}
+.proof-row-label {
+  width: 160px;
+  flex-shrink: 0;
+  padding: 1.5rem 2.5rem 1.5rem 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--clay);
+  line-height: 1.4;
+  padding-top: calc(1.5rem + 1px);
+}
+.proof-row-content {
+  flex: 1;
+  padding: 1.5rem 0;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--navy);
+  border-left: 0.5px solid rgba(10, 22, 40, 0.12);
+  padding-left: 2.5rem;
+}
+@media (max-width: 640px) {
+  .proof-row { flex-direction: column; padding: 1.5rem 7vw; gap: 0; }
+  .proof-row-label { width: auto; padding: 0 0 0.6rem 0; border-left: none; }
+  .proof-row-content { border-left: none; padding-left: 0; }
+}
+
+/* ============================================================
+   SECTION 4 — STACK (pinned)
+   ============================================================ */
+#stack-section {
+  min-height: 100dvh;
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10vh 7vw;
+  position: relative;
+  overflow: hidden;
+}
+.stack-inner {
+  max-width: 760px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+}
+#stack-title {
+  font-weight: 700;
+  font-size: clamp(28px, 3.2vw, 40px);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--off-white);
+  margin-bottom: 1rem;
+  will-change: transform;
+}
+#stack-subtitle {
+  font-size: 18px;
+  line-height: 1.65;
+  color: rgba(245, 240, 232, 0.6);
+  max-width: 480px;
+  margin-bottom: 3.5rem;
+  will-change: transform;
+}
+#stack-diagram {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  margin-bottom: 3.5rem;
+  will-change: transform;
+}
+.stack-callouts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  width: 100%;
+  background: rgba(245, 240, 232, 0.08);
+  border: 1px solid rgba(245, 240, 232, 0.08);
+}
+.callout {
+  background: var(--navy);
+  padding: 1.8rem 1.6rem;
+  text-align: left;
+  will-change: transform;
+}
+.callout-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--clay);
+  margin-bottom: 0.75rem;
+  display: block;
+}
+.callout-body {
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgba(245, 240, 232, 0.55);
+}
+@media (max-width: 640px) {
+  .stack-callouts { grid-template-columns: 1fr; }
+  .callout { text-align: left; }
+  #stack-diagram { max-width: 100%; }
+}
+
+/* ============================================================
+   SECTION 5 — TRUST SIGNALS
+   ============================================================ */
+#trust-section {
+  background: var(--off-white);
+  padding: 12vh 7vw;
+}
+.trust-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+#trust-title {
+  font-weight: 700;
+  font-size: clamp(26px, 3vw, 36px);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--navy);
+  margin-bottom: 4rem;
+  will-change: transform;
+}
+.trust-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: rgba(10, 22, 40, 0.12);
+  border: 1px solid rgba(10, 22, 40, 0.12);
+}
+.trust-card {
+  background: var(--off-white);
+  padding: 2.4rem 2rem;
+  will-change: transform;
+}
+.trust-card-icon {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 1.4rem;
+  display: block;
+}
+.trust-card-label {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: var(--navy);
+  margin-bottom: 0.75rem;
+  line-height: 1.3;
+}
+.trust-card-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(10, 22, 40, 0.55);
+}
+@media (max-width: 768px) {
+  .trust-cards { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   SECTION 6 — CTA (mirrors hero)
+   ============================================================ */
+#cta-section {
+  min-height: 100dvh;
+  background: var(--near-black);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12vh 7vw;
+  text-align: center;
+  position: relative;
+}
+#cta-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 50% at 50% 40%, rgba(181, 69, 27, 0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cta-ent-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 640px;
+}
+#cta2-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--clay);
+  margin-bottom: 2rem;
+  will-change: transform;
+}
+#cta2-headline {
+  font-weight: 700;
+  font-size: clamp(34px, 4vw, 48px);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  color: var(--off-white);
+  margin-bottom: 1.8rem;
+  will-change: transform;
+}
+#cta2-sub {
+  font-size: 16px;
+  line-height: 1.75;
+  color: rgba(245, 240, 232, 0.6);
+  max-width: 540px;
+  margin-bottom: 3rem;
+  will-change: transform;
+}
+#cta2-cta-wrap {
+  margin-bottom: 2rem;
+  will-change: transform;
+}
+#cta2-fine {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: rgba(245, 240, 232, 0.35);
+  will-change: transform;
+}
+#cta2-fine a {
+  color: rgba(245, 240, 232, 0.45);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.2);
+  padding-bottom: 1px;
+  transition: color .2s ease, border-color .2s ease;
+}
+#cta2-fine a:hover { color: rgba(245, 240, 232, 0.7); border-color: rgba(245, 240, 232, 0.45); }
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+footer { background: var(--warm-gray); color: var(--navy); position: relative; z-index: 2; }
+footer .rule { height: 1px; background: var(--clay); }
+footer .inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 2rem;
+  padding: 2.8rem 7vw;
+}
+footer .f-logo { display: flex; align-items: center; gap: 11px; }
+footer .f-logo svg { display: block; }
+footer .f-logo .word { font-weight: 700; font-size: 1rem; letter-spacing: .08em; line-height: 1; transform: translateY(1px); color: var(--navy); }
+footer .f-logo line { stroke: var(--clay); stroke-width: 2; }
+footer .links { text-align: center; font-family: var(--font-mono); font-size: .78rem; letter-spacing: .06em; }
+footer .links a { color: var(--navy); text-decoration: none; opacity: .82; }
+footer .links a:hover { color: var(--clay); opacity: 1; }
+footer .built { text-align: right; font-family: var(--font-mono); font-size: .76rem; letter-spacing: .06em; color: var(--ink-body); }
+@media (max-width: 768px) {
+  footer .inner       { grid-template-columns: 1fr; text-align: center; gap: 1.3rem; }
+  footer .f-logo,
+  footer .built,
+  footer .links       { justify-content: center; text-align: center; }
+  footer .links a     { display: inline-block; padding: .5rem .35rem; }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition-duration: .01ms !important; }
+  #ent-eyebrow, #ent-h1-line1, #ent-h1-line2, #ent-subhead, #ent-cta-wrap,
+  .proof-row, #stack-title, #stack-subtitle, #stack-diagram,
+  #callout-1, #callout-2, #callout-3,
+  #trust-title, #trust-card-1, #trust-card-2, #trust-card-3,
+  #cta2-eyebrow, #cta2-headline, #cta2-sub, #cta2-cta-wrap, #cta2-fine {
+    opacity: 1 !important; transform: none !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGO -->
+<a class="logo on-terra" href="/" aria-label="Vane home">
+  <svg class="mark" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+    <line x1="11" y1="2"  x2="11" y2="20" />
+    <line x1="2"  y1="11" x2="20" y2="11" />
+    <line x1="20" y1="11" x2="16" y2="8"  />
+    <line x1="20" y1="11" x2="16" y2="14" />
+    <line x1="11" y1="2"  x2="8"  y2="6"  />
+    <line x1="11" y1="2"  x2="14" y2="6"  />
+  </svg>
+  <span class="word">VANE</span>
+</a>
+
+<!-- NAV -->
+<nav class="nav on-terra" aria-label="Primary">
+  <ul class="nav-menu">
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Product <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="/product">How It Works</a>
+        <a role="menuitem" href="/use-cases">Use Cases</a>
+        <a role="menuitem" href="/why-vane">Why Vane</a>
+        <a role="menuitem" href="/changelog">Changelog</a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Developers <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://docs.vane.build/sdk" target="_blank" rel="noopener noreferrer">SDK Reference <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://github.com/pabloantoniotadeo84-boop/vane-build" target="_blank" rel="noopener noreferrer">GitHub <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://www.npmjs.com/org/vane.build" target="_blank" rel="noopener noreferrer">npm Packages <span class="ext" aria-hidden="true">↗</span></a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Security <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="/security">Security Overview</a>
+        <a role="menuitem" href="/security#crypto">Cryptographic Primitives</a>
+        <a role="menuitem" href="/security#compliance">Compliance</a>
+      </div>
+    </li>
+    <li class="nav-item has-dropdown">
+      <button class="nav-trigger" type="button" aria-haspopup="true" aria-expanded="false">Company <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown" role="menu">
+        <a role="menuitem" href="/about">About</a>
+        <a role="menuitem" href="/blog">Blog</a>
+        <a role="menuitem" href="/changelog">Changelog</a>
+      </div>
+    </li>
+    <li class="nav-item">
+      <a class="nav-trigger" href="/tiers">Pricing</a>
+    </li>
+  </ul>
+  <div class="nav-actions">
+    <a class="nav-demo" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Docs →</a>
+    <a class="nav-cta"  href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">Request Access</a>
+  </div>
+  <button class="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-mobile">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MOBILE NAV -->
+<div class="nav-mobile" id="nav-mobile">
+  <div class="mob-group">
+    <div class="mob-head">Product</div>
+    <a href="/product">How It Works</a>
+    <a href="/use-cases">Use Cases</a>
+    <a href="/why-vane">Why Vane</a>
+    <a href="/changelog">Changelog</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Developers</div>
+    <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation ↗</a>
+    <a href="https://docs.vane.build/sdk" target="_blank" rel="noopener noreferrer">SDK Reference ↗</a>
+    <a href="https://github.com/pabloantoniotadeo84-boop/vane-build" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+    <a href="https://www.npmjs.com/org/vane.build" target="_blank" rel="noopener noreferrer">npm Packages ↗</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Security</div>
+    <a href="/security">Security Overview</a>
+    <a href="/security#crypto">Cryptographic Primitives</a>
+    <a href="/security#compliance">Compliance</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Company</div>
+    <a href="/about">About</a>
+    <a href="/blog">Blog</a>
+    <a href="/changelog">Changelog</a>
+  </div>
+  <div class="mob-group">
+    <div class="mob-head">Pricing</div>
+    <a href="/tiers">Pricing</a>
+  </div>
+  <div class="mob-actions">
+    <a class="nav-demo" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Docs →</a>
+    <a class="nav-cta"  href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">Request Access</a>
+  </div>
+</div>
+
+<main id="smooth-wrapper">
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 1 — HERO
+═══════════════════════════════════════════════════════════ -->
+<section id="hero-ent" data-theme="terra">
+  <div class="hero-ent-inner">
+    <span id="ent-eyebrow">Enterprise Infrastructure</span>
+    <h1 id="ent-h1">
+      <span class="h1-line" id="ent-h1-line1">Your agents act.</span>
+      <span class="h1-line" id="ent-h1-line2">You stay accountable.</span>
+    </h1>
+    <p id="ent-subhead">Vane issues cryptographic identities to every AI agent in your stack. Every action is signed, anchored, and verifiable — without a live call back to us.</p>
+    <div id="ent-cta-wrap">
+      <a class="btn btn-pill" href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">Schedule a call →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 2 — URGENCY BAR
+═══════════════════════════════════════════════════════════ -->
+<div id="urgency-bar" role="complementary" aria-label="EU AI Act deadline">
+  <div class="ub-left">EU AI Act Phase 2 — deployer transparency obligations</div>
+  <div class="ub-sep" aria-hidden="true"></div>
+  <div class="ub-right">
+    <span id="countdown" class="ub-count">—</span>
+    <span>days remaining</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 3 — PROOF ROWS
+═══════════════════════════════════════════════════════════ -->
+<section id="proof-section" data-theme="paper">
+  <div class="proof-rows">
+    <div class="proof-row" id="proof-row-1">
+      <div class="proof-row-label">The Problem</div>
+      <div class="proof-row-content">Agent actions are unattributable. An incident happens — a financial transaction, a data access, a decision — and you cannot prove which agent acted, under whose authority, within what scope.</div>
+    </div>
+    <div class="proof-row" id="proof-row-2">
+      <div class="proof-row-label">Vane Answers</div>
+      <div class="proof-row-content">Ed25519-signed passports for every agent. Every action anchored in a SHA-256 Merkle tree. Verification works offline — no round-trip to Vane on the hot path. Audit trail is yours.</div>
+    </div>
+    <div class="proof-row" id="proof-row-3">
+      <div class="proof-row-label">The Evidence</div>
+      <div class="proof-row-content">273 passing tests. 5 published packages under @vane.build. 200+ weekly npm downloads. Live infrastructure on Railway. Cross-organizational by design — nobody else owns this.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 4 — HOW IT FITS YOUR STACK (pinned)
+═══════════════════════════════════════════════════════════ -->
+<section id="stack-section" data-theme="terra">
+  <div class="stack-inner">
+    <h2 id="stack-title">Zero changes to your agents.</h2>
+    <p id="stack-subtitle">Vane sits between your orchestration layer and the world. One SDK call.</p>
+
+    <!-- Architecture diagram -->
+    <svg id="stack-diagram" viewBox="0 0 560 228" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Architecture diagram showing orchestration layer connecting through Vane trust layer to external agents and APIs, with attestation log below">
+      <defs>
+        <marker id="ah-h" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0, 7 2.5, 0 5" fill="rgba(245,240,232,0.45)" />
+        </marker>
+        <marker id="ah-d" markerWidth="5" markerHeight="7" refX="2.5" refY="6" orient="auto">
+          <polygon points="0 0, 5 0, 2.5 7" fill="rgba(245,240,232,0.35)" />
+        </marker>
+      </defs>
+
+      <!-- Left box: Your orchestration layer -->
+      <rect x="0" y="42" width="152" height="72" fill="none" stroke="rgba(245,240,232,0.35)" stroke-width="1"/>
+      <text x="76" y="74" text-anchor="middle" fill="rgba(245,240,232,0.72)" font-family="'Bricolage Grotesque',system-ui,sans-serif" font-size="11.5" font-weight="500">Your orchestration</text>
+      <text x="76" y="91" text-anchor="middle" fill="rgba(245,240,232,0.72)" font-family="'Bricolage Grotesque',system-ui,sans-serif" font-size="11.5" font-weight="500">layer</text>
+
+      <!-- Arrow L → C -->
+      <line x1="152" y1="78" x2="196" y2="78" stroke="rgba(245,240,232,0.38)" stroke-width="1" marker-end="url(#ah-h)"/>
+
+      <!-- Center box: Vane (terracotta, slightly taller) -->
+      <rect x="200" y="30" width="160" height="96" fill="#b5451b"/>
+      <text x="280" y="66" text-anchor="middle" fill="#f5f0e8" font-family="'Bricolage Grotesque',system-ui,sans-serif" font-size="15" font-weight="700">Vane</text>
+      <text x="280" y="86" text-anchor="middle" fill="rgba(245,240,232,0.65)" font-family="'Geist Mono','JetBrains Mono',monospace" font-size="9.5" letter-spacing="0.12em">TRUST LAYER</text>
+
+      <!-- Arrow C → R -->
+      <line x1="360" y1="78" x2="404" y2="78" stroke="rgba(245,240,232,0.38)" stroke-width="1" marker-end="url(#ah-h)"/>
+
+      <!-- Right box: External agents & APIs -->
+      <rect x="408" y="42" width="152" height="72" fill="none" stroke="rgba(245,240,232,0.35)" stroke-width="1"/>
+      <text x="484" y="74" text-anchor="middle" fill="rgba(245,240,232,0.72)" font-family="'Bricolage Grotesque',system-ui,sans-serif" font-size="11.5" font-weight="500">External agents</text>
+      <text x="484" y="91" text-anchor="middle" fill="rgba(245,240,232,0.72)" font-family="'Bricolage Grotesque',system-ui,sans-serif" font-size="11.5" font-weight="500">&amp; APIs</text>
+
+      <!-- Arrow down from Vane -->
+      <line x1="280" y1="126" x2="280" y2="164" stroke="rgba(245,240,232,0.28)" stroke-width="1" marker-end="url(#ah-d)"/>
+      <text x="290" y="151" text-anchor="start" fill="rgba(245,240,232,0.28)" font-family="'Geist Mono','JetBrains Mono',monospace" font-size="8.5" letter-spacing="0.08em">signed + anchored</text>
+
+      <!-- Log box: Immutable attestation log -->
+      <rect x="180" y="167" width="200" height="54" fill="none" stroke="#1a6b5a" stroke-width="1"/>
+      <text x="280" y="191" text-anchor="middle" fill="rgba(245,240,232,0.62)" font-family="'Bricolage Grotesque',system-ui,sans-serif" font-size="11.5" font-weight="500">Immutable attestation</text>
+      <text x="280" y="208" text-anchor="middle" fill="rgba(245,240,232,0.62)" font-family="'Bricolage Grotesque',system-ui,sans-serif" font-size="11.5" font-weight="500">log</text>
+    </svg>
+
+    <!-- Capability callouts -->
+    <div class="stack-callouts">
+      <div class="callout" id="callout-1">
+        <span class="callout-label">Cross-org trust</span>
+        <p class="callout-body">Agent A from your org calls Agent B from a partner. Both are identified, scoped, and auditable.</p>
+      </div>
+      <div class="callout" id="callout-2">
+        <span class="callout-label">Offline verification</span>
+        <p class="callout-body">Verify agent credentials with only the CA public key. No Vane uptime dependency.</p>
+      </div>
+      <div class="callout" id="callout-3">
+        <span class="callout-label">Delegation chains</span>
+        <p class="callout-body">RFC 8693 token exchange. Human → AI → sub-agent. Every hop signed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 5 — TRUST SIGNALS
+═══════════════════════════════════════════════════════════ -->
+<section id="trust-section" data-theme="paper">
+  <div class="trust-inner">
+    <h2 id="trust-title">Built for enterprise from day one.</h2>
+    <div class="trust-cards">
+
+      <div class="trust-card" id="trust-card-1">
+        <svg class="trust-card-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M16 3L5 8v8c0 7.18 4.7 13.89 11 15.93C22.3 29.89 27 23.18 27 16V8L16 3z" stroke="#b5451b" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+        <div class="trust-card-label">Security-first architecture</div>
+        <p class="trust-card-body">AES-256-GCM envelope encryption. Clock-skew enforcement. Fail-closed verification across every function.</p>
+      </div>
+
+      <div class="trust-card" id="trust-card-2">
+        <svg class="trust-card-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="6" y="14" width="20" height="14" rx="1.5" stroke="#b5451b" stroke-width="1.5"/>
+          <path d="M10 14V9.5a6 6 0 0 1 12 0V14" stroke="#b5451b" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="16" cy="21" r="1.5" fill="#b5451b"/>
+        </svg>
+        <div class="trust-card-label">No vendor lock-in on hot path</div>
+        <p class="trust-card-body">Offline-capable verification. Your audit trail doesn't depend on our uptime.</p>
+      </div>
+
+      <div class="trust-card" id="trust-card-3">
+        <svg class="trust-card-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M13 17a6 6 0 0 0 9.06.65l3.6-3.6a6 6 0 0 0-8.49-8.49l-2.06 2.05" stroke="#b5451b" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M19 15a6 6 0 0 0-9.06-.65l-3.6 3.6a6 6 0 0 0 8.49 8.49l2.05-2.05" stroke="#b5451b" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <div class="trust-card-label">Cross-organizational by default</div>
+        <p class="trust-card-body">Designed for agent-to-agent trust across org boundaries. Not bolted on after the fact.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 6 — CTA
+═══════════════════════════════════════════════════════════ -->
+<section id="cta-section" data-theme="terra">
+  <div class="cta-ent-inner">
+    <span id="cta2-eyebrow">Ready to talk</span>
+    <h2 id="cta2-headline">One call.<br>No slides required.</h2>
+    <p id="cta2-sub">We'll walk through your agent stack, show the integration in your environment, and answer every technical question your team has. 20 minutes.</p>
+    <div id="cta2-cta-wrap">
+      <a class="btn btn-pill" href="https://cal.com/pablo-gonzalez-g12ly2/vane-demo" target="_blank" rel="noopener noreferrer">Schedule a 20-minute call →</a>
+    </div>
+    <p id="cta2-fine">Or email <a href="mailto:pablo@vane.build">pablo@vane.build</a></p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer data-theme="paper">
+  <div class="rule"></div>
+  <div class="inner">
+    <div class="f-logo">
+      <svg width="20" height="20" viewBox="0 0 22 22" aria-hidden="true">
+        <line x1="11" y1="2"  x2="11" y2="20" />
+        <line x1="2"  y1="11" x2="20" y2="11" />
+        <line x1="20" y1="11" x2="16" y2="8"  />
+        <line x1="20" y1="11" x2="16" y2="14" />
+        <line x1="11" y1="2"  x2="8"  y2="6"  />
+        <line x1="11" y1="2"  x2="14" y2="6"  />
+      </svg>
+      <span class="word">VANE</span>
+    </div>
+    <div class="links">
+      <a href="https://docs.vane.build">docs.vane.build</a> ·
+      <a href="https://github.com/pabloantoniotadeo84-boop/vane-build">GitHub</a> ·
+      <a href="https://www.npmjs.com/org/vane.build">npm</a> ·
+      <a href="/privacy">Privacy</a> ·
+      <a href="/terms">Terms</a> ·
+      <a href="/changelog">Changelog</a> ·
+      <a href="https://x.com/vane_build">@vane.build</a>
+    </div>
+    <div class="built">Built in Puerto Rico.</div>
+  </div>
+</footer>
+
+</main>
+
+<!-- ════════════════════════════════════════════════════════════
+     NAV SCRIPT
+════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+  const nav    = document.querySelector('.nav');
+  const burger = document.querySelector('.nav-burger');
+  const mobile = document.getElementById('nav-mobile');
+  const items  = Array.from(document.querySelectorAll('.nav-item.has-dropdown'));
+  if(!nav) return;
+  const NAV_H = 84;
+  function closeDropdowns(except){
+    items.forEach(it=>{
+      if(it===except) return;
+      it.classList.remove('open');
+      const t=it.querySelector('.nav-trigger');
+      if(t) t.setAttribute('aria-expanded','false');
+    });
+  }
+  items.forEach(it=>{
+    const trigger=it.querySelector('.nav-trigger');
+    if(!trigger) return;
+    trigger.addEventListener('click',e=>{
+      e.preventDefault();
+      const willOpen=!it.classList.contains('open');
+      closeDropdowns(it);
+      it.classList.toggle('open',willOpen);
+      trigger.setAttribute('aria-expanded',String(willOpen));
+    });
+  });
+  function closeMobile(){
+    if(!mobile||!burger) return;
+    mobile.classList.remove('open');
+    burger.classList.remove('open');
+    burger.setAttribute('aria-expanded','false');
+    burger.setAttribute('aria-label','Open menu');
+  }
+  function openMobile(){
+    if(!mobile||!burger) return;
+    mobile.classList.add('open');
+    burger.classList.add('open');
+    burger.setAttribute('aria-expanded','true');
+    burger.setAttribute('aria-label','Close menu');
+  }
+  if(burger){ burger.addEventListener('click',()=>{ mobile.classList.contains('open')?closeMobile():openMobile(); }); }
+  window.addEventListener('resize',()=>{ if(window.innerWidth>900) closeMobile(); });
+  function onNavLink(e){
+    const a=e.target.closest('a');
+    if(!a) return;
+    closeDropdowns(null); closeMobile();
+  }
+  nav.addEventListener('click',onNavLink,true);
+  if(mobile) mobile.addEventListener('click',onNavLink,true);
+  document.addEventListener('click',e=>{ if(!e.target.closest('.nav-item.has-dropdown')) closeDropdowns(null); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeDropdowns(null); closeMobile(); } });
+  let ticking=false;
+  function onScroll(){
+    if(ticking) return;
+    ticking=true;
+    requestAnimationFrame(()=>{ nav.classList.toggle('scrolled',window.scrollY>50); ticking=false; });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  onScroll();
+})();
+</script>
+
+<!-- ════════════════════════════════════════════════════════════
+     URGENCY COUNTDOWN
+════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  var el = document.getElementById('countdown');
+  if(!el) return;
+  function update(){
+    var deadline = new Date('2026-08-02T00:00:00Z');
+    var now = new Date();
+    var diff = deadline - now;
+    if(diff <= 0){ el.textContent = '0'; return; }
+    el.textContent = Math.floor(diff / (1000 * 60 * 60 * 24));
+  }
+  update();
+  setInterval(update, 1000 * 60 * 60);
+})();
+</script>
+
+<!-- ════════════════════════════════════════════════════════════
+     LENIS
+════════════════════════════════════════════════════════════ -->
+<script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
+
+<!-- ════════════════════════════════════════════════════════════
+     GSAP + LENIS INTEGRATION + ALL SCROLL ANIMATIONS
+════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── Logo / nav theme follow ────────────────────────── */
+  (function(){
+    var logo = document.querySelector('.logo');
+    var nav  = document.querySelector('.nav');
+    var sections = document.querySelectorAll('[data-theme]');
+    if(!logo || !sections.length) return;
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting && e.intersectionRatio > 0.4){
+          var terra = e.target.getAttribute('data-theme') === 'terra';
+          logo.classList.toggle('on-terra', terra);
+          if(nav) nav.classList.toggle('on-terra', terra);
+        }
+      });
+    }, { threshold: [0.4] });
+    sections.forEach(function(s){ io.observe(s); });
+  })();
+
+  /* ── GSAP + Lenis ───────────────────────────────────── */
+  if(typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+  gsap.registerPlugin(ScrollTrigger);
+
+  var lenis;
+  if(!reduceMotion && typeof Lenis !== 'undefined'){
+    lenis = new Lenis({
+      duration: 1.1,
+      easing: function(t){ return Math.min(1, 1.001 - Math.pow(2, -10 * t)); },
+      smoothWheel: true,
+      smoothTouch: false,
+    });
+    gsap.ticker.add(function(time){ lenis.raf(time * 1000); });
+    gsap.ticker.lagSmoothing(0);
+    lenis.on('scroll', ScrollTrigger.update);
+  }
+
+  if(reduceMotion) return;
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 3 — PROOF ROWS: scrubbed stagger
+  ═══════════════════════════════════════════════════════ */
+  ['#proof-row-1','#proof-row-2','#proof-row-3'].forEach(function(id, i){
+    gsap.from(id, {
+      scrollTrigger: {
+        trigger: id,
+        start: 'top 85%',
+        end: 'top 40%',
+        scrub: 1.5,
+      },
+      opacity: 0,
+      y: 20,
+      ease: 'power2.out',
+      delay: i * 0.1,
+    });
+  });
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 4 — STACK: pinned on desktop, regular on mobile
+  ═══════════════════════════════════════════════════════ */
+  ScrollTrigger.matchMedia({
+    '(min-width: 768px)': function(){
+      var tlStack = gsap.timeline({
+        scrollTrigger: {
+          trigger: '#stack-section',
+          start: 'top top',
+          end: '+=1800',
+          scrub: 1.2,
+          pin: true,
+          pinSpacing: true,
+          anticipatePin: 1,
+        }
+      });
+      tlStack
+        .from('#stack-title',    { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 })
+        .from('#stack-subtitle', { opacity: 0, y: 16, ease: 'power2.out', duration: 0.3 }, '-=0.1')
+        .from('#stack-diagram',  { opacity: 0, y: 24, ease: 'power2.out', duration: 0.4 }, '-=0.1')
+        .from('#callout-1',      { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '+=0.2')
+        .from('#callout-2',      { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '+=0.2')
+        .from('#callout-3',      { opacity: 0, y: 20, ease: 'power2.out', duration: 0.3 }, '+=0.2');
+    },
+    '(max-width: 767px)': function(){
+      gsap.from('#stack-title',    { scrollTrigger: { trigger: '#stack-title',    start: 'top 85%', end: 'top 45%', scrub: 1.5 }, opacity: 0, y: 20, ease: 'power2.out' });
+      gsap.from('#stack-subtitle', { scrollTrigger: { trigger: '#stack-subtitle', start: 'top 85%', end: 'top 45%', scrub: 1.5 }, opacity: 0, y: 16, ease: 'power2.out' });
+      gsap.from('#stack-diagram',  { scrollTrigger: { trigger: '#stack-diagram',  start: 'top 85%', end: 'top 40%', scrub: 1.5 }, opacity: 0, y: 20, ease: 'power2.out' });
+      ['#callout-1','#callout-2','#callout-3'].forEach(function(id){
+        gsap.from(id, { scrollTrigger: { trigger: id, start: 'top 88%', end: 'top 50%', scrub: 1.5 }, opacity: 0, y: 16, ease: 'power2.out' });
+      });
+    }
+  });
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 5 — TRUST SIGNALS: stagger fade-up
+  ═══════════════════════════════════════════════════════ */
+  gsap.from('#trust-title', {
+    scrollTrigger: { trigger: '#trust-title', start: 'top 85%', end: 'top 40%', scrub: 1.5 },
+    opacity: 0, y: 20, ease: 'power2.out',
+  });
+  ['#trust-card-1','#trust-card-2','#trust-card-3'].forEach(function(id, i){
+    gsap.from(id, {
+      scrollTrigger: { trigger: '.trust-cards', start: 'top 85%', end: 'bottom 55%', scrub: 1.5 },
+      opacity: 0, y: 28, ease: 'power2.out',
+      delay: i * 0.15,
+    });
+  });
+
+  /* ═══════════════════════════════════════════════════════
+     SECTION 6 — CTA: stagger fade-up
+  ═══════════════════════════════════════════════════════ */
+  ['#cta2-eyebrow','#cta2-headline','#cta2-sub','#cta2-cta-wrap','#cta2-fine'].forEach(function(id, i){
+    gsap.from(id, {
+      scrollTrigger: { trigger: '#cta-section', start: 'top 80%', end: 'top 30%', scrub: 1.5 },
+      opacity: 0, y: 20, ease: 'power2.out',
+      delay: i * 0.1,
+    });
+  });
+
+})();
+</script>
+</body>
+</html>
