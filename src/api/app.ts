@@ -217,6 +217,37 @@ const STATIC_MIME: Record<string, string> = {
   webm: 'video/webm',
 };
 
+// Blog index: /blog → public/blog/index.html
+app.get('/blog', async (c) => {
+  try {
+    const data = await readFile(resolve(PUBLIC_DIR, 'blog/index.html'));
+    c.header('Content-Type', 'text/html; charset=utf-8');
+    c.header('Cache-Control', 'public, max-age=3600');
+    return c.body(data);
+  } catch {
+    return c.json({ error: 'Not Found' }, 404);
+  }
+});
+
+// Blog posts: /blog/:slug → public/blog/:slug.html (clean URLs)
+app.get('/blog/:slug', async (c) => {
+  const slug = c.req.param('slug');
+  if (slug.includes('..')) return c.json({ error: 'Not Found' }, 404);
+  const candidates = slug.endsWith('.html') ? [`blog/${slug}`] : [`blog/${slug}`, `blog/${slug}.html`];
+  for (const name of candidates) {
+    try {
+      const data = await readFile(resolve(PUBLIC_DIR, name));
+      const ext = name.split('.').pop()?.toLowerCase() ?? '';
+      c.header('Content-Type', STATIC_MIME[ext] ?? 'application/octet-stream');
+      c.header('Cache-Control', 'public, max-age=3600');
+      return c.body(data);
+    } catch {
+      // try next candidate
+    }
+  }
+  return c.json({ error: 'Not Found' }, 404);
+});
+
 // Clean ("extensionless") URLs for HTML pages:
 //   /security      → public/security.html
 //   /anything      → public/anything.html
