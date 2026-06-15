@@ -672,54 +672,7 @@ body {
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════════
-     POST BODY
-═══════════════════════════════════════════════════════════ -->
-<article class="post-body" id="post-body">
-  <div class="post-body-inner">
-
-    <p>On June 12, 2026, the US Commerce Secretary ordered Anthropic to shut down. Not because of a data breach. Not because of a safety failure. Because nobody could verify who was accessing it.</p>
-
-    <p>That's never happened before. It's the first government-forced shutdown of an AI company in history. And it proved something we've been saying since we started building Vane.</p>
-
-    <h2>The problem wasn't the model</h2>
-
-    <p>Anthropic's models are among the most carefully evaluated in the industry. The shutdown wasn't a statement about Claude's safety. It was a statement about accountability infrastructure.</p>
-
-    <p>When regulators asked "who is accessing this system, on whose authority, within what scope" — there was no clean answer. Not because the data didn't exist somewhere. Because there was no standard way to produce a cryptographically verifiable, auditable answer in real time.</p>
-
-    <p>That's the gap. And it's not unique to Anthropic.</p>
-
-    <blockquote class="pullquote">"The question regulators are asking isn't whether your AI is safe. It's whether you can prove it, to anyone, at any time, without calling you first."</blockquote>
-
-    <h2>What agent identity actually means</h2>
-
-    <p>When we talk about agent identity at Vane, we mean something specific. Not usernames. Not API keys. Not rate limiting.</p>
-
-    <p>We mean: every AI agent that acts in the world has a signed credential — a passport — that encodes who issued it, what it's authorized to do, when it expires, and which human or organization is responsible for its actions. Every action that agent takes is anchored in a tamper-evident Merkle tree. Verification works offline, with only the CA public key. No round-trip to Vane required.</p>
-
-    <p>This is what we built. <code>Ed25519</code>-signed Agent Passports. <code>SHA-256</code> Merkle attestation. RFC 8693 delegation chains. Cross-organizational trust.</p>
-
-    <p>The Fable 5 shutdown happened because that infrastructure didn't exist at the policy enforcement layer. Now regulators know it needs to.</p>
-
-    <h2>The EU knew first</h2>
-
-    <p>The EU AI Act's deployer transparency obligations take effect August 2, 2026 — 49 days from today. High-risk AI system operators will need auditable identity trails. Not eventually. On August 2nd.</p>
-
-    <p>The US government's move accelerates the timeline for everyone else. What was a compliance checkbox is now a market prerequisite.</p>
-
-    <h2>What comes next</h2>
-
-    <p>NIST published a concept paper on agent identity earlier this year. Microsoft launched Entra Agent ID. The category is forming.</p>
-
-    <p>We're not waiting for it to form. Vane is live. The infrastructure is deployed. Five packages under <code>@vane.build</code> are published and accumulating downloads. The verification is offline-capable and cross-organizational — neither of which any competitor has shipped.</p>
-
-    <p>The Fable 5 shutdown was a warning. The August 2nd deadline is a requirement. The question is which organizations will have their agent identity infrastructure in place before the next regulatory action.</p>
-
-    <p>We'd rather you be ready.</p>
-
-  </div>
-</article>
+<!-- POST CONTENT GOES HERE -->
 
 <!-- ═══════════════════════════════════════════════════════════
      POST FOOTER
