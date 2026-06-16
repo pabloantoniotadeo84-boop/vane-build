@@ -781,6 +781,82 @@ pre.code-pre code {
   transition: color .2s ease;
 }
 .code-eco-item:hover { color: var(--off-white); }
+/* Audit tool callout — sits below the ecosystem row, echoes the code block */
+.audit-callout {
+  margin-top: 2.8rem;
+  background: #0d1730;
+  border: 1px solid rgba(245, 240, 232, 0.1);
+  border-left: 2px solid var(--clay);
+  padding: 1.5rem 1.6rem 1.6rem;
+  will-change: transform;
+}
+.audit-callout-head {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: .6rem;
+}
+.audit-callout-title {
+  font-family: var(--font-mono);
+  font-size: .95rem;
+  letter-spacing: .01em;
+  color: var(--off-white);
+}
+.audit-callout-badge {
+  font-family: var(--font-mono);
+  font-size: .54rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--clay);
+  border: 1px solid rgba(181, 69, 27, 0.5);
+  border-radius: 100px;
+  padding: .16rem .55rem;
+}
+.audit-callout-tagline {
+  font-size: .92rem;
+  line-height: 1.55;
+  color: rgba(245, 240, 232, 0.58);
+  margin-bottom: 1.1rem;
+  max-width: 56ch;
+}
+.audit-cmd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: rgba(245, 240, 232, 0.04);
+  border: 1px solid rgba(245, 240, 232, 0.1);
+  padding: .7rem .9rem;
+}
+.audit-cmd-text {
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  letter-spacing: .01em;
+  color: rgba(245, 240, 232, 0.92);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.audit-cmd-text .ct-pmt { color: var(--clay); margin-right: .5rem; }
+.audit-cmd-copy {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--off-white);
+  background: transparent;
+  border: 1px solid rgba(245, 240, 232, 0.3);
+  border-radius: 3px;
+  padding: .45rem .75rem;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease, transform .15s ease;
+}
+.audit-cmd-copy:hover  { background: rgba(245, 240, 232, 0.08); border-color: var(--off-white); }
+.audit-cmd-copy:active { transform: scale(0.97); }
+@media (max-width: 600px) {
+  .audit-cmd { flex-direction: column; align-items: stretch; gap: .7rem; }
+  .audit-cmd-copy { align-self: flex-end; }
+}
 
 /* ============================================================
    SECTION 6 — REGULATORS
@@ -1089,6 +1165,7 @@ body.has-cursor button { cursor: none !important; }
         <a role="menuitem" href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation <span class="ext" aria-hidden="true">↗</span></a>
         <a role="menuitem" href="https://docs.vane.build/sdk" target="_blank" rel="noopener noreferrer">SDK Reference <span class="ext" aria-hidden="true">↗</span></a>
         <a role="menuitem" href="https://github.com/pabloantoniotadeo84-boop/vane-build" target="_blank" rel="noopener noreferrer">GitHub <span class="ext" aria-hidden="true">↗</span></a>
+        <a role="menuitem" href="https://www.npmjs.com/package/@vane.build/audit" target="_blank" rel="noopener noreferrer" title="Scan your MCP server for agent accountability gaps">Audit Tool <span class="ext" aria-hidden="true">↗</span></a>
         <a role="menuitem" href="https://www.npmjs.com/org/vane.build" target="_blank" rel="noopener noreferrer">npm Packages <span class="ext" aria-hidden="true">↗</span></a>
       </div>
     </li>
@@ -1135,6 +1212,7 @@ body.has-cursor button { cursor: none !important; }
     <a href="https://docs.vane.build" target="_blank" rel="noopener noreferrer">Documentation ↗</a>
     <a href="https://docs.vane.build/sdk" target="_blank" rel="noopener noreferrer">SDK Reference ↗</a>
     <a href="https://github.com/pabloantoniotadeo84-boop/vane-build" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+    <a href="https://www.npmjs.com/package/@vane.build/audit" target="_blank" rel="noopener noreferrer" title="Scan your MCP server for agent accountability gaps">Audit Tool ↗</a>
     <a href="https://www.npmjs.com/org/vane.build" target="_blank" rel="noopener noreferrer">npm Packages ↗</a>
   </div>
   <div class="mob-group">
@@ -1343,6 +1421,17 @@ body.has-cursor button { cursor: none !important; }
       <span class="code-eco-sep">·</span>
       <span class="code-eco-item">MCP</span>
     </div>
+    <div class="audit-callout" id="audit-callout">
+      <div class="audit-callout-head">
+        <span class="audit-callout-title">@vane.build/audit</span>
+        <span class="audit-callout-badge">Free</span>
+      </div>
+      <p class="audit-callout-tagline">Free MCP server scanner. Find your agent accountability gaps in 30 seconds.</p>
+      <div class="audit-cmd">
+        <code class="audit-cmd-text"><span class="ct-pmt" aria-hidden="true">$</span>npx @vane.build/audit &lt;your-mcp-url&gt;</code>
+        <button class="audit-cmd-copy" id="audit-cmd-copy" type="button" data-copy="npx @vane.build/audit <your-mcp-url>" aria-label="Copy command to clipboard">Copy</button>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1504,6 +1593,42 @@ body.has-cursor button { cursor: none !important; }
   }
   window.addEventListener('scroll',onScroll,{passive:true});
   onScroll();
+})();
+</script>
+
+<!-- ════════════════════════════════════════════════════════════
+     AUDIT CALLOUT — copy command to clipboard
+════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+  var btn = document.getElementById('audit-cmd-copy');
+  if(!btn) return;
+  function flash(){
+    var original = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(function(){ btn.textContent = original; }, 2000);
+  }
+  function fallback(text){
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'absolute';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch(e) { /* no-op */ }
+    document.body.removeChild(ta);
+    flash();
+  }
+  btn.addEventListener('click', function(){
+    var cmd = btn.getAttribute('data-copy') || '';
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(cmd).then(flash).catch(function(){ fallback(cmd); });
+    } else {
+      fallback(cmd);
+    }
+  });
 })();
 </script>
 
@@ -1736,6 +1861,13 @@ body.has-cursor button { cursor: none !important; }
       y: 20,
       ease: 'power2.out',
       duration: 0.5,
+    }, '>');
+
+    codeTl.from('#audit-callout', {
+      opacity: 0,
+      y: 24,
+      ease: 'power2.out',
+      duration: 0.55,
     }, '>');
   })();
 
